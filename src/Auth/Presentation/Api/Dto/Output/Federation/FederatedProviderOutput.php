@@ -14,6 +14,18 @@ namespace Auth\Presentation\Api\Dto\Output\Federation;
  */
 final class FederatedProviderOutput
 {
+  // #region Properties
+  /**
+   * Property id
+   */
+  public string $id;
+
+  /**
+   * Property value
+   */
+  public string $value;
+  // #endregion
+
   // #region Constructor
   /**
    * Method __construct
@@ -30,7 +42,10 @@ final class FederatedProviderOutput
   public function __construct(
     public string $provider,
     public bool $enabled = true,
+    public string $label = '',
   ) {
+    $this->id = $provider;
+    $this->value = $provider;
   }
   // #endregion
 }

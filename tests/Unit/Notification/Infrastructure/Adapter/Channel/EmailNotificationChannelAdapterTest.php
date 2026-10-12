@@ -253,6 +253,7 @@ final class EmailNotificationChannelAdapterTest extends TestCase
   {
     $twig = new Environment(new FilesystemLoader(dirname(__DIR__, 6) . '/templates'), ['autoescape' => 'html']);
     $twig->addExtension(new TranslationExtension(new Translator('en')));
+    $twig->addGlobal('product', \Tests\Support\Shared\ProductConfigFixture::create());
 
     return $twig;
   }

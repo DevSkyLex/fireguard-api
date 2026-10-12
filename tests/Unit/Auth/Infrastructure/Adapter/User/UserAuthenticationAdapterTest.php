@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Auth\Infrastructure\Adapter\User;
 
+use Auth\Infrastructure\Adapter\Policy\ConfiguredAuthenticationPolicyAdapter;
 use Auth\Infrastructure\Adapter\User\UserAuthenticationAdapter;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
@@ -34,7 +35,7 @@ final class UserAuthenticationAdapterTest extends TestCase
         email: 'user@example.com',
       ));
 
-    $adapter = new UserAuthenticationAdapter($queryBus, new NullLogger());
+    $adapter = new UserAuthenticationAdapter($queryBus, new NullLogger(), new ConfiguredAuthenticationPolicyAdapter());
 
     $result = $adapter->authenticate('user@example.com', 'password');
 
@@ -51,7 +52,7 @@ final class UserAuthenticationAdapterTest extends TestCase
       ->method('authenticate')
       ->willReturn(new \User\Application\Contract\User\UserAuthentication(authenticated: false));
 
-    $adapter = new UserAuthenticationAdapter($queryBus, new NullLogger());
+    $adapter = new UserAuthenticationAdapter($queryBus, new NullLogger(), new ConfiguredAuthenticationPolicyAdapter());
 
     $result = $adapter->authenticate('user@example.com', 'password');
 
@@ -75,7 +76,7 @@ final class UserAuthenticationAdapterTest extends TestCase
         'exception_class' => $exception::class,
       ]);
 
-    $adapter = new UserAuthenticationAdapter($queryBus, $logger);
+    $adapter = new UserAuthenticationAdapter($queryBus, $logger, new ConfiguredAuthenticationPolicyAdapter());
 
     $result = $adapter->authenticate('user@example.com', 'password');
 

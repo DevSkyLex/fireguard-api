@@ -39,7 +39,7 @@ final class OrganizationPlanAdapterIntegrationTest extends KernelTestCase
     $this->entityManager = $entityManager;
     $this->planRepository = new PlanRepository($this->entityManager);
     $this->adapter = new OrganizationPlanAdapter(
-      new OrganizationRepository($this->entityManager),
+      new OrganizationRepository($this->entityManager, \Tests\Support\OrganizationCatalogTestFactory::settingsPolicies()),
       $this->planRepository,
     );
   }

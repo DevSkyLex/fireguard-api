@@ -1,3 +1,7 @@
+imports:
+  - { resource: 'calendar/doctrine.yaml' }
+  - { resource: 'calendar/api_platform.yaml' }
+
 services:
   _defaults:
     autowire: true
@@ -18,14 +22,8 @@ services:
   Calendar\Application\Port\Outbound\Member\CalendarMemberDirectoryPort:
     alias: Organization\Infrastructure\Adapter\Calendar\OrganizationCalendarMemberDirectoryAdapter
 
-  Calendar\Application\Port\Outbound\Feed\InspectionCalendarFeedPort:
-    alias: Inspection\Infrastructure\Adapter\Calendar\InspectionCalendarFeedAdapter
 
-  Calendar\Application\Port\Outbound\Feed\InterventionCalendarFeedPort:
-    alias: Intervention\Infrastructure\Adapter\Calendar\InterventionCalendarFeedAdapter
 
-  Calendar\Application\Port\Outbound\Feed\MaintenanceCalendarFeedPort:
-    alias: Maintenance\Infrastructure\Adapter\Calendar\MaintenanceCalendarFeedAdapter
 
   # Unified feed aggregator: merges standalone events with the three
   # cross-module feed ports, isolating and logging a failing source.
@@ -82,3 +80,60 @@ services:
 
   Calendar\Application\UseCase\Query\FeedToken\ResolveCalendarFeedToken\ResolveCalendarFeedTokenHandler:
     tags: ['messenger.message_handler']
+
+  Calendar\Infrastructure\Adapter\Event\IntegrationEventConverterAdapter: ~
+
+  Calendar\Application\Service\CalendarFeedSourceRegistry:
+    arguments:
+      $sources: !tagged_iterator calendar.feed_source
+
+  Calendar\Infrastructure\Adapter\Feed\CalendarEventFeedSourceAdapter:
+    tags:
+      - { name: calendar.feed_source, priority: 400 }
+
+  Calendar\Infrastructure\Adapter\Audit\AuditRecordEventAdapter: ~
+
+  Calendar\Infrastructure\Adapter\OrganizationCatalog\CalendarSystemRoleContributionAdapter:
+    tags: [organization.system_role_contribution]
+
+  Calendar\Infrastructure\Adapter\Idempotency\CalendarHttpIdempotencyOperationContributionAdapter:
+    tags: [http.idempotency_operation]
+
+  Calendar\Infrastructure\Adapter\Idempotency\CalendarHttpIdempotencyReplayAuthorizationAdapter:
+    arguments:
+      $mainConnection: '@doctrine.dbal.main_connection'
+    tags: [http.idempotency_replay_authorization]
+
+  Calendar\Infrastructure\Adapter\Idempotency\CalendarFeedTokenIdempotencyProofAdapter:
+    arguments:
+      $connection: '@doctrine.dbal.main_connection'
+    tags: [shared.sensitive_idempotency_proof]
+
+  Calendar\Application\UseCase\Command\Feed\ReadCalendarFeedIcs\ReadCalendarFeedIcsHandler:
+    arguments:
+      $rootTransaction: '@Shared\Infrastructure\Messaging\Outbox\RootTransactionManagerAdapter'
+    tags: [messenger.message_handler]
+  Calendar\Application\Port\Outbound\Feed\CalendarFeedIcsAccessPort: '@Calendar\Infrastructure\Adapter\Idempotency\CalendarFeedIcsAccessAdapter'
+  Calendar\Infrastructure\Adapter\Idempotency\CalendarFeedIcsAccessAdapter:
+    arguments:
+      $connection: '@doctrine.dbal.main_connection'
+  Calendar\Application\Port\Outbound\Feed\CalendarFeedIcsUsagePort: '@Calendar\Infrastructure\Adapter\Idempotency\CalendarFeedIcsUsageAdapter'
+  Calendar\Infrastructure\Adapter\Idempotency\CalendarFeedIcsUsageAdapter:
+    arguments:
+      $connection: '@doctrine.dbal.main_connection'
+      $entityManager: '@doctrine.orm.main_entity_manager'
+  Calendar\Application\Port\Outbound\Feed\CalendarFeedDocumentWriterPort: '@Calendar\Infrastructure\Adapter\Ical\CalendarFeedDocumentWriterAdapter'
+  Calendar\Infrastructure\Adapter\Ical\CalendarFeedDocumentWriterAdapter:
+    arguments:
+      $frontendUrl: '%app.frontend_url%'
+  Calendar\Infrastructure\Adapter\Idempotency\CalendarFeedIcsIdempotencyProofAdapter:
+    tags: [shared.sensitive_idempotency_proof]
+  Calendar\Infrastructure\Adapter\Idempotency\CalendarFeedIcsHttpIdempotencyOperationContributionAdapter:
+    tags: [http.idempotency_operation]
+when@dev:
+  imports:
+    - { resource: 'calendar/seeds.yaml' }
+
+when@test:
+  imports:
+    - { resource: 'calendar/seeds.yaml' }

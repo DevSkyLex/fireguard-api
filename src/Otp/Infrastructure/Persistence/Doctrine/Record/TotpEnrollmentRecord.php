@@ -23,6 +23,22 @@ class TotpEnrollmentRecord
 {
   // #region Properties
   /**
+   * Property recoveryCodeHashes
+   *
+   * @var list<string> unconsumed recovery digests, never plaintext proofs
+   */
+  #[ORM\Column(name: 'recovery_code_hashes', type: 'json', options: ['default' => '[]'])]
+  public array $recoveryCodeHashes = [];
+
+  /**
+   * Property recoveryCodesGeneratedAt
+   *
+   * Generation time of the current recovery code lot.
+   */
+  #[ORM\Column(name: 'recovery_codes_generated_at', type: 'datetime_immutable', nullable: true)]
+  public ?DateTimeImmutable $recoveryCodesGeneratedAt = null;
+
+  /**
    * Property activeSecretCiphertext
    *
    * Encrypted active TOTP secret; the mapper binds decryption to this user and the active slot.

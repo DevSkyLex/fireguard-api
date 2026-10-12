@@ -97,6 +97,20 @@ final class OtpOperations
   public const string DISABLE_TOTP = 'disableTotp';
 
   /**
+   * Constant GET_RECOVERY_CODES_STATUS
+   *
+   * Reads safe recovery availability metadata.
+   */
+  public const string GET_RECOVERY_CODES_STATUS = 'getRecoveryCodesStatus';
+
+  /**
+   * Constant GENERATE_RECOVERY_CODES
+   *
+   * Replaces the lot after current TOTP proof.
+   */
+  public const string GENERATE_RECOVERY_CODES = 'generateRecoveryCodes';
+
+  /**
    * Constant ALL.
    *
    * @since 1.0.0
@@ -113,6 +127,8 @@ final class OtpOperations
     self::SETUP_TOTP,
     self::CONFIRM_TOTP,
     self::DISABLE_TOTP,
+    self::GET_RECOVERY_CODES_STATUS,
+    self::GENERATE_RECOVERY_CODES,
   ];
   // #endregion
 }

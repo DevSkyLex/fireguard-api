@@ -727,6 +727,36 @@ final class OrganizationMemberApiTest extends WebTestCase
     self::assertSame([$newRole->id], $decoded['roleIds']);
   }
 
+  #[Test]
+  public function testHistoricalAliasCannotBeDelegatedAfterCanonicalPermissionWithdrawal(): void
+  {
+    $client = static::createClient();
+    $entityManager = $this->entityManager();
+    $now = new DateTimeImmutable('2026-06-01T00:00:00+00:00');
+    $organizationId = '550e8400-e29b-41d4-a716-447040000071';
+    $callerUserId = '550e8400-e29b-41d4-a716-447040000072';
+    $targetMemberId = '550e8400-e29b-41d4-a716-447040000073';
+    $organization = $this->seedOrganization($entityManager, $organizationId, '550e8400-e29b-41d4-a716-447040000074', $now);
+    $callerRole = $this->seedRole($entityManager, $organization, '550e8400-e29b-41d4-a716-447040000075', ['organization.roles.manage', 'organization.facilities.read'], $now, 'limited_delegate');
+    $legacyRole = $this->seedRole($entityManager, $organization, '550e8400-e29b-41d4-a716-447040000076', ['facility.read'], $now, 'historical_reader');
+    $caller = $this->seedMember($entityManager, $organization, '550e8400-e29b-41d4-a716-447040000077', $callerUserId, true, $now);
+    $this->assignRole($entityManager, $caller, $callerRole, $now);
+    $this->seedMember($entityManager, $organization, $targetMemberId, '550e8400-e29b-41d4-a716-447040000078', true, $now);
+    $entityManager->flush();
+    // Withdraw the previously persisted canonical grant before the guarded write.
+    $callerRole->permissions = ['organization.roles.manage'];
+    $entityManager->flush();
+    $client->loginUser($this->securityUser($callerUserId), 'api');
+    $uri = '/api/organizations/' . $organizationId . '/members/' . $targetMemberId . '/roles';
+    $headers = ['CONTENT_TYPE' => 'application/ld+json', 'HTTP_ACCEPT' => 'application/ld+json'];
+    $body = (string) json_encode(['roleIds' => [$legacyRole->id]]);
+    $client->request('PUT', $uri, server: $headers, content: $body);
+    self::assertSame(403, $client->getResponse()->getStatusCode());
+    $storedRole = $this->entityManager()->find(OrganizationRoleRecord::class, $legacyRole->id);
+    self::assertInstanceOf(OrganizationRoleRecord::class, $storedRole);
+    self::assertSame(['facility.read'], $storedRole->permissions);
+  }
+
   // -------------------------------------------------------------------------
   // Helpers
   // -------------------------------------------------------------------------

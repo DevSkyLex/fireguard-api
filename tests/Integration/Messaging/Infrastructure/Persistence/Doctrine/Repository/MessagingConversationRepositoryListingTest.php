@@ -106,7 +106,7 @@ final class MessagingConversationRepositoryListingTest extends KernelTestCase
 
     $aggregate = $this->repository->findAggregateById($id);
     self::assertInstanceOf(Conversation::class, $aggregate);
-    self::assertSame(MessagingSubjectType::CHANNEL, $aggregate->subjectType());
+    self::assertEquals(MessagingSubjectType::from(MessagingSubjectType::CHANNEL), $aggregate->subjectType());
     self::assertSame(ConversationVisibility::PARTICIPANTS, $aggregate->visibility());
     self::assertNotNull($aggregate->name());
     self::assertSame('Aggregat', (string) $aggregate->name());
@@ -197,7 +197,7 @@ final class MessagingConversationRepositoryListingTest extends KernelTestCase
     self::assertSame([$b, $d, $a, $c], $this->ids($all->items));
 
     // Subject-type filter.
-    $facilities = $this->repository->list(self::ORG_ID, MessagingSubjectType::FACILITY, null, null, null, 1, 50);
+    $facilities = $this->repository->list(self::ORG_ID, MessagingSubjectType::from('facility'), null, null, null, 1, 50);
     self::assertSame([$b, $a, $c], $this->ids($facilities->items));
 
     // Subject-id filter.
@@ -367,7 +367,7 @@ final class MessagingConversationRepositoryListingTest extends KernelTestCase
     $ghost = Conversation::reconstitute(
       ConversationId::fromString($this->conversationId(96)),
       self::ORG_ID,
-      MessagingSubjectType::CHANNEL,
+      MessagingSubjectType::from(MessagingSubjectType::CHANNEL),
       null,
       new RestoredConversationActivity(
         ConversationVisibility::PARTICIPANTS,

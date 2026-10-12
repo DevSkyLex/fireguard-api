@@ -7,11 +7,11 @@ namespace Organization\Presentation\Api\Processor\Organization;
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use Auth\Application\Contract\User\AuthenticatedUser;
-use Organization\Application\Contract\Exception\OrganizationNotFoundException;
+use LogicException;
 use Organization\Application\Port\Inbound\Internal\OrganizationLastAdminGuardPort;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Application\UseCase\Command\Organization\RemoveOrganizationMember\RemoveOrganizationMemberCommand;
-use Organization\Domain\Exception\{OrganizationLastAdminException, OrganizationMemberNotFoundException};
+use Organization\Application\UseCase\Command\Organization\RemoveOrganizationMembers\{RemoveOrganizationMembersCommand, RemoveOrganizationMembersResult};
+use Organization\Domain\Exception\OrganizationLastAdminException;
 use Organization\Presentation\Api\Dto\Input\Organization\RemoveOrganizationMembersInput;
 use Organization\Presentation\Api\Dto\Output\Organization\RemoveOrganizationMembersOutput;
 use Organization\Presentation\Api\Support\UnwrapsOrganizationBusFailures;
@@ -100,44 +100,35 @@ final readonly class RemoveOrganizationMembersProcessor implements ProcessorInte
 
     // Advisory pre-check: refuse a doomed batch upfront, with a message naming the
     // real reason, rather than letting the caller watch every id fail one by one.
-    // It is deliberately unlocked and therefore NOT the authority — a batch that
-    // passes here can still be refused mid-flight. Each removal re-runs the guard
-    // under the advisory lock inside its own handler transaction, and that refusal
-    // is what the per-id catch below turns into a 409.
+    // The primary batch repeats this check under the organization lock in its
+    // owning transaction. A later invariant refusal rolls back the batch and is
+    // translated into a conflict below.
     try {
       $this->lastAdminGuard->assertCanRemoveMembers($organizationId, $data->memberIds);
     } catch (OrganizationLastAdminException $exception) {
       throw new ConflictHttpException($exception->getMessage(), $exception);
     }
 
-    $output = new RemoveOrganizationMembersOutput();
-    foreach ($data->memberIds as $memberId) {
-      try {
-        $this->commandBus->dispatch(new RemoveOrganizationMemberCommand(
-          organizationId: $organizationId,
-          memberId: $memberId,
-        ));
-        $output->removedIds[] = $memberId;
-      } catch (MessengerRuntimeException $exception) {
-        // A lockout refusal is not a per-id failure to be tallied: the batch is
-        // stripping the organization's last administrator and the caller must be
-        // told so with a 409. Swallowing it into failedIds would report a partial
-        // success and hide the invariant that stopped it.
-        $lastAdmin = $this->findWrappedException($exception, OrganizationLastAdminException::class);
-        if (null !== $lastAdmin) {
-          throw new ConflictHttpException($lastAdmin->getMessage(), $exception);
-        }
-
-        $domainException = $this->findWrappedException($exception, OrganizationMemberNotFoundException::class)
-          ?? $this->findWrappedException($exception, OrganizationNotFoundException::class);
-
-        if (null === $domainException) {
-          throw $exception;
-        }
-
-        $output->failedIds[] = $memberId;
+    try {
+      $result = $this->commandBus->dispatch(new RemoveOrganizationMembersCommand($organizationId, $data->memberIds));
+    } catch (MessengerRuntimeException $exception) {
+      // A lockout refusal is not a per-id failure to be tallied: the batch is
+      // stripping the organization's last administrator and the caller must be
+      // told so with a 409. Swallowing it into failedIds would report a partial
+      // success and hide the invariant that stopped it.
+      $lastAdmin = $this->findWrappedException($exception, OrganizationLastAdminException::class);
+      if (null !== $lastAdmin) {
+        throw new ConflictHttpException($lastAdmin->getMessage(), $exception);
       }
+
+      throw $exception;
     }
+    if (!$result instanceof RemoveOrganizationMembersResult) {
+      throw new LogicException('Unexpected batch removal result.');
+    }
+    $output = new RemoveOrganizationMembersOutput();
+    $output->removedIds = $result->removedIds;
+    $output->failedIds = $result->failedIds;
 
     return $output;
   }

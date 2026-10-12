@@ -326,7 +326,44 @@ that ignores avatar generations. Keep `auth_outbox` and its historical auth fail
 restore a compatible application release if recovery is needed. The migration down path refuses
 active pointers. Orphan cleanup for historical unreferenced files remains outside this change.
 
+User publishes its global permission vocabulary through Authorization's pure
+`PermissionCatalogContributionPort`. Its owner-local
+`UserPermissionContributionAdapter` is registered with
+`authorization.permission_catalog_contribution`; composition rejects duplicate keys
+at boot and preserves explicit publication order. This contribution defines available
+permission keys and does not grant them to a subject.
+
 ## Configuration
+
+Module selection loads [the service entry point](../../config/modules/user.yaml)
+together with its [owner configuration fragments](../../config/modules/user/).
+Those fragments contribute owned mappings, API/error metadata and configured
+framework/seed registrations. Shared package configuration supplies connections and
+manager definitions; this module's persistence remains explicitly wired to `auth`.
+See the [composition standard](../../ARCHITECTURE.md#service-wiring).
+
+Module selection loads [the service entry point](../../config/modules/user.yaml)
+together with its [owner configuration fragments](../../config/modules/user/).
+Those fragments contribute owned mappings, API/error metadata and configured
+framework/seed registrations. Shared package configuration supplies connections and
+manager definitions; this module's persistence remains explicitly wired to `auth`.
+See the [composition standard](../../ARCHITECTURE.md#service-wiring).
+
+User owns the authoritative PasswordPolicyPort and immutable PasswordPolicyDescription.
+`config/packages/password_policy.yaml` defines character-length bounds, uppercase/lowercase/digit
+requirements and the required special-character alphabet. Defaults preserve 8–128 characters,
+all three character classes and `@$!%*?&#`; an empty alphabet disables the special-character rule.
+Invalid bounds (minimum below one, inverted range or maximum above 4,096) reject configuration.
+CreateUser, credential change and federated initial-password capabilities enforce the same
+policy before hashing or saving, including non-HTTP callers. Historical credentials and
+password verification do not depend on the current creation policy.
+
+UserRegistrationPort accepts an explicit verification requirement with the existing true default.
+Waiving verification makes a newly registered account active without asserting email verification
+or mailbox possession. UserAuthenticationPort carries the same explicit choice; only a pending
+account can bypass the verification requirement, and it activates after successful credential
+verification. Inactive and locked accounts stay denied. Shared public projections retain their
+existing fields and persisted status values.
 
 Email-change notifications use the Shared translation and GeoIP ports. GeoIP is optional and
 disabled by default; privacy and deployment prerequisites are described in the Shared module.
@@ -334,6 +371,10 @@ Origin and GeoIP failures are independent and cannot suppress confirmation or ol
 notices. Geography is still attempted from the command IP when origin extraction fails;
 known device labels survive a lookup failure. Confirmation delivery errors propagate, while
 pending and effective notices retain their best-effort policy and class-only error logging.
+
+`EmailChangeNotifier` also consumes Shared's `ProductConfigPort` for the public name in
+translated notices. Email templates and the shared header/footer use that same deployment
+configuration; the default wording remains Fireguard.
 
 
 - Service wiring: `config/modules/user.yaml`
@@ -368,6 +409,28 @@ through `UserDataPurgePort` before removing the account or its linked auth recor
 uses the same lock and a fresh published account-status query, so a request authenticated before
 deletion cannot recreate a secret after the purge commits. If auth cleanup fails, account removal
 and completed cleanup writes roll back together. Main database records remain outside this seam.
+
+SignInEligibilityPort publishes a fresh auth-side sign-in completion check using the same
+status and verification-waiver semantics as password authentication. Active accounts remain
+eligible; pending accounts are eligible only when verification is explicitly waived. Missing,
+malformed, disabled, locked and unknown states deny. Its scalar adapter bypasses managed entities
+and permission caches, and storage failures propagate instead of allowing a stale status. Otp
+uses this capability for login proof completion; authenticator management retains the stricter
+active-only AccountStatusPort guard. The adapter names the auth entity manager explicitly.
+
+### HTTP idempotency
+
+User contributes the explicit HTTP mutation catalog and fresh replay scope through its
+owner adapters. Every mutation requires the configured `Idempotency-Key` policy. Avatar
+uploads and account deletion retain their auth root transaction; other account commands
+use the auth command transaction. Current and administrative profile outputs capture their
+exact published query results before the owning commit, including both delegated reads
+for the current-avatar route.
+
+Replay checks the active caller, current security revision and technical permissions,
+then the target's current tenant. A removed target requires authenticated original target
+facts. Self-service routes bind to the verified principal. Email-change request and
+confirmation keep their native password or confirmation-token proof policies.
 
 ## Testing
 
@@ -411,3 +474,26 @@ server error, while realtime delivery failures do not change a successful respon
 - `EmailChangeRequestNotFoundException` -> invalid/expired/reused confirmation token (400)
 
 The user record persists the primary method only after a complete session, including MFA, so account security reports the last method exactly.
+
+`CredentialLifecycleProofPort` exposes fresh non-secret account/mailbox/status/revision facts and
+an isolated password-verification predicate to Auth receipt authorization. Its auth-bound native
+adapter does not hydrate cached records, mutate failed attempts, publish credential digests or
+consume an OTP. Anonymous reset requests use these facts while retaining their neutral absent
+account response; signed account lineage prevents replay after creation or credential change.
+
+`UserSecurityRevisionPort` exposes current account/tenant facts and an auth-transaction-only
+revision increment for owner integrations such as authenticator changes. The stored security
+revision advances for password, identifier, status, mailbox proof and tenant mutations. A native
+auth trigger keeps that epoch monotonic under concurrent or stale ORM writes; it does not provide
+general optimistic locking. Ordinary profile/login activity leaves it unchanged.
+
+Email-change replay verifies the current password or exact mailbox token and signed before/after
+revision. Confirmation can recover its own consumed token result while the resulting account
+revision remains current. Unknown tokens retain the public neutral failure result.
+
+Permanent deletion writes `UserReceiptPurgeRequestedEvent` in the deletion auth transaction.
+After its confirmed commit, the consumer checks the account is absent and erases user-associated
+receipts from auth and main independently. An interruption safely retries either deletion; soft
+archive paths do not erase receipt tombstones.
+
+User mutation receipts bind the freshly verified target account through signed `user_id` metadata independently of the acting principal. Creation adds this association from the generated application result and flushed auth row before commit. Both creator and subject lifecycle purge remove the receipt, including retained tombstones after payload erasure; other users’ receipts remain intact. PATCH and PUT delegate existence checks to the owner command and gate, with their declared post-command views captured before commit.

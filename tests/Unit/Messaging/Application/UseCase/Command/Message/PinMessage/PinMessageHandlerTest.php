@@ -265,7 +265,7 @@ final class PinMessageHandlerTest extends TestCase
   private function facilityResolver(): MessagingSubjectResolverPort
   {
     $resolver = $this->createStub(MessagingSubjectResolverPort::class);
-    $resolver->method('supports')->willReturnCallback(static fn (\Messaging\Application\Contract\Subject\MessagingSubjectType $type): bool => \Messaging\Application\Contract\Subject\MessagingSubjectType::FACILITY === $type);
+    $resolver->method('descriptor')->willReturn(new \Messaging\Application\Contract\Subject\MessagingSubjectDescriptor('facility', 'Facility', 'facilities', 'organization.facilities.read'));
     $resolver->method('resolve')->willReturn(new MessagingSubjectResolution(true, 'Site nord', 'organization.facilities.read'));
 
     return $resolver;

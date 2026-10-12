@@ -996,6 +996,22 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
     $this->failureHandler($repository, $storage)($this->command(self::ATTACHMENT_ID));
   }
 
+  #[Test]
+  public function vanishedAcknowledgementCannotCreateAnUploadAfterTheNativeLookup(): void
+  {
+    $repository = $this->createMock(InterventionAttachmentRepositoryPort::class);
+    $repository->method('withUploadLock')->willReturnCallback(static fn (string $parent, string $identity, callable $operation): mixed => $operation());
+    $repository->method('findById')->willReturn(null);
+    $repository->expects(self::never())->method('countByInterventionId');
+    $repository->expects(self::never())->method('save');
+    $files = $this->createMock(FileStoragePort::class);
+    $files->expects(self::never())->method('write');
+    $files->expects(self::never())->method('delete');
+    $handler = $this->failureHandler($repository, $files);
+    $this->expectException(InterventionNotFoundException::class);
+    $handler(new AddInterventionAttachmentCommand(self::USER_ID, self::INTERVENTION_ID, 'original.pdf', '', 'application/pdf', 5, attachmentId: self::ATTACHMENT_ID, acknowledgementOnly: true));
+  }
+
   private function failureHandler(InterventionAttachmentRepositoryPort $repository, FileStoragePort $storage, ?LoggerPort $logger = null): AddInterventionAttachmentHandler
   {
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);

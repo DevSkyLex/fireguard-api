@@ -143,6 +143,7 @@ final class ResendOrganizationInvitationHandlerTest extends TestCase
       'http://localhost:4200',
       new OrganizationInvitationTokenHasher(),
       new \Shared\Infrastructure\Symfony\Adapter\Outbound\TranslatorAdapter(EmailTranslatorTestFactory::create()),
+      \Tests\Support\Shared\ProductConfigFixture::create(),
     );
 
     $handler = new ResendOrganizationInvitationHandler(
@@ -225,6 +226,7 @@ final class ResendOrganizationInvitationHandlerTest extends TestCase
       'http://localhost:4200',
       new OrganizationInvitationTokenHasher(),
       new \Shared\Infrastructure\Symfony\Adapter\Outbound\TranslatorAdapter(EmailTranslatorTestFactory::create()),
+      \Tests\Support\Shared\ProductConfigFixture::create(),
     );
 
     $handler = new ResendOrganizationInvitationHandler(
@@ -335,6 +337,7 @@ final class ResendOrganizationInvitationHandlerTest extends TestCase
       'http://localhost:4200',
       new OrganizationInvitationTokenHasher(),
       new \Shared\Infrastructure\Symfony\Adapter\Outbound\TranslatorAdapter(EmailTranslatorTestFactory::create()),
+      \Tests\Support\Shared\ProductConfigFixture::create(),
     );
 
     $handler = new ResendOrganizationInvitationHandler(
@@ -513,6 +516,7 @@ final class ResendOrganizationInvitationHandlerTest extends TestCase
       'http://localhost:4200',
       new OrganizationInvitationTokenHasher(),
       new \Shared\Infrastructure\Symfony\Adapter\Outbound\TranslatorAdapter(EmailTranslatorTestFactory::create()),
+      \Tests\Support\Shared\ProductConfigFixture::create(),
     );
 
     $handler = new ResendOrganizationInvitationHandler(
@@ -597,6 +601,7 @@ final class ResendOrganizationInvitationHandlerTest extends TestCase
       'http://localhost:4200',
       new OrganizationInvitationTokenHasher(),
       new \Shared\Infrastructure\Symfony\Adapter\Outbound\TranslatorAdapter(EmailTranslatorTestFactory::create()),
+      \Tests\Support\Shared\ProductConfigFixture::create(),
     );
 
     return new ResendOrganizationInvitationHandler(

@@ -1,3 +1,7 @@
+imports:
+  - { resource: 'customer/doctrine.yaml' }
+  - { resource: 'customer/api_platform.yaml' }
+
 services:
   _defaults:
     autowire: true
@@ -28,7 +32,8 @@ services:
     class: Shared\Infrastructure\Symfony\Adapter\Outbound\DoctrineTransactionManagerAdapter
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
-
+      $database: main
+      $idempotency: '@Shared\Infrastructure\Idempotency\HttpIdempotencyExecutionContext'
   Customer\Application\UseCase\Command\CreateCustomer\CreateCustomerHandler:
     arguments:
       $transactions: '@customer.main_transaction_manager'
@@ -51,3 +56,15 @@ services:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
     tags: ['maintenance_export.identity_validator']
+
+  Customer\Infrastructure\Adapter\Event\IntegrationEventConverterAdapter: ~
+
+  Customer\Infrastructure\Adapter\OrganizationCatalog\CustomerSystemRoleContributionAdapter:
+    tags: [organization.system_role_contribution]
+
+  Customer\Infrastructure\Adapter\Idempotency\CustomerHttpIdempotencyOperationContributionAdapter:
+    tags: [http.idempotency_operation]
+  Customer\Infrastructure\Adapter\Idempotency\CustomerHttpIdempotencyReplayAuthorizationAdapter:
+    arguments:
+      $connection: '@doctrine.dbal.main_connection'
+    tags: [http.idempotency_replay_authorization]

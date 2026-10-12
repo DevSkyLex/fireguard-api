@@ -15,6 +15,11 @@ This document summarizes security-sensitive configuration and operational practi
 - Never commit production secrets to the repository.
 - Protect `APP_SECRET` and `OAUTH_ENCRYPTION_KEY` like credentials.
 - Use strong, unique encryption keys per environment.
+- HTTP replay fingerprints and encrypted result snapshots use their own keys:
+  `HTTP_IDEMPOTENCY_HMAC_KEY`, `HTTP_IDEMPOTENCY_ENCRYPTION_KEYS` and
+  `HTTP_IDEMPOTENCY_ENCRYPTION_ACTIVE_VERSION`. Never derive them from `APP_SECRET`,
+  OAuth encryption material or MFA keys. Keep the versioned decryption keys needed
+  for unexpired responses and the reviewed backup/rollback horizon.
 
 JWT keys:
 
@@ -50,6 +55,59 @@ JWT keys:
 - Use the authorization code flow with PKCE for browser and public clients.
 - Validate redirect URIs strictly and avoid wildcards.
 - Limit allowed scopes for each client and rotate secrets regularly.
+
+Generic federated providers are configured server-side in
+[`federated_providers.yaml`](config/packages/federated_providers.yaml), using stable
+provider identifiers and exact HTTPS issuer, authorization, token and JWKS endpoints.
+The browser cannot supply those endpoints. A changed issuer requires a new provider
+identity. The [generic OIDC adapter](src/Auth/Infrastructure/Adapter/Federation/GenericOidcProviderAdapter.php)
+verifies the RS256 signature before exposing claims, then checks issuer, client
+audience, authorized party where applicable, expiry/issuance times and the stored
+nonce proof. PKCE and single-use flow state remain mandatory. Optional UserInfo must
+return the same subject; provisioning requires verified address possession and follows
+the configured signup, email-verification, MFA and trusted-device policy.
+
+## MFA material and recovery responses
+
+Canonical recovery codes are stored as hashes; verification atomically consumes a
+matching unused code. TOTP secrets use authenticated versioned encryption. Enrollment
+and regeneration create one recovery-code set for the committed operation.
+
+The plaintext recovery response may be returned again for that same authorized
+operation through the encrypted HTTP result receipt for at most five minutes from
+the first commit. This is a bounded delivery retry, not another generation or an
+unrestricted recovery-code read API. Recheck the current actor, credential/flow proof
+and MFA revision before decrypting; a revoked, changed or expired proof denies replay.
+Do not log the codes, tokens, plaintext response or ciphertext. Expiry never slides on
+retry, and an expired receipt continues to prevent duplicate execution.
+
+## Durable HTTP idempotency
+
+All client mutations, including authentication writes, require `Idempotency-Key`
+after the documented compatibility cutover. A key identifies a logical request;
+it is not an authentication credential. Current authentication, tenant/organization
+scope and operation authorization are checked before execution and before replay.
+External callbacks use a verified provider-native event identity after their normal
+signature checks. Replay never bypasses bearer-token verification or session revocation.
+
+Receipts belong to the mutation's explicit auth or main database. Business state,
+the primary application result snapshot and the completed receipt share the final
+owning transaction. Media retains its root transaction. Changed input, a competing
+owner, uncertain commit or expired result fails closed instead of repeating a write.
+
+Canonical input and security proof fingerprints use purpose-separated HMACs; raw
+credentials are never persisted in the receipt. A secret result uses authenticated,
+versioned encryption for at most five minutes from its first commit. Bind the scope,
+operation/key identity, input fingerprint, verified proof metadata and absolute expiry
+as authenticated data before accepting ciphertext. Verify that proof and deadline
+before decryption, including during reconciliation. Ordinary response bodies have a
+24-hour replay window. Replays cannot extend either deadline.
+
+Cleanup erases expired result bytes on each owning database while retaining durable
+non-reusable receipts. Offline replay tombstones remain until their owning scope is
+deleted; body expiry alone must never allow an old offline mutation to execute again.
+See [the rollout procedure](OPERATIONS.md#http-idempotency-rollout) and
+[cleanup operations](docs/operations/workers-and-scheduler.md#http-idempotency-result-retention).
 
 ## Rate limiting
 
@@ -133,6 +191,10 @@ For authenticated requests (with `Authorization` header), additional cache heade
 - Audit events are hash-chained (`prev_hash` + payload hash) to detect tampering.
 - Audit APIs are read-only and protected by `audit.read`.
 - Audit PII handling uses the same PII settings as security logs.
+- Producers sanitize an owner-published audit request before enqueueing it in their
+  own outbox transaction. Audit appends the ledger entry and its delivery receipt
+  atomically on auth after producer commit; retry preserves actor attribution and
+  cannot append the same requested record twice. No transaction spans auth and main.
 
 ### Audit Event Format (Security Log)
 
@@ -180,3 +242,7 @@ Use your organization’s standard security reporting process for disclosures an
   - Command: `php -d memory_limit=1G bin/console app:cleanup:auth-data --days=90`
   - Dry run: `php -d memory_limit=1G bin/console app:cleanup:auth-data --days=90 --dry-run`
 - Default retention is set by `DATA_RETENTION_DAYS`.
+- HTTP result retention is independent of auth-data retention. Run
+  `php -d memory_limit=1G bin/console app:cleanup:http-idempotency-results` through
+  the managed recurring maintenance job; the command erases expired payloads on main
+  and auth without deleting replay tombstones or logging their contents.

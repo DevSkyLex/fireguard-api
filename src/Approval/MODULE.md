@@ -4,8 +4,7 @@
 
 ## Overview
 
-Approval gates two regulated actions — waiving a critical non-conformity and
-permanently decommissioning equipment — behind a configurable, opt-in
+Approval gates registered regulated actions behind a configurable, opt-in
 **four-eyes** approval step. When an organization enables approval for an
 action type, performing that action creates a pending `ApprovalRequest`
 instead of applying immediately (the owning module's processor returns HTTP
@@ -13,6 +12,11 @@ instead of applying immediately (the owning module's processor returns HTTP
 approval, the deferred action is re-executed through the owning module's
 _existing_ command, so the original domain handler re-validates state and
 enforces idempotence.
+
+Inspection contributes `nc_waiver` and Equipment contributes
+`equipment_decommission`; these default contributions retain their existing
+labels and policy behavior. Additional owner modules contribute descriptors and
+executors without adding action cases to Approval.
 
 Main goals:
 
@@ -157,6 +161,14 @@ maps HTTP failures centrally after the existing stable decision-code subscriber.
   `ApprovalActionExecutorPort`, `ApprovalGate` / `ApprovalActionExecutorRegistry`
   (Service), use cases (approve/reject decisions, expiry sweep, get/list
   queries).
+
+Action identifiers are open strings represented by `ApprovalActionKey`, within
+the existing 64-character persistence boundary. `ApprovalActionTypes` retains
+legacy constants; its convenience methods describe the built-in values only.
+The installed `ApprovalActionCatalogPort` is authoritative for gates, reference
+metadata and Organization policy validation. Hydrating historical requests does
+not consult that catalog. An unknown action cannot reserve a new request or
+bypass the gate; a historical unavailable action cannot execute.
 - **Infrastructure** (`src/Approval/Infrastructure`): Doctrine
   Record/Mapper/Repository (main entity manager; `reservePending()` uses a
   raw DBAL insert — never ORM `persist()`/`flush()` — so the partial-unique
@@ -214,6 +226,7 @@ Equipment's **Domain** layers reference nothing from Approval.
    matching adapter by action type (`!tagged_iterator
 approval.deferred_action_executor`), throwing
    `ApprovalActionExecutorNotFoundException` when none is registered.
+   Duplicate executor keys are rejected when the registry is constructed.
 
 ## Deferred-action re-validation & idempotence
 
@@ -305,6 +318,15 @@ a partial `approval` section (`UpdateOrganizationApprovalInput`); a `null`
 the `actionRules` keys against `ApprovalActionTypeCatalogPort` (hosted here,
 consumed by Organization) — the Organization domain never hardcodes
 Approval's action-type list.
+
+Each owner registers an `ApprovalActionDescriptorProviderPort` under
+`approval.action_descriptor` and its executor under
+`approval.deferred_action_executor` in that owner's module configuration.
+The catalog eagerly validates duplicate keys and exact descriptor/executor
+coverage when constructed. Descriptors carry the display label and optional
+default severity threshold. Organization resolves enabled rules using those
+defaults; every new action stays disabled by default. The installed FireGuard
+ordering remains waiver then equipment decommission.
 
 `minSeverity` only matters for `nc_waiver`: a waiver below the threshold
 severity applies immediately even when the action type is enabled

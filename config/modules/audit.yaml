@@ -1,3 +1,7 @@
+imports:
+  - { resource: 'audit/doctrine.yaml' }
+  - { resource: 'audit/api_platform.yaml' }
+
 # Configuration for the Audit module
 
 services:
@@ -42,3 +46,37 @@ services:
     alias: Audit\Application\Service\OrganizationAuditFeedService
 
   Audit\Application\Service\OrganizationAuditFeedService: ~
+
+  Audit\Infrastructure\Adapter\Event\IntegrationEventConverterAdapter: ~
+
+  Audit\Application\Port\Inbound\AuditRecordingPort: '@Audit\Infrastructure\Adapter\Doctrine\AuditRecordingAdapter'
+  Audit\Infrastructure\Adapter\Doctrine\AuditRecordingAdapter:
+    arguments:
+      $authConnection: '@doctrine.dbal.auth_connection'
+      $mainConnection: '@doctrine.dbal.main_connection'
+      $authEvents: '@shared.auth_event_dispatcher'
+      $mainEvents: '@Shared\Infrastructure\Messaging\Outbox\TransactionalEventDispatcher'
+  Audit\Infrastructure\EventSubscriber\AuditRecordRequestedSubscriber:
+    arguments:
+      $eventConsumer: '@shared.auth_event_consumer'
+
+  Audit\Infrastructure\Adapter\Authorization\AuditPermissionContributionAdapter:
+    tags: [authorization.permission_catalog_contribution]
+
+  Audit\Infrastructure\Adapter\Audit\AuditRecordEventAdapter: ~
+
+  Audit\Infrastructure\Persistence\Doctrine\Repository\AuditEventRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.auth_entity_manager'
+
+  Audit\Application\UseCase\Command\ExportAuditCsv\ExportAuditCsvHandler:
+    arguments:
+      $transaction: '@Shared\Infrastructure\Symfony\Adapter\Outbound\DoctrineTransactionManagerAdapter'
+      $eventDispatcher: '@shared.auth_event_dispatcher'
+    tags: [messenger.message_handler]
+  Audit\Application\Port\Outbound\Export\AuditCsvEncodingPort: '@Audit\Infrastructure\Adapter\Export\AuditCsvEncodingAdapter'
+  Audit\Infrastructure\Adapter\Export\AuditCsvEncodingAdapter: ~
+  Audit\Infrastructure\Adapter\Idempotency\AuditHttpIdempotencyOperationContributionAdapter:
+    tags: [http.idempotency_operation]
+  Audit\Infrastructure\Adapter\Idempotency\AuditHttpIdempotencyReplayAuthorizationAdapter:
+    tags: [http.idempotency_replay_authorization]

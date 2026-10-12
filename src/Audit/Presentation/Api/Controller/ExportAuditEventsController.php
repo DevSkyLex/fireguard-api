@@ -4,18 +4,22 @@ declare(strict_types=1);
 
 namespace Audit\Presentation\Api\Controller;
 
+use Audit\Application\UseCase\Command\ExportAuditCsv\{ExportAuditCsvCommand, ExportAuditCsvResult};
 use Audit\Application\UseCase\Query\ExportAuditEvents\{ExportAuditEventsQuery, ExportAuditEventsResult};
 use Audit\Presentation\Api\Service\{AuditEventCsvWriter, AuditEventExportCriteriaFactory};
 use Auth\Application\Contract\User\AuthenticatedUser;
 use DateTimeImmutable;
-use Shared\Application\Port\Inbound\QueryBusPort;
+use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, StreamedResponse};
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
+use UnexpectedValueException;
 
+use function base64_decode;
 use function fclose;
 use function fopen;
+use function fwrite;
 use function sprintf;
 
 /**
@@ -68,12 +72,14 @@ final class ExportAuditEventsController extends AbstractController
    * @param Security $security the security service
    * @param AuditEventExportCriteriaFactory $criteriaFactory the request-to-criteria factory
    * @param AuditEventCsvWriter $csvWriter the CSV row writer
+   * @param CommandBusPort|null $commandBus production effectful export execution
    */
   public function __construct(
     private readonly QueryBusPort $queryBus,
     private readonly Security $security,
     private readonly AuditEventExportCriteriaFactory $criteriaFactory,
     private readonly AuditEventCsvWriter $csvWriter,
+    private readonly ?CommandBusPort $commandBus = null,
   ) {
   }
   // #endregion
@@ -100,6 +106,27 @@ final class ExportAuditEventsController extends AbstractController
     }
 
     $criteria = $this->criteriaFactory->fromRequest($request);
+
+    if (null !== $this->commandBus) {
+      /** @var ExportAuditCsvResult $result */
+      $result = $this->commandBus->dispatch(new ExportAuditCsvCommand($criteria, $user->getId()));
+      $response = new StreamedResponse(static function () use ($result): void {
+        $csv = base64_decode($result->csvBase64, true);
+        if (false === $csv) {
+          throw new UnexpectedValueException('The audit CSV application result is invalid.');
+        }
+        $handle = fopen('php://output', 'wb');
+        if (false !== $handle) {
+          fwrite($handle, $csv);
+          fclose($handle);
+        }
+      });
+      $response->headers->set('Content-Type', 'text/csv; charset=utf-8');
+      $response->headers->set('Content-Disposition', sprintf('attachment; filename="%s"', $result->fileName));
+      $response->headers->set('X-Accel-Buffering', 'no');
+
+      return $response;
+    }
 
     // The cap failure now reaches the client as the documented 422 without a
     // catch here: BusFailureUnwrappingSubscriber opens the envelope the comment

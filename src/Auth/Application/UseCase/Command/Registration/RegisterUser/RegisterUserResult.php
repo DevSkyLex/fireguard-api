@@ -22,6 +22,13 @@ final readonly class RegisterUserResult implements ResultMessage
    * Error code returned when the email is already registered.
    */
   public const string ERROR_EMAIL_TAKEN = 'email_taken';
+
+  /**
+   * Constant ERROR_REGISTRATION_DISABLED
+   *
+   * Self-service account creation is disabled by project policy.
+   */
+  public const string ERROR_REGISTRATION_DISABLED = 'registration_disabled';
   // #endregion
 
   // #region Constructor

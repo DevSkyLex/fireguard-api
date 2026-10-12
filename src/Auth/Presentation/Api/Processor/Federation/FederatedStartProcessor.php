@@ -6,13 +6,16 @@ namespace Auth\Presentation\Api\Processor\Federation;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Application\Contract\Federation\FederatedProvider;
+use Auth\Application\Contract\Federation\ProviderId;
 use Auth\Application\Contract\User\AuthenticatedUser;
+use Auth\Application\Port\Outbound\Federation\FederatedBrowserBindingPort;
 use Auth\Application\UseCase\Command\Federation\StartFederation\StartFederationCommand;
+use Auth\Domain\Exception\Federation\FederatedAuthException;
 use Auth\Presentation\Api\Dto\Input\Federation\FederatedStartInput;
 use Auth\Presentation\Api\Dto\Output\Federation\FederatedStartOutput;
 use Auth\Presentation\Api\Operation\FederatedAuthOperations;
 use Auth\Presentation\Api\Service\FederatedFlowCookieService;
+use Shared\Application\Contract\Idempotency\IdempotencyDeniedException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
@@ -20,14 +23,12 @@ use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, TooManyRequestsHttpException};
 use Symfony\Component\RateLimiter\RateLimiterFactory;
 
-use function base64_encode;
+use function count;
 use function hash;
 use function is_string;
 use function max;
-use function random_bytes;
-use function rtrim;
+use function preg_match;
 use function sprintf;
-use function strtr;
 use function substr;
 use function time;
 
@@ -59,6 +60,7 @@ final readonly class FederatedStartProcessor implements ProcessorInterface
    * @param RequestStack $requestStack provides the current request and client address
    * @param FederatedFlowCookieService $flowCookieService creates the browser binding cookie
    * @param RateLimiterFactory $rateLimiter limits federated flow starts
+   * @param FederatedBrowserBindingPort $browserBindings issues and verifies stable browser execution identity
    *
    * @return void
    */
@@ -69,6 +71,7 @@ final readonly class FederatedStartProcessor implements ProcessorInterface
     private FederatedFlowCookieService $flowCookieService,
     #[Autowire(service: 'limiter.federated_start')]
     private RateLimiterFactory $rateLimiter,
+    private FederatedBrowserBindingPort $browserBindings,
   ) {
   }
 
@@ -81,7 +84,7 @@ final readonly class FederatedStartProcessor implements ProcessorInterface
    *
    * @access public
    *
-   * @param FederatedStartInput $data sign-in input containing the post-authentication return URL
+   * @param mixed $data sign-in input containing the post-authentication return URL
    * @param Operation $operation the API operation selecting sign-in or linking
    * @param array<string, mixed> $uriVariables the route variables containing the provider
    * @param array<string, mixed> $context the processor context
@@ -95,10 +98,26 @@ final readonly class FederatedStartProcessor implements ProcessorInterface
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): FederatedStartOutput
   {
     $provider = $this->provider($uriVariables);
-    $request = $this->requestStack->getCurrentRequest();
-    $ipAddress = $request?->getClientIp() ?? '127.0.0.1';
+    $request = $this->requestStack->getCurrentRequest() ?? throw new IdempotencyDeniedException('key_required');
+    $keys = $request->headers->all('Idempotency-Key');
+    if ([] === $keys) {
+      throw new IdempotencyDeniedException('key_required');
+    }
+    $key = $keys[0] ?? null;
+    if (1 !== count($keys) || !is_string($key) || 1 !== preg_match('/^[\x21-\x7e]{1,255}$/D', $key)) {
+      throw new IdempotencyDeniedException('key_invalid');
+    }
+    if (!$data instanceof FederatedStartInput) {
+      throw new BadRequestHttpException('Invalid federated start input.');
+    }
+    $ipAddress = $request->getClientIp() ?? '127.0.0.1';
     $this->enforceRateLimit($ipAddress);
-    $browserBinding = rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');
+    $browserBinding = $this->flowCookieService->getFromRequest($request);
+    $browserBinding ??= $this->browserBindings->create();
+    $binding = $this->browserBindings->verify($browserBinding);
+    if (null === $binding) {
+      throw new FederatedAuthException('invalid_flow', 'This connection request is no longer valid.');
+    }
 
     if (FederatedAuthOperations::LINK_START === $operation->getName()) {
       $user = $this->security->getUser();
@@ -106,13 +125,13 @@ final readonly class FederatedStartProcessor implements ProcessorInterface
         throw new AccessDeniedHttpException('Authentication required.');
       }
       /** @var \Auth\Application\UseCase\Command\Federation\StartFederation\StartFederationResult $result */
-      $result = $this->federation->dispatch(new StartFederationCommand(provider: $provider, browserBinding: $browserBinding, userId: $user->getId()));
+      $result = $this->federation->dispatch(new StartFederationCommand(provider: $provider, browserBinding: $browserBinding, userId: $user->getId(), browserBindingExpiresAt: $binding->expiresAt));
     } else {
       /** @var \Auth\Application\UseCase\Command\Federation\StartFederation\StartFederationResult $result */
-      $result = $this->federation->dispatch(new StartFederationCommand(provider: $provider, browserBinding: $browserBinding, returnUrl: $data->returnUrl));
+      $result = $this->federation->dispatch(new StartFederationCommand(provider: $provider, browserBinding: $browserBinding, returnUrl: $data->returnUrl, browserBindingExpiresAt: $binding->expiresAt));
     }
 
-    $request?->attributes->set('_federated_flow_cookie', $this->flowCookieService->createCookie($browserBinding));
+    $request->attributes->set('_federated_flow_cookie', $this->flowCookieService->createReplayCookie($browserBinding, $result->browserBindingExpiresAt ?? $binding->expiresAt));
 
     return new FederatedStartOutput($result->authorizationUrl);
   }
@@ -126,14 +145,14 @@ final readonly class FederatedStartProcessor implements ProcessorInterface
    *
    * @param array<string, mixed> $uriVariables API Platform route variables
    *
-   * @return FederatedProvider selected provider
+   * @return ProviderId selected provider
    *
    * @throws BadRequestHttpException when the route provider is unknown
    */
-  private function provider(array $uriVariables): FederatedProvider
+  private function provider(array $uriVariables): ProviderId
   {
     $value = $uriVariables['provider'] ?? null;
-    $provider = is_string($value) ? FederatedProvider::tryFrom($value) : null;
+    $provider = is_string($value) ? ProviderId::tryFrom($value) : null;
     if (null === $provider) {
       throw new BadRequestHttpException('unknown_provider');
     }

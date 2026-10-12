@@ -4,9 +4,8 @@ declare(strict_types=1);
 
 namespace Authorization\Infrastructure\DataFixtures;
 
-use Authorization\Domain\ValueObject\SubjectType;
-use Authorization\Infrastructure\Catalog\{PermissionCatalog, RoleCatalog};
-use Authorization\Infrastructure\Persistence\Doctrine\Record\{PermissionRecord, RoleAssignmentRecord, RoleRecord};
+use Authorization\Application\Port\Outbound\{PermissionCatalogPort, RoleCatalogPort};
+use Authorization\Infrastructure\Persistence\Doctrine\Record\{PermissionRecord, RoleRecord};
 use DateTimeImmutable;
 use Doctrine\Bundle\FixturesBundle\{Fixture, FixtureGroupInterface};
 use Doctrine\Persistence\ObjectManager;
@@ -60,6 +59,26 @@ class AuthorizationFixtures extends Fixture implements FixtureGroupInterface
   public const string ROLE_USER = 'role-user';
   // #endregion
 
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Seeds the composed owner vocabulary and bootstrap policy.
+   *
+   * @access public
+   *
+   * @param PermissionCatalogPort $permissionCatalog registered permission vocabulary
+   * @param RoleCatalogPort $roleCatalog registered bootstrap policy
+   *
+   * @return void
+   */
+  public function __construct(
+    private readonly PermissionCatalogPort $permissionCatalog,
+    private readonly RoleCatalogPort $roleCatalog,
+  ) {
+  }
+  // #endregion
+
   // #region Methods
   /**
    * Method getGroups
@@ -102,21 +121,6 @@ class AuthorizationFixtures extends Fixture implements FixtureGroupInterface
     );
 
     $manager->flush();
-
-    // Assign Super Admin role to Dev Client (for E2E tests)
-    /** @var RoleRecord $superAdminRole */
-    $superAdminRole = $this->getReference(self::ROLE_SUPER_ADMIN, RoleRecord::class);
-
-    $assignment = new RoleAssignmentRecord();
-    $assignment->id = Uuid::v7()->toRfc4122();
-    $assignment->role = $superAdminRole;
-    $assignment->roleId = $superAdminRole->id;
-    $assignment->subjectType = SubjectType::USER->value;
-    $assignment->subjectId = 'a7b8c9d0-e1f2-4456-8123-789012345678'; // Dev Client ID
-    $assignment->assignedAt = new DateTimeImmutable();
-
-    $manager->persist($assignment);
-    $manager->flush();
   }
 
   /**
@@ -132,18 +136,18 @@ class AuthorizationFixtures extends Fixture implements FixtureGroupInterface
    */
   private function createPermissions(ObjectManager $manager): array
   {
-    $permissionDefinitions = PermissionCatalog::definitions();
+    $permissionDefinitions = $this->permissionCatalog->definitions();
 
     $permissionRecords = [];
     foreach ($permissionDefinitions as $def) {
       $record = new PermissionRecord();
       $record->id = Uuid::v7()->toRfc4122();
-      $record->name = $def['name'];
-      $record->description = $def['description'];
+      $record->name = $def->name;
+      $record->description = $def->description;
       $record->createdAt = new DateTimeImmutable();
 
       $manager->persist($record);
-      $permissionRecords[$def['name']] = $record;
+      $permissionRecords[$def->name] = $record;
     }
 
     return $permissionRecords;
@@ -163,46 +167,21 @@ class AuthorizationFixtures extends Fixture implements FixtureGroupInterface
    */
   private function createRoles(ObjectManager $manager, array $permissions): void
   {
-    // Super Admin role - full access
-    $superAdminRecord = new RoleRecord();
-    $superAdminRecord->id = Uuid::v7()->toRfc4122();
-    $superAdminRecord->name = 'super_admin';
-    $superAdminRecord->description = 'Full system access with all permissions';
-    $superAdminRecord->isSystem = true;
-    $superAdminRecord->createdAt = new DateTimeImmutable();
-    $superAdminRecord->permissions->add($permissions['*.*']);
-    $manager->persist($superAdminRecord);
-    $this->addReference(self::ROLE_SUPER_ADMIN, $superAdminRecord);
-
-    // Admin role - administrative access
-    $adminRecord = new RoleRecord();
-    $adminRecord->id = Uuid::v7()->toRfc4122();
-    $adminRecord->name = 'admin';
-    $adminRecord->description = 'Administrative access for user and client management';
-    $adminRecord->isSystem = true;
-    $adminRecord->createdAt = new DateTimeImmutable();
-    foreach (RoleCatalog::adminPermissionNames() as $permissionName) {
-      if (isset($permissions[$permissionName])) {
-        $adminRecord->permissions->add($permissions[$permissionName]);
+    foreach ($this->roleCatalog->definitions() as $definition) {
+      $record = new RoleRecord();
+      $record->id = Uuid::v7()->toRfc4122();
+      $record->name = $definition->name;
+      $record->description = $definition->description;
+      $record->isSystem = $definition->isSystem;
+      $record->createdAt = new DateTimeImmutable();
+      foreach ($definition->permissionNames as $permissionName) {
+        $record->permissions->add($permissions[$permissionName]);
+      }
+      $manager->persist($record);
+      if (null !== $definition->reference) {
+        $this->addReference($definition->reference, $record);
       }
     }
-    $manager->persist($adminRecord);
-    $this->addReference(self::ROLE_ADMIN, $adminRecord);
-
-    // User role - standard user access
-    $userRecord = new RoleRecord();
-    $userRecord->id = Uuid::v7()->toRfc4122();
-    $userRecord->name = 'user';
-    $userRecord->description = 'Standard user access with profile and session management';
-    $userRecord->isSystem = true;
-    $userRecord->createdAt = new DateTimeImmutable();
-    foreach (RoleCatalog::userPermissionNames() as $permissionName) {
-      if (isset($permissions[$permissionName])) {
-        $userRecord->permissions->add($permissions[$permissionName]);
-      }
-    }
-    $manager->persist($userRecord);
-    $this->addReference(self::ROLE_USER, $userRecord);
   }
   // #endregion
 }

@@ -40,7 +40,7 @@ final class RollbackOrganizationOnboardingProcessorTest extends TestCase
       ->willReturn(null);
 
     $processor = new RollbackOrganizationOnboardingProcessor(
-      flowService: $this->buildFlowService(),
+      commandBus: new \Tests\Helper\Onboarding\OrganizationOnboardingCommandBus($this->buildFlowService()),
       security: $security,
     );
 
@@ -125,12 +125,12 @@ final class RollbackOrganizationOnboardingProcessorTest extends TestCase
     $commandBus->method('dispatch');
 
     $processor = new RollbackOrganizationOnboardingProcessor(
-      flowService: $this->buildFlowService(
+      commandBus: new \Tests\Helper\Onboarding\OrganizationOnboardingCommandBus($this->buildFlowService(
         sessionRepository: $sessionRepository,
         queryBus: $queryBus,
         commandBus: $commandBus,
         transactionManager: $transactionManager,
-      ),
+      )),
       security: $security,
     );
 
@@ -161,10 +161,10 @@ final class RollbackOrganizationOnboardingProcessorTest extends TestCase
     $this->expectExceptionMessage('No onboarding session found to rollback.');
 
     $processor = new RollbackOrganizationOnboardingProcessor(
-      flowService: $this->buildFlowService(
+      commandBus: new \Tests\Helper\Onboarding\OrganizationOnboardingCommandBus($this->buildFlowService(
         sessionRepository: $sessionRepository,
         transactionManager: $transactionManager,
-      ),
+      )),
       security: $security,
     );
 
@@ -193,9 +193,9 @@ final class RollbackOrganizationOnboardingProcessorTest extends TestCase
     $this->expectExceptionMessage('No rollback action available.');
 
     $processor = new RollbackOrganizationOnboardingProcessor(
-      flowService: $this->buildFlowService(
+      commandBus: new \Tests\Helper\Onboarding\OrganizationOnboardingCommandBus($this->buildFlowService(
         transactionManager: $transactionManager,
-      ),
+      )),
       security: $security,
     );
 
@@ -218,7 +218,7 @@ final class RollbackOrganizationOnboardingProcessorTest extends TestCase
     );
 
     $processor = new RollbackOrganizationOnboardingProcessor(
-      flowService: $flowService,
+      commandBus: new \Tests\Helper\Onboarding\OrganizationOnboardingCommandBus($flowService),
       security: $security,
     );
 
@@ -243,8 +243,7 @@ final class RollbackOrganizationOnboardingProcessorTest extends TestCase
     return new OrganizationOnboardingFlowService(
       sessionRepository: $sessionRepository ?? $this->createStub(OrganizationOnboardingSessionRepositoryPort::class),
       organizationDirectory: new \Organization\Infrastructure\Adapter\Onboarding\OrganizationOnboardingDirectoryAdapter($queryBus ?? $this->createStub(QueryBusPort::class), $commandBus ?? $this->createStub(CommandBusPort::class)),
-      facilities: new \Facility\Infrastructure\Adapter\Onboarding\FacilityAvailabilityAdapter($queryBus ?? $this->createStub(QueryBusPort::class)),
-      equipment: new \Equipment\Infrastructure\Adapter\Onboarding\EquipmentAvailabilityAdapter($queryBus ?? $this->createStub(QueryBusPort::class)),
+      steps: \Tests\Helper\Onboarding\RegisteredOrganizationOnboardingSteps::withAvailability(new \Facility\Infrastructure\Adapter\Onboarding\FacilityAvailabilityAdapter($queryBus ?? $this->createStub(QueryBusPort::class)), new \Equipment\Infrastructure\Adapter\Onboarding\EquipmentAvailabilityAdapter($queryBus ?? $this->createStub(QueryBusPort::class))),
       uuidFactory: $uuidFactory ?? $this->createStub(UuidGeneratorPort::class),
       transactionManager: $transactionManager,
       eventDispatcher: $eventDispatcher ?? $this->createStub(EventDispatcherPort::class),

@@ -1,3 +1,7 @@
+imports:
+  - { resource: 'authorization/doctrine.yaml' }
+  - { resource: 'authorization/api_platform.yaml' }
+
 services:
   _defaults:
     autowire: true
@@ -105,3 +109,57 @@ services:
   Authorization\Infrastructure\Adapter\Lifecycle\AuthorizationSeedRoleAssignmentsAdapter:
     arguments:
       $entityManager: '@doctrine.orm.auth_entity_manager'
+
+  Authorization\Infrastructure\Adapter\Schema\SchemaContributionAdapter:
+    tags: [shared.schema_contribution]
+
+  Authorization\Application\Port\Outbound\PermissionCatalogPort: '@Authorization\Infrastructure\Catalog\PermissionCatalog'
+  Authorization\Application\Port\Outbound\RoleCatalogPort: '@Authorization\Infrastructure\Catalog\RoleCatalog'
+  Authorization\Infrastructure\Catalog\PermissionCatalog:
+    arguments:
+      $contributors: !tagged_iterator authorization.permission_catalog_contribution
+  Authorization\Infrastructure\Catalog\RoleCatalog:
+    arguments:
+      $contributors: !tagged_iterator authorization.role_catalog_contribution
+
+  Authorization\Infrastructure\Adapter\Authorization\AuthorizationPermissionContributionAdapter:
+    tags: [authorization.permission_catalog_contribution]
+
+  Authorization\Infrastructure\Adapter\Authorization\SystemRoleContributionAdapter:
+    tags: [authorization.role_catalog_contribution]
+
+  Authorization\Application\Port\Inbound\FreshAuthorizationPort: '@Authorization\Infrastructure\Adapter\Idempotency\FreshAuthorizationAdapter'
+  Authorization\Infrastructure\Adapter\Idempotency\FreshAuthorizationAdapter:
+    arguments:
+      $connection: '@doctrine.dbal.auth_connection'
+  Authorization\Infrastructure\Adapter\Idempotency\EvidenceAuthorizationAdapter:
+    decorates: Authorization\Application\Port\Inbound\AuthorizationPort
+    arguments:
+      $users: '@Shared\Application\Port\Outbound\Idempotency\HttpIdempotencyAccountPort'
+      $inner: '@Authorization\Infrastructure\Adapter\Idempotency\EvidenceAuthorizationAdapter.inner'
+
+  Shared\Application\Port\Outbound\Idempotency\HttpIdempotencyPlatformAuthorityPort: '@Authorization\Infrastructure\Adapter\Idempotency\AuthorizationHttpIdempotencyPlatformAuthorityAdapter'
+  Authorization\Infrastructure\Adapter\Idempotency\AuthorizationHttpIdempotencyPlatformAuthorityAdapter:
+    arguments:
+      $hierarchy: '@security.role_hierarchy'
+
+  Authorization\Infrastructure\Adapter\Idempotency\AuthorizationHttpIdempotencyOperationContributionAdapter:
+    tags: [http.idempotency_operation]
+
+  Authorization\Infrastructure\Adapter\Idempotency\AuthorizationHttpIdempotencyReplayAuthorizationAdapter:
+    arguments:
+      $connection: '@doctrine.dbal.auth_connection'
+    tags: [http.idempotency_replay_authorization]
+
+  Authorization\Application\Port\Inbound\UserGrantSnapshotPort: '@Authorization\Infrastructure\Adapter\Idempotency\UserGrantSnapshotAdapter'
+  Authorization\Infrastructure\Adapter\Idempotency\UserGrantSnapshotAdapter:
+    arguments:
+      $connection: '@doctrine.dbal.auth_connection'
+
+when@dev:
+  imports:
+    - { resource: 'authorization/seeds.yaml' }
+
+when@test:
+  imports:
+    - { resource: 'authorization/seeds.yaml' }

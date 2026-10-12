@@ -8,6 +8,20 @@ topic guides. [DEPLOYMENT.md](DEPLOYMENT.md) owns managed delivery; the
 Every command targets a deliberately selected environment. Auth and main keep
 separate connections, migrations, backups and recovery decisions.
 
+## Module composition
+
+Production continues to load the full FireGuard module set from
+[`config/packages/modules.yaml`](config/packages/modules.yaml). Each owner's service
+entry point imports its mappings, API discovery/error mappings, framework transports
+and seed registrations from `config/modules/<owner>/`. Global Doctrine configuration
+defines the two connections and managers; module-owned descriptors preserve existing
+foreign keys and partial indexes without a new database history.
+
+Before a composition rollout, validate the full container, OpenAPI and both ORM schemas.
+The [core composition suite](tests/Composition/phpunit.xml) additionally checks exactly
+eleven reusable modules against clones of the full migrated test templates. It is a
+test probe; deployment does not switch production to that smaller module set.
+
 ## Table of Contents
 
 See the [documentation index](docs/README.md) and the topic links below.
@@ -51,6 +65,51 @@ See the [jwt key generation](docs/operations/security-runbooks.md) procedure.
 ### Deployment Checklist
 
 See the [deployment checklist](docs/operations/security-runbooks.md) procedure.
+
+## HTTP idempotency rollout
+
+Provision dedicated replay keys through the deployment secret mechanism before
+activating durable HTTP result replay:
+
+| Setting | Required material |
+| --- | --- |
+| `HTTP_IDEMPOTENCY_HMAC_KEY` | Base64 random key of at least 32 decoded bytes, separate from every application/OAuth/MFA key |
+| `HTTP_IDEMPOTENCY_ENCRYPTION_KEYS` | JSON object mapping immutable version identifiers to base64 AES-256 keys of exactly 32 decoded bytes |
+| `HTTP_IDEMPOTENCY_ENCRYPTION_ACTIVE_VERSION` | Existing keyring version used for newly encrypted responses |
+| `HTTP_IDEMPOTENCY_REQUIRED` | Literal `true` by default; reviewed temporary `false` only for the compatible-client rollout |
+
+Keep prior decryption versions for unexpired secret results and the reviewed
+backup/rollback horizon. Never print key material or copy production values into
+examples, command output or source. HMAC fingerprints are durable receipt identities;
+an unplanned HMAC-key replacement must not discard old duplicate protection.
+
+The development rollout uses the following sequence:
+
+1. Provision the dedicated HMAC secret, encryption keyring and active version. Set the
+   environment variable `HTTP_IDEMPOTENCY_REQUIRED=false` for the reviewed temporary
+   compatibility window, then deploy the API with auth/main receipt support. Dedicated
+   key validation remains mandatory, including while the header requirement is relaxed.
+2. Deploy the compatible frontend and other clients. Verify that login, refresh, OTP,
+   multipart uploads and offline writes retain one key per intention across retries.
+   Verify concurrent duplicates and response-loss retries against the deployed API.
+3. Set `HTTP_IDEMPOTENCY_REQUIRED=true` and rerun `Deploy VPS` on `develop` with the
+   original immutable image digest in `image_ref`, preserving the reviewed API SHA.
+   Verify the explicit missing-header error and a successful keyed retry
+   with a single mutation in the owning database. Record both deployment runs and client
+   SHAs as the cutover evidence.
+
+The workflow and example environment preserve the strict `true` default. For manually
+maintained installations, apply these settings to the server environment before each
+deployment. Verified provider callbacks retain their native identity protocol. Do not
+complete the cutover while deployed clients still issue unkeyed mutations.
+
+Validate auth and main separately, including rollback, concurrent duplicates,
+uncertain commit reconciliation and current-access denial before replay. Root-owned
+media transactions must remain root-owned. Secret bodies expire five minutes after
+the first commit; ordinary bodies expire after 24 hours. Clients must reconcile an
+expired or uncertain operation rather than retrying it with a new key. See
+[the security invariants](SECURITY.md#durable-http-idempotency) and
+[the recurring retention command](docs/operations/workers-and-scheduler.md#http-idempotency-result-retention).
 
 ## Health Checks
 
@@ -143,6 +202,12 @@ for transport setup, monitoring and recovery.
 ### Data Cleanup
 
 See the [data cleanup](docs/operations/workers-and-scheduler.md) procedure.
+
+HTTP replay payload erasure is a separate managed maintenance responsibility:
+`php -d memory_limit=1G bin/console app:cleanup:http-idempotency-results --env=prod`.
+It processes auth and main independently and retains durable replay tombstones.
+Follow the [result-retention procedure](docs/operations/workers-and-scheduler.md#http-idempotency-result-retention)
+without installing a duplicate cron job on a managed host.
 
 ### Backup Strategy
 

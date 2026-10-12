@@ -1,0 +1,28 @@
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: false
+
+  Organization\Infrastructure\DataFixtures\PlanFixtures: ~
+
+  app.seed.plans:
+    class: Shared\Infrastructure\DataFixtures\SeedFixtureAdapter
+    arguments:
+      $fixture: '@Organization\Infrastructure\DataFixtures\PlanFixtures'
+      $manager: '@doctrine.orm.main_entity_manager'
+      $seedKey: 'plans'
+      $prerequisites: []
+    tags:
+      - { name: 'app.seed_fixture.main' }
+
+  Organization\Infrastructure\DataFixtures\OrganizationFixtures: ~
+
+  app.seed.organization:
+    class: Shared\Infrastructure\DataFixtures\SeedFixtureAdapter
+    arguments:
+      $fixture: '@Organization\Infrastructure\DataFixtures\OrganizationFixtures'
+      $manager: '@doctrine.orm.main_entity_manager'
+      $seedKey: 'organization'
+      $prerequisites: ['plans']
+    tags:
+      - { name: 'app.seed_fixture.main' }

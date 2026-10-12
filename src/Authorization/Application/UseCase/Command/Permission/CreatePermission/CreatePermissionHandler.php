@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace Authorization\Application\UseCase\Command\Permission\CreatePermission;
 
 use Authorization\Application\Port\Outbound\Internal\PermissionRepositoryPort;
+use Authorization\Application\Port\Outbound\PermissionCatalogPort;
 use Authorization\Domain\Model\Permission\Permission;
 use Authorization\Domain\ValueObject\{PermissionId, PermissionName};
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\UuidGeneratorPort;
+use Shared\Domain\Exception\InvalidValueException;
 
 /**
  * Handler CreatePermissionHandler.
@@ -28,10 +30,12 @@ final readonly class CreatePermissionHandler implements CommandHandler
    *
    * @param PermissionRepositoryPort $permissionRepository the permission repository
    * @param UuidGeneratorPort $uuidFactory the UUID factory
+   * @param PermissionCatalogPort $permissionCatalog registered owner vocabulary
    */
   public function __construct(
     private PermissionRepositoryPort $permissionRepository,
     private UuidGeneratorPort $uuidFactory,
+    private PermissionCatalogPort $permissionCatalog,
   ) {
   }
   // #endregion
@@ -50,6 +54,10 @@ final readonly class CreatePermissionHandler implements CommandHandler
    */
   public function __invoke(CreatePermissionCommand $command): CreatePermissionResult
   {
+    if (!$this->permissionCatalog->contains($command->name)) {
+      throw InvalidValueException::because(message: 'Unknown permission catalog key: ' . $command->name);
+    }
+
     $permission = Permission::create(
       id: new PermissionId($this->uuidFactory->generate()),
       name: new PermissionName(value: $command->name),

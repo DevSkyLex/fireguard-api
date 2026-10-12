@@ -130,8 +130,8 @@ final class OrganizationLastAdminGuardConcurrencyIntegrationTest extends KernelT
   {
     $guardA = $this->buildGuard($this->entityManagerA);
     $guardB = $this->buildGuard($this->entityManagerB);
-    $membersA = new OrganizationMemberRepository($this->entityManagerA);
-    $membersB = new OrganizationMemberRepository($this->entityManagerB);
+    $membersA = new OrganizationMemberRepository($this->entityManagerA, \Tests\Support\OrganizationCatalogTestFactory::systemRoles());
+    $membersB = new OrganizationMemberRepository($this->entityManagerB, \Tests\Support\OrganizationCatalogTestFactory::systemRoles());
 
     // Request A: check, then deactivate the first administrator. Still open.
     $this->connectionA->beginTransaction();
@@ -265,12 +265,12 @@ final class OrganizationLastAdminGuardConcurrencyIntegrationTest extends KernelT
    */
   private function buildGuard(EntityManagerInterface $entityManager): OrganizationLastAdminGuardService
   {
-    $memberRepository = new OrganizationMemberRepository($entityManager);
+    $memberRepository = new OrganizationMemberRepository($entityManager, \Tests\Support\OrganizationCatalogTestFactory::systemRoles());
 
     return new OrganizationLastAdminGuardService(
       $memberRepository,
-      new OrganizationRoleRepository($entityManager),
-      new OrganizationAuthorizationService($memberRepository, new OrganizationRepository($entityManager)),
+      new OrganizationRoleRepository($entityManager, \Tests\Support\OrganizationCatalogTestFactory::systemRoles()),
+      new OrganizationAuthorizationService($memberRepository, new OrganizationRepository($entityManager, \Tests\Support\OrganizationCatalogTestFactory::settingsPolicies()), \Tests\Support\OrganizationCatalogTestFactory::permissions()),
       $this->nullEventDispatcher(),
       new PostgresOrganizationQuotaLockAdapter($entityManager),
     );

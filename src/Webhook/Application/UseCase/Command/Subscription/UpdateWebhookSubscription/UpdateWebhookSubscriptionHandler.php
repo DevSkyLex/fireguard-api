@@ -6,8 +6,8 @@ namespace Webhook\Application\UseCase\Command\Subscription\UpdateWebhookSubscrip
 
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Message\CommandHandler;
-use Webhook\Application\Contract\Event\WebhookEventCatalog;
 use Webhook\Application\Port\Outbound\Internal\WebhookSubscriptionRepositoryPort;
+use Webhook\Application\Port\Outbound\WebhookEventCatalogPort;
 use Webhook\Domain\Exception\{WebhookSubscriptionNotFoundException, WebhookValidationException};
 use Webhook\Domain\Service\WebhookUrlPolicy;
 use Webhook\Domain\ValueObject\WebhookSubscriptionId;
@@ -33,11 +33,13 @@ final readonly class UpdateWebhookSubscriptionHandler implements CommandHandler
    * @param WebhookSubscriptionRepositoryPort $repository the webhook subscription repository port
    * @param WebhookUrlPolicy $urlPolicy the SSRF hardening URL policy
    * @param OrganizationAuthorizationPort $authorization the organization authorization port
+   * @param WebhookEventCatalogPort $eventCatalog the contributed event catalog
    */
   public function __construct(
     private WebhookSubscriptionRepositoryPort $repository,
     private WebhookUrlPolicy $urlPolicy,
     private OrganizationAuthorizationPort $authorization,
+    private WebhookEventCatalogPort $eventCatalog,
   ) {
   }
   // #endregion
@@ -110,7 +112,7 @@ final readonly class UpdateWebhookSubscriptionHandler implements CommandHandler
     }
 
     foreach ($eventTypes as $eventType) {
-      if (!WebhookEventCatalog::isAllowedEventType($eventType)) {
+      if (!$this->eventCatalog->isAllowedEventType($eventType)) {
         throw new WebhookValidationException(sprintf('"%s" is not a subscribable webhook event type.', $eventType));
       }
     }

@@ -51,7 +51,7 @@ final class ImportJobApiTest extends WebTestCase
     $em->flush();
     $jobs = static::getContainer()->get(\Import\Application\Port\Outbound\Internal\ImportJobRepositoryPort::class);
     self::assertInstanceOf(\Import\Application\Port\Outbound\Internal\ImportJobRepositoryPort::class, $jobs);
-    $job = \Import\Domain\Model\ImportJob\ImportJob::create(\Import\Domain\ValueObject\ImportJobId::fromString($id), $org, \Import\Domain\ValueObject\ImportKind::EQUIPMENT, 'unused.csv', 'equipment.csv', $actor);
+    $job = \Import\Domain\Model\ImportJob\ImportJob::create(\Import\Domain\ValueObject\ImportJobId::fromString($id), $org, \Import\Domain\ValueObject\ImportKind::from('equipment'), 'unused.csv', 'equipment.csv', $actor);
     $job->markProcessing(new DateTimeImmutable());
     for ($row = 1; $row <= 123; ++$row) {
       $job->recordRowError(new \Import\Domain\ValueObject\ImportRowError($row, 'invalid', 'Bad row ' . $row));
@@ -101,7 +101,7 @@ final class ImportJobApiTest extends WebTestCase
     self::assertInstanceOf(EntityManagerInterface::class, $em);
     $this->seedFullAccessOrganization($em, $org, $actor, new DateTimeImmutable());
     $em->flush();
-    $source = \Import\Domain\Model\ImportJob\ImportJob::create(\Import\Domain\ValueObject\ImportJobId::fromString($id), $org, \Import\Domain\ValueObject\ImportKind::FACILITY, 'retained.csv', 'facilities.csv', $actor, true);
+    $source = \Import\Domain\Model\ImportJob\ImportJob::create(\Import\Domain\ValueObject\ImportJobId::fromString($id), $org, \Import\Domain\ValueObject\ImportKind::from('facility'), 'retained.csv', 'facilities.csv', $actor, true);
     $source->markProcessing(new DateTimeImmutable());
     $source->setTotalRows(1);
     $source->recordRowSuccess();
@@ -160,7 +160,7 @@ final class ImportJobApiTest extends WebTestCase
       $this->seedMemberWithPermissions($em, $org, $other, ['organization.facilities.read']);
     }
     $em->flush();
-    $job = \Import\Domain\Model\ImportJob\ImportJob::create(\Import\Domain\ValueObject\ImportJobId::fromString($id), $org, \Import\Domain\ValueObject\ImportKind::FACILITY, 'retained.csv', 'facilities.csv', $actor, true);
+    $job = \Import\Domain\Model\ImportJob\ImportJob::create(\Import\Domain\ValueObject\ImportJobId::fromString($id), $org, \Import\Domain\ValueObject\ImportKind::from('facility'), 'retained.csv', 'facilities.csv', $actor, true);
     $jobs = static::getContainer()->get(\Import\Application\Port\Outbound\Internal\ImportJobRepositoryPort::class);
     self::assertInstanceOf(\Import\Application\Port\Outbound\Internal\ImportJobRepositoryPort::class, $jobs);
     $jobs->save($job);
@@ -235,7 +235,7 @@ final class ImportJobApiTest extends WebTestCase
     $job = \Import\Domain\Model\ImportJob\ImportJob::create(
       \Import\Domain\ValueObject\ImportJobId::fromString($id),
       $org,
-      \Import\Domain\ValueObject\ImportKind::FACILITY,
+      \Import\Domain\ValueObject\ImportKind::from('facility'),
       'retained.csv',
       'retained.csv',
       $actor,

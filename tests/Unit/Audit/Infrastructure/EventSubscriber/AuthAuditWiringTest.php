@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Tests\Unit\Audit\Infrastructure\EventSubscriber;
 
 use Audit\Application\UseCase\Command\RecordAuditEvent\{RecordAuditEventCommand, RecordAuditEventResult};
-use Audit\Infrastructure\EventSubscriber\{AbstractAuditEventSubscriber, SecurityAuditEventSubscriber};
 use Audit\Infrastructure\Service\AuditPiiSanitizer;
 use Auth\Application\Contract\Event\Session\{LoginFailedEvent, UserLoggedOutEvent};
 use Auth\Application\Contract\Event\Token\TokenIssuedEvent as AuthTokenIssuedEvent;
@@ -17,7 +16,7 @@ use OAuth\Application\Contract\Event\Token\{
   TokenRefreshedEvent,
   TokenRevokedEvent
 };
-use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use Shared\Application\Port\Inbound\CommandBusPort;
@@ -38,8 +37,6 @@ use Symfony\Component\HttpFoundation\RequestStack;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-#[CoversClass(className: AbstractAuditEventSubscriber::class)]
-#[CoversClass(className: SecurityAuditEventSubscriber::class)]
 final class AuthAuditWiringTest extends TestCase
 {
   // #region Constants

@@ -6,7 +6,7 @@ namespace Auth\Presentation\Api\Processor\Federation;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Application\Contract\Federation\FederatedProvider;
+use Auth\Application\Contract\Federation\ProviderId;
 use Auth\Application\Contract\User\AuthenticatedUser;
 use Auth\Application\UseCase\Command\Federation\DisconnectFederation\DisconnectFederationCommand;
 use Auth\Presentation\Api\Dto\Output\Federation\FederatedConnectionsOutput;
@@ -77,7 +77,7 @@ final readonly class FederatedDisconnectProcessor implements ProcessorInterface
     }
 
     $value = $uriVariables['provider'] ?? null;
-    $provider = is_string($value) ? FederatedProvider::tryFrom($value) : null;
+    $provider = is_string($value) ? ProviderId::tryFrom($value) : null;
     if (null === $provider) {
       throw new BadRequestHttpException('unknown_provider');
     }

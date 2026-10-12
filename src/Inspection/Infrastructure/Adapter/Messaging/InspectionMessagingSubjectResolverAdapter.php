@@ -6,7 +6,7 @@ namespace Inspection\Infrastructure\Adapter\Messaging;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Inspection\Infrastructure\Persistence\Doctrine\Record\{InspectionRecord, NonConformityRecord};
-use Messaging\Application\Contract\Subject\{MessagingSubjectResolution, MessagingSubjectType};
+use Messaging\Application\Contract\Subject\{MessagingSubjectDescriptor, MessagingSubjectResolution};
 use Messaging\Application\Port\Outbound\MessagingSubjectResolverPort;
 
 use function mb_strimwidth;
@@ -68,19 +68,17 @@ final readonly class InspectionMessagingSubjectResolverAdapter implements Messag
 
   // #region Methods
   /**
-   * Method supports
+   * Method descriptor.
    *
-   * Handles non-conformity subject references.
+   * Publishes the stable subject metadata and required read permission.
    *
    * @access public
    *
-   * @param MessagingSubjectType $type subject type to check
-   *
-   * @return bool whether this adapter supports the type
+   * @return MessagingSubjectDescriptor the owner-published subject descriptor
    */
-  public function supports(MessagingSubjectType $type): bool
+  public function descriptor(): MessagingSubjectDescriptor
   {
-    return MessagingSubjectType::NON_CONFORMITY === $type;
+    return new MessagingSubjectDescriptor('non_conformity', 'Non-conformity', 'non-conformities', self::REQUIRED_READ_PERMISSION);
   }
 
   /**

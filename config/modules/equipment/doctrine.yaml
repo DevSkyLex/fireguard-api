@@ -1,0 +1,11 @@
+doctrine:
+  orm:
+    entity_managers:
+      main:
+        mappings:
+          Equipment:
+            is_bundle: false
+            type: attribute
+            dir: '%kernel.project_dir%/src/Equipment/Infrastructure/Persistence/Doctrine/Record'
+            prefix: 'Equipment\Infrastructure\Persistence\Doctrine\Record'
+            alias: Equipment

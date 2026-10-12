@@ -57,7 +57,7 @@ final readonly class UpdateChannelHandler implements CommandHandler
   public function __invoke(UpdateChannelCommand $command): UpdateChannelResult
   {
     $conversation = $this->conversations->findAggregateById($command->conversationId);
-    if (null === $conversation || MessagingSubjectType::CHANNEL !== $conversation->subjectType()) {
+    if (null === $conversation || MessagingSubjectType::CHANNEL !== $conversation->subjectType()->value) {
       throw MessagingNotFoundException::conversation($command->conversationId);
     }
 

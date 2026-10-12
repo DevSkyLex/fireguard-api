@@ -6,19 +6,18 @@ namespace Webhook\Presentation\Api\Provider;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
-use Webhook\Application\Contract\Event\WebhookEventCatalog;
+use Webhook\Application\Contract\Event\WebhookEventDescriptor;
+use Webhook\Application\Port\Outbound\WebhookEventCatalogPort;
 use Webhook\Presentation\Api\Dto\Output\WebhookEventTypeOutput;
 
 use function array_map;
-use function str_replace;
-use function ucwords;
 
 /**
  * Provider WebhookEventTypeProvider.
  *
  * Static reference catalog (`GET /webhooks/event-types`) — the curated
  * allowlist a subscription may register for. Kept thin: it reads directly
- * from `WebhookEventCatalog`, a static registry, per ARCHITECTURE.md's
+ * from the installed contributor catalog, per ARCHITECTURE.md's
  * reference-catalog guideline.
  *
  * @category Provider
@@ -30,6 +29,19 @@ use function ucwords;
  */
 final readonly class WebhookEventTypeProvider implements ProviderInterface
 {
+  // #region Constructor
+  /**
+   * Constructor
+   *
+   * @access public
+   *
+   * @param WebhookEventCatalogPort $eventCatalog the contributed public catalog
+   */
+  public function __construct(private WebhookEventCatalogPort $eventCatalog)
+  {
+  }
+  // #endregion
+
   // #region Methods
   /**
    * Method provide.
@@ -44,7 +56,7 @@ final readonly class WebhookEventTypeProvider implements ProviderInterface
    */
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): array
   {
-    return array_map(self::toOutput(...), WebhookEventCatalog::allowedEventTypes());
+    return array_map(self::toOutput(...), $this->eventCatalog->descriptors());
   }
 
   /**
@@ -54,15 +66,15 @@ final readonly class WebhookEventTypeProvider implements ProviderInterface
    *
    * @since 1.0.0
    *
-   * @param string $value the public event type value
+   * @param WebhookEventDescriptor $descriptor the contributor metadata
    *
    * @return WebhookEventTypeOutput the mapped output
    */
-  private static function toOutput(string $value): WebhookEventTypeOutput
+  private static function toOutput(WebhookEventDescriptor $descriptor): WebhookEventTypeOutput
   {
     $output = new WebhookEventTypeOutput();
-    $output->value = $value;
-    $output->label = ucwords(str_replace(['.', '_'], ' ', $value));
+    $output->value = $descriptor->value;
+    $output->label = $descriptor->label;
 
     return $output;
   }

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Auth\Infrastructure\Adapter\Federation;
 
-use Auth\Application\Contract\Federation\FederatedProvider;
+use Auth\Application\Contract\Federation\ProviderId;
 use Auth\Infrastructure\Adapter\Federation\{GooglePkceProviderAdapter, LeagueFederatedProviderAdapter, OidcPkceProviderAdapter};
 use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
 use PHPUnit\Framework\TestCase;
@@ -32,12 +32,12 @@ final class LeagueFederatedProviderAdapterTest extends TestCase
    *
    * @since 1.0.0
    *
-   * @return iterable<string, array{FederatedProvider}>
+   * @return iterable<string, array{ProviderId}>
    */
   public static function provider(): iterable
   {
-    yield 'Google' => [FederatedProvider::GOOGLE];
-    yield 'Microsoft' => [FederatedProvider::MICROSOFT];
+    yield 'Google' => [ProviderId::from('google')];
+    yield 'Microsoft' => [ProviderId::from('microsoft')];
   }
 
   /**
@@ -47,7 +47,7 @@ final class LeagueFederatedProviderAdapterTest extends TestCase
    */
   #[Test]
   #[DataProvider('provider')]
-  public function testStartUsesPkceWithoutLegacyApprovalPrompt(FederatedProvider $provider): void
+  public function testStartUsesPkceWithoutLegacyApprovalPrompt(ProviderId $provider): void
   {
     $adapter = new LeagueFederatedProviderAdapter(
       googleEnabled: true,

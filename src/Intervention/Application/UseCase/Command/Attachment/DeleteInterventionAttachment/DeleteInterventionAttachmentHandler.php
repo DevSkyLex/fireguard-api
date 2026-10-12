@@ -13,6 +13,7 @@ use Intervention\Domain\ValueObject\InterventionAttachmentId;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\{FileCleanupPort, RootTransactionManagerPort};
+use Shared\Application\Port\Outbound\Idempotency\HttpIdempotencyExecutionPort;
 use Shared\Domain\Exception\InvalidValueException;
 
 /**
@@ -50,6 +51,7 @@ final readonly class DeleteInterventionAttachmentHandler implements CommandHandl
     private FileCleanupPort $fileCleanup,
     private RootTransactionManagerPort $transactions,
     private InterventionMediaLookupPort $media,
+    private ?HttpIdempotencyExecutionPort $idempotency = null,
   ) {
   }
   // #endregion
@@ -76,10 +78,13 @@ final readonly class DeleteInterventionAttachmentHandler implements CommandHandl
       $this->fileCleanup->request($attachment->storagePath());
       $this->interventionResourceManager->touchDraftIntervention($command->interventionId);
 
-      return new DeleteInterventionAttachmentResult(
+      $result = new DeleteInterventionAttachmentResult(
         attachmentId: (string) $attachmentId,
         interventionId: $command->interventionId,
       );
+      $this->idempotency?->captureResult($result);
+
+      return $result;
     });
   }
 

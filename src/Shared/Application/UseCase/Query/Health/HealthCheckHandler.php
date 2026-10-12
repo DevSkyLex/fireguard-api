@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Shared\Application\UseCase\Query\Health;
 
 use Shared\Application\Message\QueryHandler;
-use Shared\Application\Port\Outbound\HealthCheckPort;
+use Shared\Application\Port\Outbound\{HealthCheckPort, ProductConfigPort};
 
 /**
  * Handler HealthCheckHandler.
@@ -29,11 +29,13 @@ final readonly class HealthCheckHandler implements QueryHandler
    * @access public
    *
    * @param HealthCheckPort $healthCheck port that probes configured dependencies
+   * @param ProductConfigPort $product the deployment-owned application version
    *
    * @return void
    */
   public function __construct(
     private HealthCheckPort $healthCheck,
+    private ProductConfigPort $product,
   ) {
   }
   // #endregion
@@ -54,12 +56,14 @@ final readonly class HealthCheckHandler implements QueryHandler
   {
     $databaseHealthy = $this->healthCheck->checkDatabase();
     $cacheHealthy = $this->healthCheck->checkCache();
+    $version = $this->product->identity()->version;
 
     // Database failure is critical - return unhealthy
     if (!$databaseHealthy) {
       return HealthCheckResult::unhealthy(
         database: false,
         cache: $cacheHealthy,
+        version: $version,
       );
     }
 
@@ -69,11 +73,12 @@ final readonly class HealthCheckHandler implements QueryHandler
       return HealthCheckResult::degraded(
         database: true,
         cache: false,
+        version: $version,
       );
     }
 
     // Both database and cache are healthy
-    return HealthCheckResult::healthy();
+    return HealthCheckResult::healthy($version);
   }
   // #endregion
 }

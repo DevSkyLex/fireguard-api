@@ -54,12 +54,12 @@ use Symfony\Component\HttpFoundation\Response;
         ),
         'subjectType' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
-          description: 'Subject type filter (facility|equipment|intervention|non_conformity).',
+          description: 'Stable subject key filter, including historical owner types.',
           required: false,
           castToArray: false,
           castToNativeType: false,
           constraints: [],
-          openApi: new Parameter(name: 'subjectType', in: 'query', description: 'Subject type filter (facility|equipment|intervention|non_conformity).', required: false, schema: ['type' => 'string']),
+          openApi: new Parameter(name: 'subjectType', in: 'query', description: 'Stable subject key filter, including historical owner types.', required: false, schema: ['type' => 'string']),
         ),
         'subjectId' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],

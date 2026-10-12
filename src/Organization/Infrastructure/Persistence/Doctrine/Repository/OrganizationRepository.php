@@ -6,6 +6,7 @@ namespace Organization\Infrastructure\Persistence\Doctrine\Repository;
 
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException as DoctrineUniqueConstraintViolationException;
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository, QueryBuilder};
+use Organization\Application\Port\Inbound\OrganizationSettingsPolicyCatalogPort;
 use Organization\Application\Port\Outbound\Internal\OrganizationRepositoryPort;
 use Organization\Application\Service\OrganizationCacheInvalidator;
 use Organization\Domain\Model\Organization\Organization;
@@ -52,6 +53,7 @@ final readonly class OrganizationRepository implements OrganizationRepositoryPor
    */
   public function __construct(
     private readonly EntityManagerInterface $entityManager,
+    private OrganizationSettingsPolicyCatalogPort $settingsPolicies,
     private readonly ?OrganizationCacheInvalidator $cacheInvalidator = null,
   ) {
     $this->repository = $this->entityManager->getRepository(OrganizationRecord::class);
@@ -160,7 +162,7 @@ final readonly class OrganizationRepository implements OrganizationRepositoryPor
       return null;
     }
 
-    return OrganizationMapper::toDomain($record);
+    return OrganizationMapper::toDomain($record, $this->settingsPolicies->allDefaults());
   }
 
   /**
@@ -177,7 +179,7 @@ final readonly class OrganizationRepository implements OrganizationRepositoryPor
     }
     $this->entityManager->refresh($record);
 
-    return OrganizationMapper::toDomain($record);
+    return OrganizationMapper::toDomain($record, $this->settingsPolicies->allDefaults());
   }
 
   /**
@@ -249,7 +251,7 @@ final readonly class OrganizationRepository implements OrganizationRepositoryPor
     $organizations = [];
     foreach ($records as $record) {
       if ($record instanceof OrganizationRecord) {
-        $organizations[] = OrganizationMapper::toDomain($record);
+        $organizations[] = OrganizationMapper::toDomain($record, $this->settingsPolicies->allDefaults());
       }
     }
 
@@ -329,7 +331,7 @@ final readonly class OrganizationRepository implements OrganizationRepositoryPor
     $records = $this->repository->findBy([], ['name' => 'ASC']);
 
     return array_map(
-      static fn (OrganizationRecord $record): Organization => OrganizationMapper::toDomain($record),
+      fn (OrganizationRecord $record): Organization => OrganizationMapper::toDomain($record, $this->settingsPolicies->allDefaults()),
       $records,
     );
   }

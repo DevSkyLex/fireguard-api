@@ -7,7 +7,7 @@
 
 {% block content %}
   <h1>{{ 'invitation.heading'|trans({ '%org%': organizationName }, 'emails', lang) }}</h1>
-  <p>{{ 'invitation.intro'|trans({ '%org%': organizationName|e }, 'emails', lang)|raw }}</p>
+  <p>{{ 'invitation.intro'|trans({ '%org%': organizationName|e, '%product%': product.identity.publicName|e }, 'emails', lang)|raw }}</p>
   {{ ui.button(acceptUrl, 'invitation.cta'|trans({}, 'emails', lang)) }}
   {{ ui.linkFallback('invitation.fallback'|trans({}, 'emails', lang), acceptUrl) }}
   <p class="muted">

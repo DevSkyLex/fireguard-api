@@ -8,7 +8,6 @@ use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Facility\Infrastructure\Adapter\Messaging\FacilityMessagingSubjectResolverAdapter;
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
-use Messaging\Application\Contract\Subject\MessagingSubjectType;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
@@ -30,12 +29,13 @@ final class FacilityMessagingSubjectResolverAdapterTest extends TestCase
   private const string FACILITY_ID = '550e8400-e29b-41d4-a716-446655440002';
 
   #[Test]
-  public function testSupportsOnlyFacilitySubjectType(): void
+  public function testPublishesTheSubjectDescriptor(): void
   {
     $adapter = new FacilityMessagingSubjectResolverAdapter($this->createStub(EntityManagerInterface::class));
 
-    self::assertTrue($adapter->supports(MessagingSubjectType::FACILITY));
-    self::assertFalse($adapter->supports(MessagingSubjectType::EQUIPMENT));
+    self::assertSame('facility', $adapter->descriptor()->type);
+    self::assertSame('facilities', $adapter->descriptor()->resourceSegment);
+    self::assertSame('organization.facilities.read', $adapter->descriptor()->requiredReadPermission);
   }
 
   #[Test]

@@ -4,16 +4,17 @@ declare(strict_types=1);
 
 namespace Otp\Presentation\Api\Resource;
 
-use ApiPlatform\Metadata\{ApiResource, Post};
+use ApiPlatform\Metadata\{ApiResource, Get, Post};
 use ApiPlatform\OpenApi\Model\{
   Operation,
   Response
 };
 use ArrayObject;
-use Otp\Presentation\Api\Dto\Input\Totp\{ConfirmTotpInput, DisableTotpInput};
-use Otp\Presentation\Api\Dto\Output\Totp\{ConfirmTotpOutput, DisableTotpOutput, SetupTotpOutput};
+use Otp\Presentation\Api\Dto\Input\Totp\{ConfirmTotpInput, DisableTotpInput, GenerateRecoveryCodesInput};
+use Otp\Presentation\Api\Dto\Output\Totp\{ConfirmTotpOutput, DisableTotpOutput, GenerateRecoveryCodesOutput, RecoveryCodesStatusOutput, SetupTotpOutput};
 use Otp\Presentation\Api\Operation\OtpOperations;
-use Otp\Presentation\Api\Processor\Totp\{ConfirmTotpProcessor, DisableTotpProcessor, SetupTotpProcessor};
+use Otp\Presentation\Api\Processor\Totp\{ConfirmTotpProcessor, DisableTotpProcessor, GenerateRecoveryCodesProcessor, SetupTotpProcessor};
+use Otp\Presentation\Api\Provider\Totp\GetRecoveryCodesStatusProvider;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
 /**
@@ -29,6 +30,41 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
   routePrefix: '/otp/totp',
   description: 'TOTP (Authenticator App) management.',
   operations: [
+    new Get(
+      name: OtpOperations::GET_RECOVERY_CODES_STATUS,
+      uriTemplate: '/recovery-codes',
+      output: RecoveryCodesStatusOutput::class,
+      provider: GetRecoveryCodesStatusProvider::class,
+      security: "is_granted('ROLE_USER')",
+      normalizationContext: ['groups' => ['recovery_codes:read'], 'skip_null_values' => false],
+      openapi: new Operation(
+        operationId: 'getRecoveryCodesStatus',
+        tags: ['OTP'],
+        summary: 'Read recovery code availability',
+        description: 'Returns only the authenticated user remaining code count and current lot generation timestamp. Never returns plaintext codes or stored digests.',
+        security: [['bearerAuth' => []]],
+        responses: [200 => new Response(description: 'Safe recovery metadata'), 401 => new Response(description: 'Authentication required'), 403 => new Response(description: 'Account unavailable')],
+      ),
+    ),
+    new Post(
+      name: OtpOperations::GENERATE_RECOVERY_CODES,
+      uriTemplate: '/recovery-codes',
+      status: HttpResponse::HTTP_OK,
+      input: GenerateRecoveryCodesInput::class,
+      output: GenerateRecoveryCodesOutput::class,
+      processor: GenerateRecoveryCodesProcessor::class,
+      security: "is_granted('otp_totp.confirm')",
+      normalizationContext: ['groups' => ['recovery_codes:read']],
+      denormalizationContext: ['groups' => ['recovery_codes:write']],
+      openapi: new Operation(
+        operationId: 'generateRecoveryCodes',
+        tags: ['OTP'],
+        summary: 'Generate recovery codes',
+        description: 'Requires a current code from the active authenticator. Atomically replaces the previous recovery lot with ten single-use 128-bit codes; save the returned codes immediately.',
+        security: [['bearerAuth' => []]],
+        responses: [200 => new Response(description: 'New recovery lot'), 401 => new Response(description: 'Authentication required'), 403 => new Response(description: 'Permission or active account required'), 404 => new Response(description: 'No active authenticator'), 422 => new Response(description: 'Invalid current authenticator proof'), 429 => new Response(description: 'Generation rate limit exceeded')],
+      ),
+    ),
     new Post(
       name: OtpOperations::SETUP_TOTP,
       uriTemplate: '/setup',
@@ -114,7 +150,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         operationId: 'disableTotp',
         tags: ['OTP'],
         summary: 'Disable TOTP',
-        description: 'Disables TOTP for the authenticated user. Requires a valid current TOTP code as proof of possession. Requires otp_totp.disable permission.',
+        description: 'Disables TOTP for the authenticated user with a current authenticator code or an unconsumed recovery code. Clears all remaining recovery codes and pending secrets. A recovery code already used to complete login cannot authorize disable. Requires otp_totp.disable permission.',
         security: [['bearerAuth' => []]],
         responses: [
           HttpResponse::HTTP_OK => new Response(

@@ -75,7 +75,7 @@ final readonly class AuthenticateUserHandler implements \Shared\Application\Mess
       }
 
       // Authenticate
-      $user->authenticate(plainPassword: $query->password);
+      $user->authenticate(plainPassword: $query->password, requireEmailVerification: $query->requireEmailVerification);
 
       // Update last login
       $this->userRepository->save(user: $user);
@@ -87,7 +87,11 @@ final readonly class AuthenticateUserHandler implements \Shared\Application\Mess
         email: $user->email()->value,
         fullName: $user->profile()->fullName(),
       );
-    } catch (UserNotFoundException|InvalidUserException|InvalidPasswordException) {
+    } catch (InvalidPasswordException) {
+      $this->userRepository->save($user);
+
+      return new AuthenticateUserResult(authenticated: false);
+    } catch (UserNotFoundException|InvalidUserException) {
       // Return failure (don't expose which part failed for security)
       return new AuthenticateUserResult(authenticated: false);
     }

@@ -1,0 +1,11 @@
+doctrine:
+  orm:
+    entity_managers:
+      main:
+        mappings:
+          Assistant:
+            is_bundle: false
+            type: attribute
+            dir: '%kernel.project_dir%/src/Assistant/Infrastructure/Persistence/Doctrine/Record'
+            prefix: 'Assistant\Infrastructure\Persistence\Doctrine\Record'
+            alias: Assistant

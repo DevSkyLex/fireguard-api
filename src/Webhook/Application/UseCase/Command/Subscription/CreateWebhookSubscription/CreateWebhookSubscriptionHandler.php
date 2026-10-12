@@ -7,9 +7,8 @@ namespace Webhook\Application\UseCase\Command\Subscription\CreateWebhookSubscrip
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, UuidGeneratorPort};
-use Webhook\Application\Contract\Event\WebhookEventCatalog;
 use Webhook\Application\Port\Outbound\Internal\WebhookSubscriptionRepositoryPort;
-use Webhook\Application\Port\Outbound\WebhookSecretCipherPort;
+use Webhook\Application\Port\Outbound\{WebhookEventCatalogPort, WebhookSecretCipherPort};
 use Webhook\Domain\Event\Subscription\WebhookSubscriptionCreatedEvent;
 use Webhook\Domain\Exception\WebhookValidationException;
 use Webhook\Domain\Model\Subscription\WebhookSubscription;
@@ -66,6 +65,7 @@ final readonly class CreateWebhookSubscriptionHandler implements CommandHandler
    * @param OrganizationAuthorizationPort $authorization the organization authorization port
    * @param UuidGeneratorPort $uuidFactory the UUID generator
    * @param EventDispatcherPort $eventDispatcher the domain event dispatcher
+   * @param WebhookEventCatalogPort $eventCatalog the contributed event catalog
    */
   public function __construct(
     private WebhookSubscriptionRepositoryPort $repository,
@@ -74,6 +74,7 @@ final readonly class CreateWebhookSubscriptionHandler implements CommandHandler
     private OrganizationAuthorizationPort $authorization,
     private UuidGeneratorPort $uuidFactory,
     private EventDispatcherPort $eventDispatcher,
+    private WebhookEventCatalogPort $eventCatalog,
   ) {
   }
   // #endregion
@@ -157,7 +158,7 @@ final readonly class CreateWebhookSubscriptionHandler implements CommandHandler
     }
 
     foreach ($eventTypes as $eventType) {
-      if (!WebhookEventCatalog::isAllowedEventType($eventType)) {
+      if (!$this->eventCatalog->isAllowedEventType($eventType)) {
         throw new WebhookValidationException(sprintf('"%s" is not a subscribable webhook event type.', $eventType));
       }
     }

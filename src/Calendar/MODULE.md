@@ -15,8 +15,7 @@ Two capabilities:
   cross-module audit-log feed is wired into the calendar, and none is planned.
   (This paragraph used to justify the absence against a design mockup. That
   mockup was deleted on 2026-08-09 and is no longer a reference for anything,
-  so the gap is stated on its own terms.) Only these four sources ever
-  contribute:
+  so the gap is stated on its own terms.) The configured sources are:
   - `calendar_event` — standalone events (this module's own data)
   - `inspection` — inspections whose `performedAt` falls in range
   - `intervention` — interventions whose `plannedStartAt` or `dueAt` falls in range
@@ -106,11 +105,13 @@ civil date. The frontend renders returned UTC instants in that organization time
 
 ### Member iCal subscription (`feed-token` + `GET /calendar/feed/{token}.ics`)
 
-Phase 10a. Lets Outlook/Google/Apple Calendar subscribe to a member's
-unified feed **without a session**: the member creates a personal token
-(`POST .../calendar/feed-token`, requires `organization.events.read`), and
-the returned URL — the **only** response ever carrying the raw secret — is
-pasted into the calendar client.
+The member creates a personal token (`POST .../calendar/feed-token`, requires
+`organization.events.read`) and subscribes without a session. In the strict runtime
+contract each poll must send `Idempotency-Key`: retain it for retries of that poll,
+then use a new key to fetch current content. The URL secret authorizes the feed and
+does not identify a poll execution. Stock calendar clients that cannot set this
+header require a compatible client or subscription adapter. The shared test
+compatibility flag disables the mandatory header consistently with other operations.
 
 - **One active token per (organization, member).** `POST` creates _or_
   regenerates: any previously active token is revoked first (`rotated: true`
@@ -127,17 +128,34 @@ pasted into the calendar client.
   30/min sliding window). Lookup is by hash; an unknown token, a revoked
   token, and a token whose member lost `organization.events.read` all answer
   the **same plain 404** — no oracle.
-- **The member's permissions apply.** The controller resolves the token
-  (`ResolveCalendarFeedTokenQuery`) then dispatches the exact same
-  `GetCalendarFeedQuery` the interactive feed runs, with the token member's
-  `userId` — so `GetCalendarFeedHandler`'s `organization.events.read` check
-  and the aggregator's visibility rules are reused unchanged.
+- **The member's permissions apply.** The controller dispatches
+  `ReadCalendarFeedIcsCommand`. Its fresh gate reads the native token row and
+  published current account facts, active membership and effective grants.
+  `organization.events.read` is required; inspection, intervention and maintenance
+  source permissions control exactly which registered sources are loaded.
 - **Window**: fixed, now−30 days → now+180 days (computed in
-  `ResolveCalendarFeedTokenHandler`, well under the feed's 366-day cap).
+  `ReadCalendarFeedIcsHandler`, well under the feed's 366-day cap).
 - **`lastUsedAt` is throttled**: persisted at most once per hour
-  (`CalendarFeedToken::shouldRecordUsage()`), so polling clients do not turn
-  every fetch into a write.
-- **Format**: hand-written RFC 5545 (`CalendarFeedIcalWriter`, no Composer
+  by a conditional native update inside the explicit main root transaction.
+  The usage write and immutable original `ReadCalendarFeedIcsResult` receipt
+  commit together; a same-key replay does not repeat the usage write or regenerate
+  timestamps/content. `ResolveCalendarFeedTokenQuery` performs no mutation.
+- **Replay authorization**: the dedicated principal scope is a purpose-separated
+  HMAC of the subscription secret. Signed receipt proof contains only token,
+  user, organization and membership identifiers, current user revision/tenant,
+  and the exact allowed source keys. Each retry verifies these current facts
+  before decoding the original document; token rotation/revocation, account or
+  membership loss, revision/tenant change and source-scope change answer the same
+  uniform 404. Invalid credentials answer 404 before missing-key validation.
+  Explicit `scopeTenantId: ''` fixes the logical feed scope to null independently
+  of any ambient authenticated tenant; the actual owner `tenant_id` remains a
+  signed current-state fact. Changing that actual tenant must reject the old receipt,
+  rather than move the same poll key into a second execution scope.
+  Neither the raw subscription credential nor its request path is persisted in
+  receipt proof. ICS is a business document with the normal 24-hour receipt lifetime;
+  it contains no newly issued credential and uses `secret: false`.
+- **Format**: hand-written RFC 5545 (`CalendarFeedIcalDocumentBuilder`, shared
+  by the application writer port adapter and `CalendarFeedIcalWriter`, no Composer
   dependency): VCALENDAR/VEVENT, stable `UID` (`<sourceKey>-<id>@fireguard`),
   `DTSTART`/`DTEND` (`VALUE=DATE` + non-inclusive end for all-day items, UTC
   datetimes otherwise), type-prefixed `SUMMARY` (`[Inspection] …`), short
@@ -148,7 +166,7 @@ pasted into the calendar client.
   folding on UTF-8 boundaries per RFC 5545 §3.1.
   All-day values are converted from UTC to the organization's IANA timezone before
   extracting the civil date and adding one local day to the inclusive end.
-  `GetCalendarFeedHandler` reads this regional context through Organization's published
+  The feed handlers read this regional context through Organization's published
   `OrganizationWorkforceDirectoryPort` and carries it in the internal result to the writer;
   the public JSON feed shape is unchanged.
 - **Response headers**: `Content-Type: text/calendar; charset=utf-8`,
@@ -233,14 +251,16 @@ pasted into the calendar client.
 - `Application/Contract/Feed/CalendarFeedItem` — the plain, framework-free
   contract type every source (standalone events + the three cross-module
   ports) maps into. Never a provider module's Domain object.
-- `Application/Port/Outbound/Feed/{Inspection,Intervention,Maintenance}CalendarFeedPort`
-  — three **named, module-specific ports** (not a tagged-iterator seam),
-  mirroring the dashboard statistics ports
-  (`Organization\Application\Port\Outbound\InterventionStatisticsPort` and
-  siblings): the unified feed always has exactly these three external
-  sources plus Calendar's own standalone events, so a fixed set of typed
-  ports is clearer than a dynamic tagged collection.
-- `Application/Service/CalendarFeedAggregator` — merges all four sources.
+- `Application/Port/Outbound/Feed/CalendarFeedSourcePort` publishes a stable
+  `sourceKey()` and a bounded `findBetween(organizationId, from, to, limit)`
+  returning `list<CalendarFeedItem>`. Each owner projects its own data through
+  this contract; Calendar's standalone event adapter uses the same seam.
+- `Application/Service/CalendarFeedSourceRegistry` materializes the
+  `calendar.feed_source` tagged contributors once, preserves configured order,
+  and rejects duplicate source keys during construction. Adding an owner
+  contribution requires its adapter and service tag, plus an explicit authorized
+  source policy in the calling use case when applicable.
+- `Application/Service/CalendarFeedAggregator` merges authorized registered sources.
   Mirrors `Notification\Application\Service\InboxAggregator`'s resilience
   pattern (each source wrapped in try/catch + `LoggerPort::error()`) and
   deterministic-tie-breaker sort, adapted from descending (`occurredAt`, for
@@ -256,9 +276,9 @@ imports User domain models or persistence records for this check.
 | Port (owned by Calendar)                           | Adapter                                      | Hosted in / registered in                                                                                                                     |
 | -------------------------------------------------- | -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
 | `Port\Outbound\Member\CalendarMemberDirectoryPort` | `OrganizationCalendarMemberDirectoryAdapter` | `Organization\Infrastructure\Adapter\Calendar\` — registered in `config/modules/organization.yaml`, aliased in `config/modules/calendar.yaml` |
-| `Port\Outbound\Feed\InspectionCalendarFeedPort`    | `InspectionCalendarFeedAdapter`              | `Inspection\Infrastructure\Adapter\Calendar\` — registered in `config/modules/inspection.yaml`, aliased in `config/modules/calendar.yaml`     |
-| `Port\Outbound\Feed\InterventionCalendarFeedPort`  | `InterventionCalendarFeedAdapter`            | `Intervention\Infrastructure\Adapter\Calendar\` — registered in `config/modules/intervention.yaml`, aliased in `config/modules/calendar.yaml` |
-| `Port\Outbound\Feed\MaintenanceCalendarFeedPort`   | `MaintenanceCalendarFeedAdapter`             | `Maintenance\Infrastructure\Adapter\Calendar\` — registered in `config/modules/maintenance.yaml`, aliased in `config/modules/calendar.yaml`   |
+| `Port\Outbound\Feed\CalendarFeedSourcePort` (`inspection`) | `InspectionCalendarFeedAdapter`       | `Inspection\Infrastructure\Adapter\Calendar\` — tagged in `config/modules/inspection.yaml` |
+| `Port\Outbound\Feed\CalendarFeedSourcePort` (`intervention`) | `InterventionCalendarFeedAdapter`   | `Intervention\Infrastructure\Adapter\Calendar\` — tagged in `config/modules/intervention.yaml` |
+| `Port\Outbound\Feed\CalendarFeedSourcePort` (`maintenance`) | `MaintenanceCalendarFeedAdapter`     | `Maintenance\Infrastructure\Adapter\Calendar\` — tagged in `config/modules/maintenance.yaml` |
 
 Each adapter lives in the **provider** module (never in Calendar), per this
 repo's cross-module convention (mirrors
@@ -352,14 +372,20 @@ granted explicitly).
 ## Configuration
 
 - Service wiring: `config/modules/calendar.yaml` — the two repositories
-  (main entity manager), the four cross-module port aliases above,
+  (main entity manager), the member directory port alias above,
   `CalendarFeedTokenRepositoryPort`, `CalendarFeedAggregator`,
+  `CalendarFeedSourceRegistry` with `!tagged_iterator calendar.feed_source`,
+  and `CalendarEventFeedSourceAdapter` tagged at priority 400,
   `CalendarFeedTokenSecretFactory`, `CalendarFeedIcalWriter`
   (`$frontendUrl: '%app.frontend_url%'`), and the nine command/query handler
   `messenger.message_handler` tags.
 - Cross-module adapter registrations: `config/modules/organization.yaml`,
   `config/modules/inspection.yaml`, `config/modules/intervention.yaml`,
   `config/modules/maintenance.yaml` (see the table above).
+- Feed contributors carry `calendar.feed_source` at priorities 300 (Inspection),
+  200 (Intervention) and 100 (Maintenance), retaining the existing source-state
+  order after `calendar_event`. The aggregator's item sorting and source-specific
+  read permissions remain unchanged; a tag alone does not authorize a source.
 - Security: the event and feed-token management resources carry
   resource-level `security: "is_granted('ROLE_USER')"` plus the fine-grained
   `organization.events.*` permission checks inside the handlers, mirroring
@@ -381,6 +407,11 @@ granted explicitly).
   - `tests/Unit/Calendar/Application/Service/CalendarFeedAggregatorTest.php` —
     covers the merge/sort and the "one failing source degrades to empty,
     others still return" resilience contract.
+  - `tests/Unit/Calendar/Application/Service/CalendarFeedSourceRegistryTest.php`
+    covers iterable materialization, contribution order, duplicate-key rejection,
+    and adding an independent source without changing the aggregator.
+  - `tests/Unit/Calendar/Infrastructure/Adapter/Feed/CalendarEventFeedSourceAdapterTest.php`
+    pins the standalone event projection and exact bounded repository call.
   - `tests/Unit/Calendar/Presentation/Api/Processor/Event/CreateCalendarEventProcessorTest.php`
   - `tests/Unit/Calendar/Presentation/Api/Provider/Feed/GetCalendarFeedProviderTest.php`
   - `tests/Unit/Inspection/Infrastructure/Adapter/Calendar/InspectionCalendarFeedAdapterTest.php`
@@ -404,7 +435,7 @@ granted explicitly).
   - `tests/Unit/Calendar/Application/UseCase/Query/FeedToken/…` —
     `GetCalendarFeedTokenMetadataHandlerTest` (structural no-secret pin) and
     `ResolveCalendarFeedTokenHandlerTest` (hash lookup, uniform not-found,
-    −30/+180 window, throttled `lastUsedAt` writes)
+    −30/+180 window, mutation-free resolution)
   - `tests/Unit/Calendar/Presentation/Api/Ical/CalendarFeedIcalWriterTest.php`
     — structural RFC 5545 lint: framing, CRLF, TEXT escaping, stable UID,
     all-day `VALUE=DATE` with non-inclusive end, 75-octet folding on UTF-8

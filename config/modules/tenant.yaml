@@ -1,3 +1,7 @@
+imports:
+  - { resource: 'tenant/doctrine.yaml' }
+  - { resource: 'tenant/api_platform.yaml' }
+
 services:
     _defaults:
         autowire: true
@@ -51,3 +55,17 @@ services:
     Tenant\Presentation\Api\Processor\Tenant\DeactivateTenantProcessor: ~
 
     Tenant\Infrastructure\EventSubscriber\TenantIsolationSubscriber: ~
+
+    Tenant\Infrastructure\Adapter\Authorization\TenantPermissionContributionAdapter:
+      tags: [authorization.permission_catalog_contribution]
+
+    Tenant\Infrastructure\Adapter\Idempotency\TenantHttpIdempotencyOperationContributionAdapter:
+      tags: [http.idempotency_operation]
+
+    Tenant\Infrastructure\Adapter\Idempotency\TenantHttpIdempotencyReplayAuthorizationAdapter:
+      arguments:
+        $connection: '@doctrine.dbal.auth_connection'
+      tags: [http.idempotency_replay_authorization]
+
+    Tenant\Infrastructure\Adapter\Idempotency\TenantHttpIdempotencyResponseProjectionAdapter:
+      tags: [shared.http_idempotency_response_projection]

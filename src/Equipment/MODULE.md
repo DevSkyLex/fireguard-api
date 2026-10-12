@@ -961,6 +961,17 @@ names the write path has no reason to carry).
 
 ## Configuration
 
+Equipment contributes `create_first_equipment` through Onboarding's published
+`OrganizationOnboardingStepContributionPort`, registered with
+`onboarding.organization_step_contribution`. Its pure descriptor preserves the required
+step and advertised creation action; confirmation checks the owning availability port for
+the pinned organization before the onboarding engine records completion.
+
+Equipment registers its webhook source under `webhook.event_source`, and its
+decommission approval descriptor under `approval.action_descriptor` beside the
+existing `approval.deferred_action_executor`. These adapters own the stable public
+metadata; the reusable engines require no Equipment-specific action or event cases.
+
 Maintenance exports validate published equipment identities through the owner-hosted
 `MaintenanceExportEquipmentIdentityAdapter`, explicitly wired to main and tagged
 `maintenance_export.identity_validator`. Retired equipment remains a valid historical
@@ -1084,3 +1095,38 @@ Creation and canonical patch/delete follow the same rule: Presentation reads Int
 Media providers and processors consume typed queries and commands without Doctrine. Canonical collection queries preserve organization/intervention/facility predicates before pagination, and maintenance deadlines resolve once per page. Equipment detail factories map a complete Application result without performing reads. CSV, report and QR-label export auditing belongs to Application; entitlement and PDF orchestration execute in owner handlers.
 
 Domain repository capabilities live under Application/Port/Outbound/Internal. Cross-module collaborators consume pure public availability, equipment summary, catalog and snapshot ports. Persistence stores organization identities as scalars while preserving the physical foreign keys.
+
+## Durable HTTP mutation replay
+
+Offline `POST`/`PUT` creations restore the original 201 result for an exact authorized
+retry, even after the client UUID exists or the preparing intervention advances.
+The owner first rechecks current actor, organization grants and intervention execution
+access where required; replay does not repeat creation-only identity or lifecycle
+preconditions. A new intention still rejects an existing client UUID (POST 409, PUT 412).
+
+The effectful GET operations `equipment_export`, `equipment_export_report` and
+`equipment_export_labels` use the same required `Idempotency-Key` protocol. Their
+owner command generates a typed artifact containing base64 bytes, its original
+filename and response metadata. The artifact receipt and the single export audit
+event commit together on main; a rendering failure rolls both back. CSV retains
+the frozen import-compatible schema and its 50,000-row cap; labels retain the
+500-label cap. Replays return the original file for 24 hours even when live data
+changes. Current organization READ permission is checked before opening any
+saved file, and report replay also rechecks the current paid-plan entitlement.
+
+Every HTTP mutation publishes an explicit module-owned idempotency operation and immutable
+application result schema. The receipt commits with the owning main-database mutation and
+outbox. Media handlers retain their final transaction boundary; upload processing does not
+run under a parent HTTP transaction.
+
+Before any replay result is opened, the owner reads current scalar scope on the explicitly
+selected main connection and checks fresh organization grants. Global resource deletions
+retain signed original organization evidence so a completed deletion can replay after the
+row disappears. Saved response projections preserve the original result rather than reading
+later modified state. Intervention-derived operations also recheck current participation and
+assignment through the published fresh owner capability.
+
+
+A native attachment `clientId` acknowledgement always dispatches the existing owner upload command with creation disabled. The final root transaction rechecks the identity and access, captures its immutable typed result, and commits a new HTTP receipt before responding. If the attachment disappears after the initial lookup, acknowledgement fails without creating bytes. A new HTTP key can acknowledge the same native identity; repeating that key replays the committed snapshot.
+
+A native attachment `clientId` acknowledgement always dispatches the existing owner upload command with creation disabled. The final root transaction rechecks the identity and access, captures its immutable typed result, and commits a new HTTP receipt before responding. If the attachment disappears after the initial lookup, acknowledgement fails without creating bytes. A new HTTP key can acknowledge the same native identity; repeating that key replays the committed snapshot.

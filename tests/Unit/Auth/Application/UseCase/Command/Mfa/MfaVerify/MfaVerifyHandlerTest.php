@@ -100,7 +100,7 @@ final class MfaVerifyHandlerTest extends TestCase
     $verifier = $this->createMock(ChallengeVerifierPort::class);
     $verifier->expects(self::once())
       ->method('verify')
-      ->with('challenge', '123456')
+      ->with('challenge', '123456', 'user-123', 'otp')
       ->willReturn(new MfaVerifyResult(
         success: false,
         attemptsRemaining: 2,
@@ -157,7 +157,7 @@ final class MfaVerifyHandlerTest extends TestCase
     $verifier = $this->createMock(ChallengeVerifierPort::class);
     $verifier->expects(self::once())
       ->method('verify')
-      ->with('challenge', '123456')
+      ->with('challenge', '123456', 'user-123', 'otp')
       ->willReturn(new MfaVerifyResult(success: true, attemptsRemaining: 1));
 
     /** @var SessionTrackingPort&MockObject $sessionTracking */

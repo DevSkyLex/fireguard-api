@@ -1,0 +1,11 @@
+doctrine:
+  orm:
+    entity_managers:
+      main:
+        mappings:
+          MaintenanceExport:
+            is_bundle: false
+            type: attribute
+            dir: '%kernel.project_dir%/src/MaintenanceExport/Infrastructure/Persistence/Doctrine/Record'
+            prefix: 'MaintenanceExport\Infrastructure\Persistence\Doctrine\Record'
+            alias: MaintenanceExport

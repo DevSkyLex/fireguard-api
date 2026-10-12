@@ -7,7 +7,7 @@ namespace Tests\Integration\Messaging\Infrastructure\DataFixtures;
 use Doctrine\Common\DataFixtures\Executor\ORMExecutor;
 use Doctrine\Common\DataFixtures\Purger\ORMPurger;
 use Doctrine\ORM\EntityManagerInterface;
-use Messaging\Domain\ValueObject\{ConversationVisibility, MessagingSubjectType};
+use Messaging\Domain\ValueObject\ConversationVisibility;
 use Messaging\Infrastructure\DataFixtures\MessagingFixtures;
 use Messaging\Infrastructure\Persistence\Doctrine\Record\{MessagingConversationRecord, MessagingMessageRecord, MessagingParticipantRecord, MessagingReactionRecord, MessagingReadMarkerRecord};
 use Organization\Infrastructure\DataFixtures\OrganizationFixtures;
@@ -68,7 +68,7 @@ final class MessagingFixturesIntegrationTest extends KernelTestCase
     $general = $this->entityManager->find(MessagingConversationRecord::class, MessagingFixtures::GENERAL_CHANNEL_ID);
     self::assertInstanceOf(MessagingConversationRecord::class, $general);
     self::assertSame('general', $general->name);
-    self::assertSame(MessagingSubjectType::CHANNEL->value, $general->subjectType);
+    self::assertSame('channel', $general->subjectType);
     self::assertSame(ConversationVisibility::PARTICIPANTS->value, $general->visibility);
     self::assertNull($general->parentConversation);
     self::assertSame(2, $general->messagesCount);
@@ -81,7 +81,7 @@ final class MessagingFixturesIntegrationTest extends KernelTestCase
 
     $direct = $this->entityManager->find(MessagingConversationRecord::class, MessagingFixtures::DIRECT_CONVERSATION_ID);
     self::assertInstanceOf(MessagingConversationRecord::class, $direct);
-    self::assertSame(MessagingSubjectType::DIRECT->value, $direct->subjectType);
+    self::assertSame('direct', $direct->subjectType);
     self::assertNull($direct->name);
     self::assertNotNull($direct->subjectId);
 

@@ -10,7 +10,7 @@ use Messaging\Application\Service\MessagingAccessPolicy;
 use Messaging\Domain\Exception\MessagingValidationException;
 use Messaging\Domain\ValueObject\MessagingSubjectType;
 use Shared\Application\Message\QueryHandler;
-use ValueError;
+use Shared\Domain\Exception\InvalidValueException;
 
 use function array_map;
 use function sprintf;
@@ -65,7 +65,7 @@ final readonly class ListConversationsHandler implements QueryHandler
     if (null !== $query->subjectType) {
       try {
         $subjectType = MessagingSubjectType::from($query->subjectType);
-      } catch (ValueError) {
+      } catch (InvalidValueException) {
         throw new MessagingValidationException(sprintf('Unsupported subject type "%s".', $query->subjectType));
       }
     }

@@ -201,7 +201,21 @@ Tenant commands/queries own lifecycle and settings decisions. External consumers
 
 Repositories and capabilities exposing owner-local types are private under Application/Port/Outbound/Internal; cross-module access uses published ports and pure contracts.
 
+Tenant publishes its global permission vocabulary through Authorization's pure
+`PermissionCatalogContributionPort`. Its owner-local
+`TenantPermissionContributionAdapter` is registered with
+`authorization.permission_catalog_contribution`; composition rejects duplicate keys
+at boot and preserves explicit publication order. This contribution defines available
+permission keys and does not grant them to a subject.
+
 ## Configuration
+
+Module selection loads [the service entry point](../../config/modules/tenant.yaml)
+together with its [owner configuration fragments](../../config/modules/tenant/).
+Those fragments contribute owned mappings, API/error metadata and configured
+framework/seed registrations. Shared package configuration supplies connections and
+manager definitions; this module's persistence remains explicitly wired to `auth`.
+See the [composition standard](../../ARCHITECTURE.md#service-wiring).
 
 - Service wiring: `config/modules/tenant.yaml`
 - Doctrine filter: `config/packages/doctrine.yaml` (tenant filter)
@@ -264,3 +278,9 @@ POST /api/tenants/{id}/deactivate
 ## Error Codes
 
 No additional stable module-specific error-code catalog is declared here. The resource security, validation and exception translation define the public HTTP responses; consult this module's endpoint contracts and [OpenAPI schema](../../openapi.json). A future distinct public code must be documented in this section with its triggering condition.
+
+Tenant ordinary mutation descriptors explicitly own auth transactions. Replay checks the
+current platform authority and owner target before decoding, while a matching completed
+deletion may use its signed original target after the row is gone. Declared query projections
+preserve final update outputs; creation retains the original stored timestamp in its typed
+result rather than generating a later timestamp during replay.

@@ -1,3 +1,9 @@
+imports:
+  - { resource: 'webhook/doctrine.yaml' }
+  - { resource: 'webhook/api_platform.yaml' }
+  - { resource: 'webhook/framework.yaml' }
+  - { resource: 'webhook/framework_2.yaml' }
+
 services:
   _defaults:
     autowire: true
@@ -91,9 +97,6 @@ services:
 
   # Curated-event subscriber: dispatches directly onto the raw message bus,
   # not CommandBusPort (see its docblock).
-  Webhook\Infrastructure\EventSubscriber\WebhookEventSubscriber:
-    arguments:
-      $messageBus: '@messenger.default_bus'
 
   # Command handlers
   Webhook\Application\UseCase\Command\Subscription\CreateWebhookSubscription\CreateWebhookSubscriptionHandler:
@@ -141,3 +144,29 @@ services:
 
   Webhook\Application\UseCase\Query\Delivery\ListWebhookDeliveries\ListWebhookDeliveriesHandler:
     tags: ['messenger.message_handler']
+
+  Webhook\Infrastructure\Adapter\Event\IntegrationEventConverterAdapter: ~
+
+  Webhook\Application\Port\Outbound\WebhookEventCatalogPort: '@Webhook\Application\Service\WebhookEventCatalogRegistry'
+  Webhook\Application\Port\Inbound\WebhookEventPublisherPort: '@Webhook\Infrastructure\Adapter\Event\WebhookEventPublisherAdapter'
+  Webhook\Application\Service\WebhookEventCatalogRegistry:
+    arguments:
+      $sources: !tagged_iterator webhook.event_source
+  Webhook\Infrastructure\Adapter\Event\WebhookEventPublisherAdapter:
+    arguments:
+      $messageBus: '@messenger.default_bus'
+
+  Webhook\Infrastructure\Adapter\Audit\AuditRecordEventAdapter: ~
+
+  Webhook\Infrastructure\Adapter\Idempotency\WebhookHttpIdempotencyOperationContributionAdapter:
+    tags: [http.idempotency_operation]
+
+  Webhook\Infrastructure\Adapter\Idempotency\WebhookHttpIdempotencyReplayAuthorizationAdapter:
+    arguments:
+      $connection: '@doctrine.dbal.main_connection'
+    tags: [http.idempotency_replay_authorization]
+
+  Webhook\Infrastructure\Adapter\Idempotency\WebhookSecretIdempotencyProofAdapter:
+    arguments:
+      $connection: '@doctrine.dbal.main_connection'
+    tags: [shared.sensitive_idempotency_proof]

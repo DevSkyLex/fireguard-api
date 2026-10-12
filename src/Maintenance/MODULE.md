@@ -272,7 +272,7 @@ in practice.
 | `MaintenanceCompliancePolicyPort` (outbound, cross-module)                                                                                      | `Organization\Infrastructure\Adapter\Maintenance\OrganizationCompliancePolicyAdapter`     |
 | `Inspection\Application\Port\Outbound\InspectionMaintenanceSynchronizerPort` _(cross-module, consumed by Inspection)_                           | `Maintenance\Infrastructure\Adapter\Inspection\MaintenanceScheduleSynchronizerAdapter`    |
 | `Equipment\Application\Port\Outbound\MaintenanceDueStatusPort` _(cross-module, consumed by Equipment)_                                          | `Maintenance\Infrastructure\Adapter\Equipment\EquipmentMaintenanceDueStatusAdapter`       |
-| `Calendar\Application\Port\Outbound\Feed\MaintenanceCalendarFeedPort` _(cross-module, consumed by Calendar)_                                    | `Maintenance\Infrastructure\Adapter\Calendar\MaintenanceCalendarFeedAdapter`              |
+| `Calendar\Application\Port\Outbound\Feed\CalendarFeedSourcePort` _(cross-module, consumed by Calendar)_                                    | `Maintenance\Infrastructure\Adapter\Calendar\MaintenanceCalendarFeedAdapter`              |
 | `Assistant\Application\Port\Outbound\AssistantContextProviderPort` _(cross-module, consumed by Assistant, tagged `assistant.context_provider`)_ | `Maintenance\Infrastructure\Adapter\Assistant\MaintenanceAssistantContextProviderAdapter` |
 | `MaintenanceEquipmentNamingPort` (outbound, cross-module)                                                                                       | `Equipment\Infrastructure\Adapter\Maintenance\EquipmentMaintenanceNamingAdapter`          |
 | `MaintenanceFacilityNamingPort` (outbound, cross-module)                                                                                        | `Facility\Infrastructure\Adapter\Maintenance\FacilityMaintenanceNamingAdapter`            |
@@ -324,7 +324,9 @@ scoping guard) — see Testing below.
 range should still surface schedules that were due then. No equipment name
 is resolved (would require a per-row cross-module call into Equipment); the
 frontend deep-links via `targetId` (the schedule id). Registered in
-`config/modules/maintenance.yaml`; aliased in `config/modules/calendar.yaml`.
+`config/modules/maintenance.yaml` with `calendar.feed_source` (priority 100),
+implementing Calendar's `CalendarFeedSourcePort` with `sourceKey(): 'maintenance'`.
+Calendar's registry collects the contribution.
 See `src/Calendar/MODULE.md`.
 
 **Assistant business-context provider (L2.2)**:
@@ -393,10 +395,10 @@ I/O-free recompute rules:
 `organization.maintenance.read` / `organization.maintenance.manage`
 (`Organization\Domain\Catalog\OrganizationPermissionCatalog`).
 `organization.maintenance.read` is included in the `member` system role's
-canonical permission set (`OrganizationSystemRoleCatalog::permissionsFor()`),
+canonical permission set (`OrganizationSystemRoleCatalogPort::permissionsFor()`),
 consistent with the other read-only permissions granted to every member.
 Canonical system-role permissions are merged in at **read time**
-(`OrganizationSystemRoleCatalog::mergePermissions()`, consumed by
+(`OrganizationSystemRoleCatalogPort::mergePermissions()`, consumed by
 `OrganizationMemberRepository::getPermissionNamesForUserInOrganization()`),
 so existing organizations' `member` roles pick up the new permission
 automatically — no backfill migration is needed.
@@ -489,3 +491,18 @@ Recalculation subscribes to the shared dispatcher's stable event names
 `equipment.equipment_changed_event` and `organization.organization_settings_updated_event`.
 Both payloads are public Application Contracts. Integration coverage delivers the real
 outbox envelope rather than invoking the subscriber directly.
+
+## HTTP mutation and export receipts
+
+Maintenance contributes explicit command/result schemas and current owner replay gates.
+Main transactions own plan, schedule and campaign mutations. Replay rechecks current workspace
+membership/permissions and equipment, facility or generated intervention ownership through
+published fresh capabilities before decoding the original result. Plan response snapshots are
+immutable copies; mutable engine state remains internal to the owner.
+
+`maintenance_schedule_export` is a stateful GET with a required idempotency key. The primary
+command renders the bounded CSV and fixes its original filename before recording export
+provenance through the main transactional dispatcher. The scalar base64 result preserves
+exact bytes for the streamed response. Render failure publishes no provenance; completed replay
+returns the original CSV/filename after current `organization.maintenance.read` and filter
+scope checks, without reading today's rows or publishing another export event.

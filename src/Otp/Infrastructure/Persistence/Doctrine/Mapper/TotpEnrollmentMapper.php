@@ -44,6 +44,8 @@ final readonly class TotpEnrollmentMapper
   public function toRecord(TotpEnrollment $enrollment, ?TotpEnrollmentRecord $record = null): TotpEnrollmentRecord
   {
     $record = $record ?? new TotpEnrollmentRecord();
+    $record->recoveryCodeHashes = $enrollment->recoveryCodeHashes();
+    $record->recoveryCodesGeneratedAt = $enrollment->recoveryCodesGeneratedAt();
     $active = $enrollment->activeSecret()?->secret;
     $pending = $enrollment->pendingSecret()?->secret;
     if ($this->cipher->canEncrypt() || $record->secretsEncrypted) {
@@ -102,6 +104,8 @@ final readonly class TotpEnrollmentMapper
       attemptState: new TotpEnrollmentAttempts($record->getAttempts(), $record->getMaxAttempts(), $record->getDisableAttempts(), $record->getDisableLockedUntil()),
       createdAt: $record->getCreatedAt(),
       updatedAt: $record->getUpdatedAt(),
+      recoveryCodeHashes: $record->recoveryCodeHashes,
+      recoveryCodesGeneratedAt: $record->recoveryCodesGeneratedAt,
     );
   }
   // #endregion

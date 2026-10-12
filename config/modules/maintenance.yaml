@@ -1,3 +1,9 @@
+imports:
+  - { resource: 'maintenance/maintenance.yaml' }
+  - { resource: 'maintenance/doctrine.yaml' }
+  - { resource: 'maintenance/api_platform.yaml' }
+  - { resource: 'maintenance/framework.yaml' }
+
 services:
   _defaults:
     autowire: true
@@ -62,6 +68,8 @@ services:
   Maintenance\Infrastructure\Adapter\Calendar\MaintenanceCalendarFeedAdapter:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
+    tags:
+      - { name: calendar.feed_source, priority: 100 }
 
   # Inbound port
   Maintenance\Application\Port\Inbound\MaintenanceSchedulePort:
@@ -160,5 +168,41 @@ services:
   Maintenance\Application\UseCase\Query\ExportMaintenanceSchedules\ExportMaintenanceSchedulesHandler:
     tags: ['messenger.message_handler']
 
+  Maintenance\Infrastructure\Adapter\Event\IntegrationEventConverterAdapter: ~
+
+  Maintenance\Infrastructure\Adapter\Webhook\MaintenanceWebhookEventSourceAdapter:
+    tags:
+      - { name: webhook.event_source, priority: 200 }
+
+  Maintenance\Infrastructure\Adapter\Schema\SchemaContributionAdapter:
+    tags: [shared.schema_contribution]
+
+  Maintenance\Infrastructure\Adapter\Audit\AuditRecordEventAdapter: ~
+
+  Maintenance\Infrastructure\Adapter\OrganizationCatalog\MaintenanceSystemRoleContributionAdapter:
+    tags: [organization.system_role_contribution]
+
+  Maintenance\Infrastructure\Adapter\OrganizationCatalog\MaintenanceSettingsPolicyContributionAdapter:
+    tags: [organization.settings_policy_contribution]
+
+  Maintenance\Infrastructure\Adapter\Idempotency\MaintenanceHttpIdempotencyOperationContributionAdapter:
+    tags: [http.idempotency_operation]
+
+  Maintenance\Infrastructure\Adapter\Idempotency\MaintenanceHttpIdempotencyReplayAuthorizationAdapter:
+    arguments:
+      $connection: '@doctrine.dbal.main_connection'
+    tags: [http.idempotency_replay_authorization]
+
   Maintenance\Application\UseCase\Command\Export\PrepareMaintenanceScheduleExport\PrepareMaintenanceScheduleExportHandler:
-    tags: ['messenger.message_handler']
+    arguments:
+      $eventDispatcher: '@Shared\Infrastructure\Messaging\Outbox\MainTransactionEventDispatcher'
+    tags: [messenger.message_handler]
+  Maintenance\Application\Port\Outbound\Export\MaintenanceScheduleCsvRendererPort: '@Maintenance\Infrastructure\Adapter\Export\MaintenanceScheduleCsvRendererAdapter'
+  Maintenance\Infrastructure\Adapter\Export\MaintenanceScheduleCsvRendererAdapter: ~
+when@dev:
+  imports:
+    - { resource: 'maintenance/seeds.yaml' }
+
+when@test:
+  imports:
+    - { resource: 'maintenance/seeds.yaml' }

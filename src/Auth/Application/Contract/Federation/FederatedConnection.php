@@ -28,22 +28,24 @@ final readonly class FederatedConnection
    *
    * @param string $id identifier of this stored provider connection
    * @param string $userId Fireguard user linked to the provider identity
-   * @param FederatedProvider $provider federated provider that issued the identity
+   * @param ProviderId $provider federated provider that issued the identity
    * @param string $subject provider-scoped subject identifier
    * @param string $email email address reported for the connected identity
    * @param DateTimeImmutable $connectedAt time this provider identity was linked
    * @param DateTimeImmutable $lastUsedAt time the connection was last used
+   * @param ?string $issuer immutable generic issuer; absent for legacy provider identities
    *
    * @return void
    */
   public function __construct(
     public string $id,
     public string $userId,
-    public FederatedProvider $provider,
+    public ProviderId $provider,
     public string $subject,
     public string $email,
     public DateTimeImmutable $connectedAt,
     public DateTimeImmutable $lastUsedAt,
+    public ?string $issuer = null,
   ) {
   }
   // #endregion

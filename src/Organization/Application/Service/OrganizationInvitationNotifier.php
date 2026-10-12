@@ -8,7 +8,7 @@ use DateTimeImmutable;
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest, SentNotification};
 use Notification\Application\Contract\Notification\NotificationType;
 use Notification\Application\Port\Inbound\NotificationPort;
-use Shared\Application\Port\Outbound\TranslationPort;
+use Shared\Application\Port\Outbound\{ProductConfigPort, TranslationPort};
 
 use function htmlspecialchars;
 use function in_array;
@@ -46,12 +46,14 @@ final readonly class OrganizationInvitationNotifier
    * @param string $frontendUrl the public frontend base URL for the accept link
    * @param OrganizationInvitationTokenHasher $tokenHasher the shared token generator/hasher
    * @param TranslationPort $translator the translator, for the localized subject and body
+   * @param ProductConfigPort $product the deployment-owned public product name
    */
   public function __construct(
     private NotificationPort $notificationPort,
     private string $frontendUrl,
     private OrganizationInvitationTokenHasher $tokenHasher,
     private TranslationPort $translator,
+    private ProductConfigPort $product,
   ) {
   }
   // #endregion
@@ -143,7 +145,7 @@ final readonly class OrganizationInvitationNotifier
 
     $subject = $this->translator->translate(
       'invitation.emailSubject',
-      ['%org%' => $organizationName],
+      ['%org%' => $organizationName, '%product%' => $this->product->identity()->publicName],
       'emails',
       $locale,
     );

@@ -31,7 +31,7 @@ final class OrganizationMemberRepositoryIntegrationTest extends KernelTestCase
     /** @var EntityManagerInterface $entityManager */
     $entityManager = static::getContainer()->get('doctrine.orm.main_entity_manager');
     $this->entityManager = $entityManager;
-    $this->repository = new OrganizationMemberRepository($this->entityManager);
+    $this->repository = new OrganizationMemberRepository($this->entityManager, \Tests\Support\OrganizationCatalogTestFactory::systemRoles());
   }
 
   protected function tearDown(): void
@@ -487,7 +487,7 @@ final class OrganizationMemberRepositoryIntegrationTest extends KernelTestCase
   #[Test]
   public function testCountJoinedByDayRejectsAnUnusableStorageTimeZone(): void
   {
-    $repository = new OrganizationMemberRepository($this->entityManager, null, 'Nowhere/Nothing');
+    $repository = new OrganizationMemberRepository($this->entityManager, \Tests\Support\OrganizationCatalogTestFactory::systemRoles(), null, 'Nowhere/Nothing');
 
     $this->expectException(InvalidStorageTimeZoneException::class);
     $this->expectExceptionMessage('Invalid DATABASE_STORAGE_TIMEZONE configuration.');

@@ -198,6 +198,7 @@ final class InviteOrganizationMemberHandlerTest extends TestCase
       'http://localhost:4200',
       new OrganizationInvitationTokenHasher(),
       new \Shared\Infrastructure\Symfony\Adapter\Outbound\TranslatorAdapter(EmailTranslatorTestFactory::create()),
+      \Tests\Support\Shared\ProductConfigFixture::create(),
     );
 
     $grantGuard = $this->createMock(\Organization\Application\Port\Inbound\OrganizationPermissionGrantGuardPort::class);
@@ -373,6 +374,7 @@ final class InviteOrganizationMemberHandlerTest extends TestCase
       'http://localhost:4200',
       new OrganizationInvitationTokenHasher(),
       new \Shared\Infrastructure\Symfony\Adapter\Outbound\TranslatorAdapter(EmailTranslatorTestFactory::create()),
+      \Tests\Support\Shared\ProductConfigFixture::create(),
     );
 
     $handler = new InviteOrganizationMemberHandler(
@@ -516,6 +518,7 @@ final class InviteOrganizationMemberHandlerTest extends TestCase
       'http://localhost:4200',
       new OrganizationInvitationTokenHasher(),
       new \Shared\Infrastructure\Symfony\Adapter\Outbound\TranslatorAdapter(EmailTranslatorTestFactory::create()),
+      \Tests\Support\Shared\ProductConfigFixture::create(),
     );
 
     $handler = new InviteOrganizationMemberHandler(
@@ -648,6 +651,7 @@ final class InviteOrganizationMemberHandlerTest extends TestCase
       'http://localhost:4200',
       new OrganizationInvitationTokenHasher(),
       new \Shared\Infrastructure\Symfony\Adapter\Outbound\TranslatorAdapter(EmailTranslatorTestFactory::create()),
+      \Tests\Support\Shared\ProductConfigFixture::create(),
     );
 
     $handler = new InviteOrganizationMemberHandler(
@@ -967,6 +971,7 @@ final class InviteOrganizationMemberHandlerTest extends TestCase
       'http://localhost:4200',
       new OrganizationInvitationTokenHasher(),
       new \Shared\Infrastructure\Symfony\Adapter\Outbound\TranslatorAdapter(EmailTranslatorTestFactory::create()),
+      \Tests\Support\Shared\ProductConfigFixture::create(),
     );
 
     return new InviteOrganizationMemberHandler(

@@ -5,13 +5,18 @@ declare(strict_types=1);
 namespace Tests\Functional\Api;
 
 use Auth\Infrastructure\Security\User\SecurityUser;
+use DAMA\DoctrineTestBundle\PHPUnit\SkipDatabaseRollback;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Inspection\Infrastructure\Persistence\Doctrine\Record\InspectionRecord;
+use LogicException;
 use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationMemberRecord, OrganizationMemberRoleRecord, OrganizationRecord, OrganizationRoleRecord, PlanRecord};
 use PHPUnit\Framework\Attributes\Test;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Tests\Support\Auth\InteractiveTokenFactory;
+use Tests\Support\Database\RootCommitDatabaseIsolationTrait;
+use User\Infrastructure\Persistence\Doctrine\Record\UserRecord;
 
 use function str_starts_with;
 
@@ -33,8 +38,11 @@ use function str_starts_with;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
+#[SkipDatabaseRollback]
 final class InspectionReportExportApiTest extends WebTestCase
 {
+  use RootCommitDatabaseIsolationTrait;
+
   private const string DUMMY_UUID = '550e8400-e29b-41d4-a716-446655440000';
 
   private const string ORGANIZATION_ID = '550e8400-e29b-41d4-a716-446655520001';
@@ -57,6 +65,7 @@ final class InspectionReportExportApiTest extends WebTestCase
   public function testExportInspectionReportRequiresAuthentication(): void
   {
     $client = static::createClient();
+    $client->disableReboot();
 
     $client->request('GET', '/api/organizations/' . self::DUMMY_UUID . '/inspections/' . self::DUMMY_UUID . '/report');
 
@@ -79,6 +88,7 @@ final class InspectionReportExportApiTest extends WebTestCase
   public function testExportInspectionReportSucceedsAndStreamsAPdf(): void
   {
     $client = static::createClient();
+    $client->disableReboot();
     $this->seedOrganization(planKey: 'pro');
     $this->seedInspection();
 
@@ -104,6 +114,7 @@ final class InspectionReportExportApiTest extends WebTestCase
   public function testExportInspectionReportReturns404ForAnUnknownInspection(): void
   {
     $client = static::createClient();
+    $client->disableReboot();
     $this->seedOrganization(planKey: 'pro');
 
     $this->loginAs($client, self::ADMIN_USER_ID, 'inspection-report-admin@example.com');
@@ -117,6 +128,7 @@ final class InspectionReportExportApiTest extends WebTestCase
   public function testExportInspectionReportRejectsMemberWithoutReadPermission(): void
   {
     $client = static::createClient();
+    $client->disableReboot();
     $this->seedOrganization(planKey: 'pro');
     $this->seedInspection();
 
@@ -135,6 +147,7 @@ final class InspectionReportExportApiTest extends WebTestCase
   public function testExportInspectionReportReturns404ForACallerFromAnotherOrganization(): void
   {
     $client = static::createClient();
+    $client->disableReboot();
     $this->seedOrganization(planKey: 'pro');
     $this->seedInspection();
 
@@ -153,6 +166,7 @@ final class InspectionReportExportApiTest extends WebTestCase
   public function testExportInspectionReportRejectsANonEntitledPlanWith403(): void
   {
     $client = static::createClient();
+    $client->disableReboot();
     $this->seedOrganization(planKey: 'inspection-report-basic-test');
     $this->seedInspection();
 
@@ -180,7 +194,7 @@ final class InspectionReportExportApiTest extends WebTestCase
       password: 'hashed-password',
       roles: ['ROLE_USER'],
     );
-    $client->loginUser($user, 'api');
+    $this->authenticateExport($client, $user);
   }
 
   /**
@@ -357,5 +371,28 @@ final class InspectionReportExportApiTest extends WebTestCase
     $inspection->updatedAt = $now;
     $entityManager->persist($inspection);
     $entityManager->flush();
+  }
+
+  private function authenticateExport(KernelBrowser $client, SecurityUser $identity): void
+  {
+    $auth = self::getContainer()->get('doctrine.orm.auth_entity_manager');
+    self::assertInstanceOf(EntityManagerInterface::class, $auth);
+    $user = new UserRecord();
+    $user->id = $identity->getId();
+    $user->username = 'export-' . $identity->getId();
+    $user->email = $identity->getUserIdentifier();
+    $user->firstName = 'Export';
+    $user->lastName = 'Contract';
+    $user->status = 'active';
+    $user->emailVerified = true;
+    $user->emailOwnershipVerifiedAt = new DateTimeImmutable();
+    $user->createdAt = new DateTimeImmutable();
+    $auth->persist($user);
+    $auth->flush();
+    $actorId = $user->id;
+    if ('' === $actorId) {
+      throw new LogicException('An export fixture account must have an identifier.');
+    }
+    $client->setServerParameter('HTTP_AUTHORIZATION', 'Bearer ' . InteractiveTokenFactory::issue(self::getContainer(), $actorId, $user->email));
   }
 }

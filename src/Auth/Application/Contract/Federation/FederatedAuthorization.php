@@ -26,12 +26,14 @@ final readonly class FederatedAuthorization
    *
    * @param string $authorizationUrl provider URL to which the browser is redirected
    * @param string $codeVerifier PKCE verifier retained for the token exchange
+   * @param ?string $nonceHash hash of the generated generic OIDC nonce; absent for legacy adapters
    *
    * @return void
    */
   public function __construct(
     public string $authorizationUrl,
     public string $codeVerifier,
+    public ?string $nonceHash = null,
   ) {
   }
   // #endregion

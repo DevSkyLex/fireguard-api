@@ -34,7 +34,7 @@ final class ImportJobTest extends TestCase
 
     self::assertSame(self::JOB_ID, (string) $job->id());
     self::assertSame(self::ORGANIZATION_ID, $job->organizationId());
-    self::assertSame(ImportKind::EQUIPMENT, $job->kind());
+    self::assertSame('equipment', $job->kind()->value);
     self::assertSame(ImportStatus::PENDING, $job->status());
     self::assertSame('imports/org-1/job.csv', $job->storagePath());
     self::assertSame('equipment.csv', $job->originalFilename());
@@ -56,7 +56,7 @@ final class ImportJobTest extends TestCase
     $job = ImportJob::create(
       id: ImportJobId::fromString(self::JOB_ID),
       organizationId: self::ORGANIZATION_ID,
-      kind: ImportKind::FACILITY,
+      kind: ImportKind::from('facility'),
       storagePath: 'imports/org-1/job.csv',
       originalFilename: 'facilities.csv',
       createdBy: self::CREATED_BY,
@@ -74,12 +74,12 @@ final class ImportJobTest extends TestCase
     $error = new ImportRowError(1, 'invalid', 'bad', 'type');
 
     $job = ImportJob::reconstitute(
-      source: new ImportJobSource(ImportJobId::fromString(self::JOB_ID), self::ORGANIZATION_ID, ImportKind::FACILITY, 'imports/org-1/job.csv', 'facilities.csv', self::CREATED_BY, true),
+      source: new ImportJobSource(ImportJobId::fromString(self::JOB_ID), self::ORGANIZATION_ID, ImportKind::from('facility'), 'imports/org-1/job.csv', 'facilities.csv', self::CREATED_BY, true),
       progress: new ImportJobProgress(ImportStatus::COMPLETED, 5, 5, 4, 1, [$error], null),
       timeline: new ImportJobTimeline($createdAt, $updatedAt, $createdAt, $updatedAt),
     );
 
-    self::assertSame(ImportKind::FACILITY, $job->kind());
+    self::assertSame('facility', $job->kind()->value);
     self::assertSame(ImportStatus::COMPLETED, $job->status());
     self::assertSame(5, $job->totalRows());
     self::assertSame(5, $job->processedRows());
@@ -200,7 +200,7 @@ final class ImportJobTest extends TestCase
     return ImportJob::create(
       id: ImportJobId::fromString(self::JOB_ID),
       organizationId: self::ORGANIZATION_ID,
-      kind: ImportKind::EQUIPMENT,
+      kind: ImportKind::from('equipment'),
       storagePath: 'imports/org-1/job.csv',
       originalFilename: 'equipment.csv',
       createdBy: self::CREATED_BY,

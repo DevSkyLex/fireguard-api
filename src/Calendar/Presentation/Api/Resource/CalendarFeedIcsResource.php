@@ -13,8 +13,9 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 /**
  * Resource CalendarFeedIcsResource.
  *
- * The public iCal subscription endpoint Outlook/Google/Apple Calendar poll:
- * no session, no Bearer token — the URL-embedded secret is the credential
+ * The public iCal subscription endpoint requires a compatible client or adapter
+ * that sends Idempotency-Key for each poll. No session or Bearer token is needed;
+ * the URL-embedded secret is the credential
  * (`PUBLIC_ACCESS` in `config/packages/security.yaml`, mirroring the public
  * invitation preview). Serves the token member's unified feed (their
  * permissions apply) over a fixed window of 30 days back / 180 days ahead,
@@ -47,9 +48,12 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         description: 'Unauthenticated by design: the URL-embedded token secret is the credential. '
           . 'Returns the token member\'s unified feed (events, inspections, interventions, maintenance due dates) '
           . 'for a fixed window of 30 days back / 180 days ahead as an RFC 5545 text/calendar document. '
+          . 'The strict runtime requires Idempotency-Key: retain a poll key for retries to receive the original document; '
+          . 'send a new key to fetch current content. Stock calendar clients unable to set this header require a compatible subscription adapter. '
           . 'Unknown and revoked tokens both answer a plain 404.',
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'iCalendar feed (text/calendar)'),
+          HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'A valid subscription requires a valid Idempotency-Key in the strict runtime'),
           HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Unknown or revoked token'),
         ],
       ),

@@ -21,12 +21,12 @@ final class OrganizationComplianceSettingsTest extends TestCase
   #[Test]
   public function testDefaultsResolveAgainstCatalog(): void
   {
-    $compliance = new OrganizationComplianceSettings();
+    $compliance = new OrganizationComplianceSettings(defaultSlaDays: \Tests\Support\OrganizationCatalogTestFactory::complianceSlaDefaults(), defaultPeriodicities: \Tests\Support\OrganizationCatalogTestFactory::compliancePeriodicityDefaults());
 
     self::assertSame([], $compliance->nonConformitySlaDays);
     self::assertSame([], $compliance->inspectionPeriodicityDefaults);
     self::assertSame(OrganizationComplianceDefaults::REMINDER_WINDOW_DAYS, $compliance->reminderWindowDays);
-    self::assertSame(OrganizationComplianceDefaults::NON_CONFORMITY_SLA_DAYS, $compliance->effectiveNonConformitySlaDays());
+    self::assertSame(\Tests\Support\OrganizationCatalogTestFactory::complianceSlaDefaults(), $compliance->effectiveNonConformitySlaDays());
     self::assertSame(1, $compliance->slaDaysFor('critical'));
     self::assertSame('P1Y', $compliance->periodicityFor('fire_extinguisher'));
     self::assertSame('P6M', $compliance->periodicityFor('fire_door'));
@@ -39,6 +39,8 @@ final class OrganizationComplianceSettingsTest extends TestCase
     $compliance = new OrganizationComplianceSettings(
       nonConformitySlaDays: ['critical' => 2],
       inspectionPeriodicityDefaults: ['fire_extinguisher' => 'P6M'],
+      defaultSlaDays: \Tests\Support\OrganizationCatalogTestFactory::complianceSlaDefaults(),
+      defaultPeriodicities: \Tests\Support\OrganizationCatalogTestFactory::compliancePeriodicityDefaults(),
     );
 
     $effectiveSla = $compliance->effectiveNonConformitySlaDays();
@@ -57,6 +59,8 @@ final class OrganizationComplianceSettingsTest extends TestCase
     $compliance = new OrganizationComplianceSettings(
       nonConformitySlaDays: ['high' => 3],
       reminderWindowDays: 45,
+      defaultSlaDays: \Tests\Support\OrganizationCatalogTestFactory::complianceSlaDefaults(),
+      defaultPeriodicities: \Tests\Support\OrganizationCatalogTestFactory::compliancePeriodicityDefaults(),
     );
 
     $data = $compliance->toArray();
@@ -64,7 +68,7 @@ final class OrganizationComplianceSettingsTest extends TestCase
     self::assertSame(['high' => 3], $data['non_conformity_sla_days']);
     self::assertSame([], $data['inspection_periodicity_defaults']);
     self::assertSame(45, $data['reminder_window_days']);
-    self::assertEquals($compliance, OrganizationComplianceSettings::fromArray($data));
+    self::assertEquals($compliance, OrganizationComplianceSettings::fromArray($data, \Tests\Support\OrganizationCatalogTestFactory::settingsPolicies()->defaults('compliance')));
   }
 
   #[Test]
@@ -73,6 +77,8 @@ final class OrganizationComplianceSettingsTest extends TestCase
     $compliance = new OrganizationComplianceSettings(
       nonConformitySlaDays: ['critical' => 2, 'high' => 3],
       inspectionPeriodicityDefaults: ['camera' => 'P2Y'],
+      defaultSlaDays: \Tests\Support\OrganizationCatalogTestFactory::complianceSlaDefaults(),
+      defaultPeriodicities: \Tests\Support\OrganizationCatalogTestFactory::compliancePeriodicityDefaults(),
     );
 
     $merged = $compliance->mergedWith([
@@ -94,6 +100,8 @@ final class OrganizationComplianceSettingsTest extends TestCase
     $compliance = new OrganizationComplianceSettings(
       nonConformitySlaDays: ['critical' => 2],
       reminderWindowDays: 45,
+      defaultSlaDays: \Tests\Support\OrganizationCatalogTestFactory::complianceSlaDefaults(),
+      defaultPeriodicities: \Tests\Support\OrganizationCatalogTestFactory::compliancePeriodicityDefaults(),
     );
 
     $merged = $compliance->mergedWith(['reminder_window_days' => null]);
@@ -106,7 +114,7 @@ final class OrganizationComplianceSettingsTest extends TestCase
   {
     $this->expectException(InvalidValueException::class);
 
-    new OrganizationComplianceSettings(nonConformitySlaDays: ['catastrophic' => 1]);
+    new OrganizationComplianceSettings(nonConformitySlaDays: ['catastrophic' => 1], defaultSlaDays: \Tests\Support\OrganizationCatalogTestFactory::complianceSlaDefaults(), defaultPeriodicities: \Tests\Support\OrganizationCatalogTestFactory::compliancePeriodicityDefaults());
   }
 
   #[Test]
@@ -114,7 +122,7 @@ final class OrganizationComplianceSettingsTest extends TestCase
   {
     $this->expectException(InvalidValueException::class);
 
-    new OrganizationComplianceSettings(nonConformitySlaDays: ['low' => 400]);
+    new OrganizationComplianceSettings(nonConformitySlaDays: ['low' => 400], defaultSlaDays: \Tests\Support\OrganizationCatalogTestFactory::complianceSlaDefaults(), defaultPeriodicities: \Tests\Support\OrganizationCatalogTestFactory::compliancePeriodicityDefaults());
   }
 
   #[Test]
@@ -122,7 +130,7 @@ final class OrganizationComplianceSettingsTest extends TestCase
   {
     $this->expectException(InvalidValueException::class);
 
-    new OrganizationComplianceSettings(inspectionPeriodicityDefaults: ['camera' => 'every year']);
+    new OrganizationComplianceSettings(inspectionPeriodicityDefaults: ['camera' => 'every year'], defaultSlaDays: \Tests\Support\OrganizationCatalogTestFactory::complianceSlaDefaults(), defaultPeriodicities: \Tests\Support\OrganizationCatalogTestFactory::compliancePeriodicityDefaults());
   }
 
   #[Test]
@@ -130,7 +138,7 @@ final class OrganizationComplianceSettingsTest extends TestCase
   {
     $this->expectException(InvalidValueException::class);
 
-    new OrganizationComplianceSettings(inspectionPeriodicityDefaults: ['camera' => 'P1D']);
+    new OrganizationComplianceSettings(inspectionPeriodicityDefaults: ['camera' => 'P1D'], defaultSlaDays: \Tests\Support\OrganizationCatalogTestFactory::complianceSlaDefaults(), defaultPeriodicities: \Tests\Support\OrganizationCatalogTestFactory::compliancePeriodicityDefaults());
   }
 
   #[Test]
@@ -138,7 +146,7 @@ final class OrganizationComplianceSettingsTest extends TestCase
   {
     $this->expectException(InvalidValueException::class);
 
-    new OrganizationComplianceSettings(inspectionPeriodicityDefaults: ['camera' => 'P20Y']);
+    new OrganizationComplianceSettings(inspectionPeriodicityDefaults: ['camera' => 'P20Y'], defaultSlaDays: \Tests\Support\OrganizationCatalogTestFactory::complianceSlaDefaults(), defaultPeriodicities: \Tests\Support\OrganizationCatalogTestFactory::compliancePeriodicityDefaults());
   }
 
   #[Test]
@@ -147,7 +155,7 @@ final class OrganizationComplianceSettingsTest extends TestCase
     $this->expectException(InvalidValueException::class);
     $this->expectExceptionMessage('Equipment type keys must be non-empty strings.');
 
-    new OrganizationComplianceSettings(inspectionPeriodicityDefaults: ['' => 'P1Y']);
+    new OrganizationComplianceSettings(inspectionPeriodicityDefaults: ['' => 'P1Y'], defaultSlaDays: \Tests\Support\OrganizationCatalogTestFactory::complianceSlaDefaults(), defaultPeriodicities: \Tests\Support\OrganizationCatalogTestFactory::compliancePeriodicityDefaults());
   }
 
   #[Test]
@@ -156,7 +164,7 @@ final class OrganizationComplianceSettingsTest extends TestCase
     $this->expectException(InvalidValueException::class);
     $this->expectExceptionMessage('Equipment type keys must be non-empty strings.');
 
-    new OrganizationComplianceSettings(inspectionPeriodicityDefaults: [7 => 'P1Y']);
+    new OrganizationComplianceSettings(inspectionPeriodicityDefaults: [7 => 'P1Y'], defaultSlaDays: \Tests\Support\OrganizationCatalogTestFactory::complianceSlaDefaults(), defaultPeriodicities: \Tests\Support\OrganizationCatalogTestFactory::compliancePeriodicityDefaults());
   }
 
   #[Test]
@@ -165,7 +173,7 @@ final class OrganizationComplianceSettingsTest extends TestCase
     $this->expectException(InvalidValueException::class);
     $this->expectExceptionMessage('Inspection periodicity for "fire_extinguisher" must be an ISO-8601 duration string.');
 
-    new OrganizationComplianceSettings(inspectionPeriodicityDefaults: ['fire_extinguisher' => 12]);
+    new OrganizationComplianceSettings(inspectionPeriodicityDefaults: ['fire_extinguisher' => 12], defaultSlaDays: \Tests\Support\OrganizationCatalogTestFactory::complianceSlaDefaults(), defaultPeriodicities: \Tests\Support\OrganizationCatalogTestFactory::compliancePeriodicityDefaults());
   }
 
   #[Test]
@@ -173,7 +181,7 @@ final class OrganizationComplianceSettingsTest extends TestCase
   {
     $this->expectException(InvalidValueException::class);
 
-    new OrganizationComplianceSettings(reminderWindowDays: 0);
+    new OrganizationComplianceSettings(reminderWindowDays: 0, defaultSlaDays: \Tests\Support\OrganizationCatalogTestFactory::complianceSlaDefaults(), defaultPeriodicities: \Tests\Support\OrganizationCatalogTestFactory::compliancePeriodicityDefaults());
   }
 
   #[Test]

@@ -7,6 +7,7 @@ namespace Assistant\Application\Service;
 use Assistant\Application\Contract\Context\AssistantContextScope;
 use Assistant\Domain\Model\Message\AssistantMessage;
 use LengthException;
+use Shared\Application\Port\Outbound\ProductConfigPort;
 
 use function array_map;
 use function array_merge;
@@ -17,7 +18,7 @@ use function mb_strlen;
 /**
  * Service AssistantPromptBuilder.
  *
- * Assembles the chat message list sent to Ollama: a fixed system prompt,
+ * Assembles the chat message list sent to Ollama: configured system instructions,
  * then business-context blocks, then a bounded recent transcript, oldest first.
  *
  * **L2.2 seam (now wired).** {@see self::buildContextBlocks()} delegates to
@@ -64,19 +65,6 @@ final class AssistantPromptBuilder
    */
   public const int MAX_TRANSCRIPT_CHARACTERS = 24000;
 
-  // #region Constants
-  /**
-   * Constant SYSTEM_PROMPT.
-   *
-   * @since 1.0.0
-   *
-   * @var string SYSTEM_PROMPT
-   */
-  private const string SYSTEM_PROMPT = 'You are the Fireguard assistant, helping an organization member with '
-    . 'fire-safety compliance questions about their facilities, equipment, and interventions. '
-    . 'Answer concisely and only from information you are actually given; say so plainly when you do not know.';
-  // #endregion
-
   // #region Constructor
   /**
    * Constructor.
@@ -84,9 +72,11 @@ final class AssistantPromptBuilder
    * @since 1.0.0
    *
    * @param AssistantContextAssembler $contextAssembler the business-context assembler
+   * @param ProductConfigPort $product the server-owned assistant instructions
    */
   public function __construct(
     private readonly AssistantContextAssembler $contextAssembler,
+    private readonly ProductConfigPort $product,
   ) {
   }
   // #endregion
@@ -108,7 +98,7 @@ final class AssistantPromptBuilder
   public function build(array $transcript, string $organizationId, AssistantContextScope $scope, bool $includeBusinessContext): array
   {
     $transcript = $this->boundedTranscript($transcript);
-    $messages = [['role' => 'system', 'content' => self::SYSTEM_PROMPT]];
+    $messages = [['role' => 'system', 'content' => $this->product->assistantInstructions()]];
 
     foreach ($this->buildContextBlocks($organizationId, $scope, $includeBusinessContext) as $contextBlock) {
       $messages[] = ['role' => 'system', 'content' => $contextBlock];

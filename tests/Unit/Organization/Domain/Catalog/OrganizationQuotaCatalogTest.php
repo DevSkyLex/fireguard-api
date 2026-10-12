@@ -9,6 +9,8 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Shared\Domain\Exception\InvalidValueException;
 
+use function array_column;
+
 /**
  * Test OrganizationQuotaCatalog.
  *
@@ -24,22 +26,23 @@ final class OrganizationQuotaCatalogTest extends TestCase
   {
     self::assertSame(
       ['members', 'facilities', 'equipment', 'inspections'],
-      OrganizationQuotaCatalog::keys(),
+      array_column(\Tests\Support\OrganizationCatalogTestFactory::quota()->definitions(), 'key'),
     );
   }
 
   #[Test]
-  public function testIsValidRecognizesKnownAndUnknownKeys(): void
+  public function testRegistryResolvesKnownKeysAndDeniesUnknownKeys(): void
   {
-    self::assertTrue(OrganizationQuotaCatalog::isValid('members'));
-    self::assertFalse(OrganizationQuotaCatalog::isValid('unknown'));
+    $catalog = \Tests\Support\OrganizationCatalogTestFactory::quota();
+    self::assertSame('members', $catalog->get('members')->key);
+    $this->expectException(InvalidValueException::class);
+    $catalog->get('unknown');
   }
 
   #[Test]
-  public function testDescriptionForReturnsEmptyForUnknownKey(): void
+  public function testDescriptionComesFromTheOwnerManifest(): void
   {
-    self::assertNotSame('', OrganizationQuotaCatalog::descriptionFor('members'));
-    self::assertSame('', OrganizationQuotaCatalog::descriptionFor('unknown'));
+    self::assertSame('Maximum number of organization members', \Tests\Support\OrganizationCatalogTestFactory::quota()->get('members')->description);
   }
 
   #[Test]
@@ -51,11 +54,11 @@ final class OrganizationQuotaCatalogTest extends TestCase
   }
 
   #[Test]
-  public function testNormalizeLimitsRejectsUnknownKey(): void
+  public function testRegisteredCatalogRejectsAnUnknownNewKey(): void
   {
     $this->expectException(InvalidValueException::class);
 
-    OrganizationQuotaCatalog::normalizeLimits(['unknown' => 10]);
+    \Tests\Support\OrganizationCatalogTestFactory::quota()->normalizeLimits(['unknown' => 10]);
   }
 
   #[Test]

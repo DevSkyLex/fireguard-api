@@ -58,7 +58,7 @@ final class OrganizationRoleRepositoryTest extends TestCase
       ->with(OrganizationRecord::class, $organizationId)
       ->willReturn($organization);
 
-    $repository = new OrganizationRoleRepository($entityManager);
+    $repository = new OrganizationRoleRepository($entityManager, systemRoles: \Tests\Support\OrganizationCatalogTestFactory::systemRoles());
 
     $roles = $repository->findByOrganizationId(OrganizationId::fromString($organizationId));
 
@@ -132,7 +132,7 @@ final class OrganizationRoleRepositoryTest extends TestCase
     $entityManager->expects(self::once())
       ->method('flush');
 
-    $repository = new OrganizationRoleRepository($entityManager);
+    $repository = new OrganizationRoleRepository($entityManager, systemRoles: \Tests\Support\OrganizationCatalogTestFactory::systemRoles());
 
     $repository->save($role);
 

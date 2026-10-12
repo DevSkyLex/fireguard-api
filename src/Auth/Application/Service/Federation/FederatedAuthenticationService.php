@@ -12,20 +12,24 @@ use Auth\Application\Contract\Federation\{
   FederatedLoginContext,
   FederatedProfile
 };
-use Auth\Application\Contract\Federation\FederatedProvider;
+use Auth\Application\Contract\Federation\{FederatedProviderDescriptor, ProviderId};
 use Auth\Application\Contract\Token\SignInGrantType;
 use Auth\Application\Port\Inbound\Federation\FederationFlowPort;
 use Auth\Application\Port\Inbound\InteractiveSessionIssuerPort;
+use Auth\Application\Port\Outbound\AuthenticationPolicyPort;
 use Auth\Application\Port\Outbound\Federation\{
   FederatedFlowRepositoryPort,
   FederatedIdentityRepositoryPort,
   FederatedProviderClientPort
 };
+use Auth\Application\UseCase\Command\Federation\CompleteFederation\CompleteFederationResult;
+use Auth\Application\UseCase\Command\Federation\DisconnectFederation\DisconnectFederationResult;
 use Auth\Domain\Exception\Federation\{FederatedAuthException, FederatedConflictException, FederatedUnauthorizedException};
 use DateInterval;
 use DateTimeImmutable;
+use Shared\Application\Port\Outbound\Idempotency\HttpIdempotencyExecutionPort;
 use Shared\Application\Port\Outbound\TransactionManagerPort;
-use User\Application\Port\Inbound\FederatedUserPort;
+use User\Application\Port\Inbound\{FederatedUserPort, UserSecurityRevisionPort};
 
 use function array_filter;
 use function array_values;
@@ -113,6 +117,9 @@ final readonly class FederatedAuthenticationService implements FederationFlowPor
     private FederatedUserPort $users,
     private InteractiveSessionIssuerPort $sessionIssuer,
     private string $frontendUrl,
+    private AuthenticationPolicyPort $authenticationPolicy,
+    private ?HttpIdempotencyExecutionPort $execution = null,
+    private ?UserSecurityRevisionPort $securityRevisions = null,
   ) {
   }
 
@@ -121,13 +128,13 @@ final readonly class FederatedAuthenticationService implements FederationFlowPor
    *
    * @since 1.0.0
    *
-   * @return list<FederatedProvider>
+   * @return list<FederatedProviderDescriptor>
    */
   public function enabledProviders(): array
   {
     return array_values(array_filter(
-      FederatedProvider::cases(),
-      $this->providerClient->isEnabled(...),
+      $this->providerClient->descriptors(),
+      static fn (FederatedProviderDescriptor $descriptor): bool => $descriptor->enabled,
     ));
   }
 
@@ -136,7 +143,7 @@ final readonly class FederatedAuthenticationService implements FederationFlowPor
    *
    * @since 1.0.0
    */
-  public function startLogin(FederatedProvider $provider, string $returnUrl, ?string $browserBinding = null): string
+  public function startLogin(ProviderId $provider, string $returnUrl, ?string $browserBinding = null): string
   {
     return $this->start($provider, self::LOGIN, null, $returnUrl, $browserBinding ?? $this->randomToken());
   }
@@ -146,7 +153,7 @@ final readonly class FederatedAuthenticationService implements FederationFlowPor
    *
    * @since 1.0.0
    */
-  public function startLink(FederatedProvider $provider, string $userId, ?string $browserBinding = null): string
+  public function startLink(ProviderId $provider, string $userId, ?string $browserBinding = null): string
   {
     return $this->start($provider, self::LINK, $userId, '/account/security', $browserBinding ?? $this->randomToken());
   }
@@ -157,7 +164,7 @@ final readonly class FederatedAuthenticationService implements FederationFlowPor
    * @since 1.0.0
    */
   public function completeLogin(
-    FederatedProvider $provider,
+    ProviderId $provider,
     string $state,
     string $code,
     string $browserBinding,
@@ -172,17 +179,25 @@ final readonly class FederatedAuthenticationService implements FederationFlowPor
       $profile,
       $flow,
       $loginContext,
+      $state,
+      $browserBinding,
     ): FederatedLogin {
       $connection = $this->identities->findBySubject($provider, $profile->subject);
       $newAccount = false;
 
       if (null !== $connection) {
+        if ($connection->issuer !== $profile->issuer) {
+          throw new FederatedAuthException('issuer_mismatch', 'This sign-in provider configuration has changed.');
+        }
         $user = $this->users->recordSuccessfulLogin($connection->userId);
         if (null === $user) {
           throw new FederatedUnauthorizedException('account_unavailable', 'This account cannot sign in.');
         }
         $this->touchConnection($connection, $profile);
       } else {
+        if (!$this->authenticationPolicy->federatedProvisioningEnabled()) {
+          throw new FederatedAuthException('federated_provisioning_disabled', 'New accounts cannot be created through this provider.');
+        }
         $user = $this->users->provision($profile->email, $profile->firstName, $profile->lastName);
         if (null === $user) {
           throw new FederatedConflictException(
@@ -195,7 +210,7 @@ final readonly class FederatedAuthenticationService implements FederationFlowPor
         $user = $this->users->recordSuccessfulLogin($user->userId) ?? $user;
       }
 
-      return new FederatedLogin(
+      $login = new FederatedLogin(
         login: $this->sessionIssuer->issue(
           userId: $user->userId,
           email: $user->email,
@@ -203,14 +218,22 @@ final readonly class FederatedAuthenticationService implements FederationFlowPor
           userAgent: $loginContext->userAgent,
           trustedDeviceToken: $loginContext->trustedDeviceToken,
           rememberMe: false,
-          grantType: match ($provider) {
-            FederatedProvider::GOOGLE => SignInGrantType::GOOGLE,
-            FederatedProvider::MICROSOFT => SignInGrantType::MICROSOFT,
+          grantType: match ($provider->value) {
+            'google' => SignInGrantType::GOOGLE,
+            'microsoft' => SignInGrantType::MICROSOFT,
+            default => SignInGrantType::OIDC,
           },
         ),
         returnUrl: $flow->returnUrl,
         newAccount: $newAccount,
       );
+      $this->flows->markCompleted($flow->stateHash, $user->userId);
+      $completed = $this->flows->inspect($state, $browserBinding, $provider, self::LOGIN) ?? throw new FederatedAuthException('invalid_flow', self::INVALID_FLOW_MESSAGE);
+      $deadline = $completed->proofExpiresAt ?? throw new FederatedAuthException('invalid_flow', self::INVALID_FLOW_MESSAGE);
+      $login = new FederatedLogin($login->login, $login->returnUrl, $login->newAccount, $deadline);
+      $this->execution?->captureResult(new CompleteFederationResult(login: $login));
+
+      return $login;
     });
   }
 
@@ -220,7 +243,7 @@ final readonly class FederatedAuthenticationService implements FederationFlowPor
    * @since 1.0.0
    */
   public function completeLink(
-    FederatedProvider $provider,
+    ProviderId $provider,
     string $state,
     string $code,
     string $userId,
@@ -233,23 +256,34 @@ final readonly class FederatedAuthenticationService implements FederationFlowPor
     }
 
     $profile = $this->providerProfile($provider, $flow, $code, $providerError);
-    $ownedBySubject = $this->identities->findBySubject($provider, $profile->subject);
-    if (null !== $ownedBySubject && $ownedBySubject->userId !== $userId) {
-      throw new FederatedConflictException('identity_linked', 'This provider account is already connected.');
-    }
 
-    $ownedByUser = $this->identities->findForUserProvider($userId, $provider);
-    if (null !== $ownedByUser && $ownedByUser->subject !== $profile->subject) {
-      throw new FederatedConflictException('provider_already_linked', 'A different provider account is already connected.');
-    }
+    return $this->transaction->transactional(function () use ($provider, $profile, $userId, $flow, $state, $browserBinding): FederatedConnections {
+      $ownedBySubject = $this->identities->findBySubject($provider, $profile->subject);
+      if (null !== $ownedBySubject && $ownedBySubject->userId !== $userId) {
+        throw new FederatedConflictException('identity_linked', 'This provider account is already connected.');
+      }
 
-    if (null !== $ownedByUser) {
-      $this->touchConnection($ownedByUser, $profile);
-    } else {
-      $this->identities->save($this->newConnection($userId, $profile));
-    }
+      $ownedByUser = $this->identities->findForUserProvider($userId, $provider);
+      if (null !== $ownedByUser && $ownedByUser->subject !== $profile->subject) {
+        throw new FederatedConflictException('provider_already_linked', 'A different provider account is already connected.');
+      }
 
-    return $this->connections($userId);
+      if (null !== $ownedByUser) {
+        $this->touchConnection($ownedByUser, $profile);
+      } else {
+        $this->identities->save($this->newConnection($userId, $profile));
+        $this->securityRevisions?->advance($userId);
+      }
+
+      $this->flows->markCompleted($flow->stateHash, $userId);
+      $completed = $this->flows->inspect($state, $browserBinding, $provider, self::LINK) ?? throw new FederatedAuthException('invalid_flow', self::INVALID_FLOW_MESSAGE);
+      $deadline = $completed->proofExpiresAt ?? throw new FederatedAuthException('invalid_flow', self::INVALID_FLOW_MESSAGE);
+      $current = $this->connections($userId);
+      $connections = new FederatedConnections($current->passwordConfigured, $current->connections, $current->lastSignInMethod, $deadline);
+      $this->execution?->captureResult(new CompleteFederationResult(connections: $connections));
+
+      return $connections;
+    });
   }
 
   /**
@@ -278,18 +312,24 @@ final readonly class FederatedAuthenticationService implements FederationFlowPor
    *
    * @since 1.0.0
    */
-  public function remove(FederatedProvider $provider, string $userId): FederatedConnections
+  public function remove(ProviderId $provider, string $userId): FederatedConnections
   {
-    $user = $this->users->find($userId);
-    if (null === $user) {
-      throw new FederatedUnauthorizedException('account_unavailable', 'This account is unavailable.');
-    }
+    return $this->transaction->transactional(function () use ($provider, $userId): FederatedConnections {
+      $user = $this->users->find($userId);
+      if (null === $user) {
+        throw new FederatedUnauthorizedException('account_unavailable', 'This account is unavailable.');
+      }
 
-    if (!$this->identities->removePreservingAccess($provider, $userId, $user->passwordConfigured)) {
-      throw new FederatedConflictException('last_sign_in_method', 'Add another sign-in method before removing this one.');
-    }
+      if (!$this->identities->removePreservingAccess($provider, $userId, $user->passwordConfigured)) {
+        throw new FederatedConflictException('last_sign_in_method', 'Add another sign-in method before removing this one.');
+      }
+      $this->securityRevisions?->advance($userId);
 
-    return $this->connections($userId);
+      $connections = $this->connections($userId);
+      $this->execution?->captureResult(new DisconnectFederationResult($connections));
+
+      return $connections;
+    });
   }
 
   /**
@@ -299,7 +339,7 @@ final readonly class FederatedAuthenticationService implements FederationFlowPor
    *
    * @access private
    *
-   * @param FederatedProvider $provider selected identity provider
+   * @param ProviderId $provider selected identity provider
    * @param string $intent flow purpose
    * @param ?string $userId linking user, when applicable
    * @param string $returnUrl post-flow relative destination
@@ -310,7 +350,7 @@ final readonly class FederatedAuthenticationService implements FederationFlowPor
    * @throws FederatedAuthException when the provider is unavailable
    */
   private function start(
-    FederatedProvider $provider,
+    ProviderId $provider,
     string $intent,
     ?string $userId,
     string $returnUrl,
@@ -333,6 +373,7 @@ final readonly class FederatedAuthenticationService implements FederationFlowPor
       redirectUri: $redirectUri,
       returnUrl: $this->safeReturnUrl($returnUrl),
       expiresAt: new DateTimeImmutable()->add(new DateInterval('PT10M')),
+      nonceHash: $authorization->nonceHash,
     ));
 
     return $authorization->authorizationUrl;
@@ -345,7 +386,7 @@ final readonly class FederatedAuthenticationService implements FederationFlowPor
    *
    * @access private
    *
-   * @param FederatedProvider $provider expected provider
+   * @param ProviderId $provider expected provider
    * @param string $intent expected flow purpose
    * @param string $state authorization state
    * @param string $browserBinding browser binding token
@@ -354,8 +395,11 @@ final readonly class FederatedAuthenticationService implements FederationFlowPor
    *
    * @throws FederatedAuthException when the state is invalid or unavailable
    */
-  private function consume(FederatedProvider $provider, string $intent, string $state, string $browserBinding): FederatedFlow
+  private function consume(ProviderId $provider, string $intent, string $state, string $browserBinding): FederatedFlow
   {
+    if (!$this->providerClient->isEnabled($provider)) {
+      throw new FederatedAuthException('provider_unavailable', 'This sign-in provider is unavailable.');
+    }
     if ('' === $state) {
       throw new FederatedAuthException('invalid_flow', self::INVALID_FLOW_MESSAGE);
     }
@@ -374,7 +418,7 @@ final readonly class FederatedAuthenticationService implements FederationFlowPor
    *
    * @access private
    *
-   * @param FederatedProvider $provider selected provider
+   * @param ProviderId $provider selected provider
    * @param FederatedFlow $flow validated flow
    * @param string $code provider authorization code
    * @param ?string $providerError callback error, if supplied
@@ -384,7 +428,7 @@ final readonly class FederatedAuthenticationService implements FederationFlowPor
    * @throws FederatedAuthException when the provider denies sign-in or email is unverified
    */
   private function providerProfile(
-    FederatedProvider $provider,
+    ProviderId $provider,
     FederatedFlow $flow,
     string $code,
     ?string $providerError,
@@ -395,9 +439,21 @@ final readonly class FederatedAuthenticationService implements FederationFlowPor
     if ('' === $code) {
       throw new FederatedAuthException('provider_cancelled', 'Sign-in was cancelled.');
     }
-    $profile = $this->providerClient->complete($provider, $flow->redirectUri, $code, $flow->codeVerifier);
+    $profile = $flow->verifiedProfile ?? $this->providerClient->complete($provider, $flow->redirectUri, $code, $flow->codeVerifier, $flow->nonceHash);
+    if ($profile->provider->value !== $provider->value) {
+      throw new FederatedAuthException('identity_mismatch', 'The identity provider returned an unexpected identity.');
+    }
+    if (null !== $flow->nonceHash && null === $profile->issuer) {
+      throw new FederatedAuthException('issuer_mismatch', 'The identity provider returned an unexpected issuer.');
+    }
+    if (null !== $profile->issuer && $this->identities->hasIssuerConflict($provider, $profile->issuer)) {
+      throw new FederatedAuthException('issuer_mismatch', 'This sign-in provider configuration has changed.');
+    }
     if (!$profile->emailVerified) {
       throw new FederatedAuthException('email_unverified', 'The provider email is not verified.');
+    }
+    if (null === $flow->verifiedProfile) {
+      $this->flows->recordVerified($flow->stateHash, $profile);
     }
 
     return $profile;
@@ -427,6 +483,7 @@ final readonly class FederatedAuthenticationService implements FederationFlowPor
       email: $profile->email,
       connectedAt: $now,
       lastUsedAt: $now,
+      issuer: $profile->issuer,
     );
   }
 
@@ -444,6 +501,9 @@ final readonly class FederatedAuthenticationService implements FederationFlowPor
    */
   private function touchConnection(FederatedConnection $connection, FederatedProfile $profile): void
   {
+    if ($connection->issuer !== $profile->issuer) {
+      throw new FederatedAuthException('issuer_mismatch', 'This sign-in provider configuration has changed.');
+    }
     $this->identities->save(new FederatedConnection(
       id: $connection->id,
       userId: $connection->userId,
@@ -452,6 +512,7 @@ final readonly class FederatedAuthenticationService implements FederationFlowPor
       email: $profile->email,
       connectedAt: $connection->connectedAt,
       lastUsedAt: new DateTimeImmutable(),
+      issuer: $connection->issuer,
     ));
   }
 
@@ -462,12 +523,12 @@ final readonly class FederatedAuthenticationService implements FederationFlowPor
    *
    * @access private
    *
-   * @param FederatedProvider $provider selected provider
+   * @param ProviderId $provider selected provider
    * @param string $intent flow purpose
    *
    * @return string callback URI
    */
-  private function callbackUri(FederatedProvider $provider, string $intent): string
+  private function callbackUri(ProviderId $provider, string $intent): string
   {
     $base = rtrim($this->frontendUrl, '/');
 

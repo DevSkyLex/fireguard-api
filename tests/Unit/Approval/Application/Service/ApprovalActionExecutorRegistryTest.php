@@ -8,6 +8,7 @@ use Approval\Application\Contract\Execution\DeferredActionContext;
 use Approval\Application\Port\Outbound\ApprovalActionExecutorPort;
 use Approval\Application\Service\ApprovalActionExecutorRegistry;
 use Approval\Domain\Exception\ApprovalActionExecutorNotFoundException;
+use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -22,6 +23,16 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(ApprovalActionExecutorRegistry::class)]
 final class ApprovalActionExecutorRegistryTest extends TestCase
 {
+  #[Test]
+  public function testRejectsDuplicateExecutorsAtConstruction(): void
+  {
+    $executor = $this->createStub(ApprovalActionExecutorPort::class);
+    $executor->method('actionType')->willReturn('invoice.release');
+
+    $this->expectException(InvalidArgumentException::class);
+    new ApprovalActionExecutorRegistry([$executor, $executor]);
+  }
+
   #[Test]
   public function testExecuteRoutesToTheMatchingExecutor(): void
   {

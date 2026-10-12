@@ -29,6 +29,7 @@ use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Application\Contract\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
+use Shared\Application\Port\Outbound\Idempotency\HttpIdempotencyExecutionPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
@@ -446,6 +447,41 @@ final class CreateEquipmentProcessorTest extends TestCase
       operation: new Post(),
       uriVariables: ['organizationId' => self::ORG_ID, 'id' => self::CLIENT_ID],
     );
+  }
+
+  #[Test]
+  public function testAuthorizedReplayDispatchesWithoutReapplyingCreationOrWorkflowPreconditions(): void
+  {
+    $execution = $this->createStub(HttpIdempotencyExecutionPort::class);
+    $execution->method('isReplay')->willReturn(true);
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->expects(self::never())->method('resolveAccess');
+    $gateway = $this->createMock(InterventionResourceGatewayPort::class);
+    $gateway->expects(self::never())->method('clientIdExists');
+    $gateway->expects(self::never())->method('interventionMutationContext');
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())->method('dispatch')->willReturnCallback(function (CreateEquipmentCommand $command): CreateEquipmentResult {
+      self::assertSame(self::CLIENT_ID, $command->clientId);
+      self::assertSame(self::INTERVENTION_ID, $command->interventionId);
+
+      return $this->makeResult(interventionId: self::INTERVENTION_ID, recordStatus: 'draft');
+    });
+    $input = $this->makeInput();
+    $input->clientId = self::CLIENT_ID;
+    $input->intervention = '/api/interventions/' . self::INTERVENTION_ID;
+    $processor = new CreateEquipmentProcessor(
+      commandBus: $commandBus,
+      authorization: $authorization,
+      security: $this->authenticatedSecurity(),
+      outputFactory: new EquipmentOutputFactory(),
+      interventionResourceManager: new \Intervention\Infrastructure\Adapter\Resource\InterventionResourcesAdapter(new InterventionResourceManager($gateway)),
+      idempotency: $execution,
+    );
+
+    $output = $processor->process($input, new Post(), ['organizationId' => self::ORG_ID]);
+
+    self::assertSame(self::EQUIPMENT_ID, $output->id);
+    self::assertSame('/api/interventions/' . self::INTERVENTION_ID, $output->intervention);
   }
 
   #[Test]

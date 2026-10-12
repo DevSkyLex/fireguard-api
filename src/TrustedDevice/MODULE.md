@@ -105,12 +105,36 @@ TrustedDeviceDataLifecyclePort owns account purge and expiration/revocation rete
 
 Repositories and capabilities exposing owner-local types are private under Application/Port/Outbound/Internal; cross-module access uses published ports and pure contracts.
 
+TrustedDevice publishes its global permission vocabulary through Authorization's pure
+`PermissionCatalogContributionPort`. Its owner-local
+`TrustedDevicePermissionContributionAdapter` is registered with
+`authorization.permission_catalog_contribution`; composition rejects duplicate keys
+at boot and preserves explicit publication order. This contribution defines available
+permission keys and does not grant them to a subject.
+
 ## Configuration
+
+Module selection loads [the service entry point](../../config/modules/trusted_device.yaml)
+together with its [owner configuration fragments](../../config/modules/trusted_device/).
+Those fragments contribute owned mappings, API/error metadata and configured
+framework/seed registrations. Shared package configuration supplies connections and
+manager definitions; this module's persistence remains explicitly wired to `auth`.
+See the [composition standard](../../ARCHITECTURE.md#service-wiring).
 
 - Service wiring: `config/modules/trusted_device.yaml`
 - Environment:
   - `TRUSTED_DEVICE_COOKIE_NAME` (cookie base name)
   - `TRUSTED_DEVICE_LIFETIME` (seconds, default 30 days)
+
+### HTTP idempotency
+
+TrustedDevice declares trust and both revocation routes as auth-owned HTTP mutations
+with the configured mandatory `Idempotency-Key` policy. The trust result contains a raw
+credential and uses encrypted, short-lived replay. Its exact issued device must still
+belong to the active caller, remain unrevoked and be unexpired. Replacing the same browser
+fingerprint removes the old device and makes its stored credential ineligible for replay.
+Revocation reads fresh device ownership; removed targets require signed original facts.
+Current account revision and technical permissions are checked before any result decode.
 
 ## Testing
 

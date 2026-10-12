@@ -95,7 +95,12 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
                 'type' => 'object',
                 'properties' => [
                   'organization' => ['type' => 'string', 'description' => self::ORGANIZATION_IRI_DESCRIPTION],
-                  'kind' => ['type' => 'string', 'enum' => ['equipment', 'facility', 'member']],
+                  'kind' => [
+                    'type' => 'string',
+                    'maxLength' => 16,
+                    'pattern' => '^[a-z][a-z0-9_]{0,15}$',
+                    'description' => 'Registered import kind. The built-in kinds are equipment, facility and member.',
+                  ],
                   'file' => ['type' => 'string', 'format' => 'binary'],
                   'dryRun' => [
                     'type' => 'boolean',
@@ -137,12 +142,12 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         ),
         'kind' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
-          description: 'Resource kind filter (equipment|facility|member).',
+          description: 'Registered import kind filter.',
           required: false,
           castToArray: false,
           castToNativeType: false,
           constraints: [],
-          openApi: new Parameter(name: 'kind', in: 'query', description: 'Resource kind filter (equipment|facility|member).', required: false, schema: ['type' => 'string']),
+          openApi: new Parameter(name: 'kind', in: 'query', description: 'Registered import kind filter.', required: false, schema: ['type' => 'string']),
         ),
       ],
       openapi: new Operation(parameters: []),

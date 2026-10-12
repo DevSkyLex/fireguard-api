@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Integration\Authorization\Infrastructure\DataFixtures;
 
-use Authorization\Domain\ValueObject\SubjectType;
 use Authorization\Infrastructure\DataFixtures\AuthorizationFixtures;
 use Authorization\Infrastructure\Persistence\Doctrine\Record\{PermissionRecord, RoleAssignmentRecord, RoleRecord};
 use Doctrine\Common\DataFixtures\Executor\ORMExecutor;
@@ -49,9 +48,10 @@ final class AuthorizationFixturesIntegrationTest extends KernelTestCase
 
   // #region Tests
   #[Test]
-  public function testLoadCreatesDefaultRolesAndPermissions(): void
+  public function testLoadCreatesDefaultRolesAndPermissionsWithoutUserAssignments(): void
   {
-    $fixtures = new AuthorizationFixtures();
+    $fixtures = static::getContainer()->get(AuthorizationFixtures::class);
+    self::assertInstanceOf(AuthorizationFixtures::class, $fixtures);
 
     // Purge before loading: the test databases carry the seeded baseline, so
     // loading on top of it collides on primary keys and makes the counts below
@@ -64,7 +64,7 @@ final class AuthorizationFixturesIntegrationTest extends KernelTestCase
 
     self::assertSame(44, $permissionCount);
     self::assertSame(3, $roleCount);
-    self::assertSame(1, $assignmentCount);
+    self::assertSame(0, $assignmentCount);
 
     self::assertTrue($fixtures->hasReference(AuthorizationFixtures::ROLE_SUPER_ADMIN, RoleRecord::class));
     self::assertTrue($fixtures->hasReference(AuthorizationFixtures::ROLE_ADMIN, RoleRecord::class));
@@ -74,8 +74,7 @@ final class AuthorizationFixturesIntegrationTest extends KernelTestCase
       'subjectId' => 'a7b8c9d0-e1f2-4456-8123-789012345678',
     ]);
 
-    self::assertNotNull($assignment);
-    self::assertSame(SubjectType::USER->value, $assignment->subjectType);
+    self::assertNull($assignment, 'User-owned seeds assign the client-credentials account after the role vocabulary exists.');
   }
   // #endregion
 }

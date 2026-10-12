@@ -1,0 +1,11 @@
+doctrine:
+  orm:
+    entity_managers:
+      auth:
+        mappings:
+          OAuth:
+            is_bundle: false
+            type: attribute
+            dir: '%kernel.project_dir%/src/OAuth/Infrastructure/Persistence/Doctrine/Record'
+            prefix: 'OAuth\Infrastructure\Persistence\Doctrine\Record'
+            alias: OAuth

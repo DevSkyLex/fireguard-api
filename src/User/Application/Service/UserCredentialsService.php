@@ -7,6 +7,7 @@ namespace User\Application\Service;
 use User\Application\Contract\User\CredentialAuthentication;
 use User\Application\Port\Inbound\{UserCredentialsPort, UserDirectoryPort};
 use User\Application\Port\Outbound\Internal\UserRepositoryPort;
+use User\Application\Port\Outbound\PasswordPolicyPort;
 use User\Domain\Exception\{InvalidPasswordException, InvalidUserException};
 use User\Domain\Model\User\User;
 use User\Domain\ValueObject\{HashedPassword, UserId};
@@ -24,7 +25,7 @@ final readonly class UserCredentialsService implements UserCredentialsPort
   /**
    * @param UserRepositoryPort $users the owned repository
    */
-  public function __construct(private UserRepositoryPort $users, private UserDirectoryPort $directory)
+  public function __construct(private UserRepositoryPort $users, private UserDirectoryPort $directory, private PasswordPolicyPort $passwordPolicy)
   {
   }
 
@@ -46,6 +47,8 @@ final readonly class UserCredentialsService implements UserCredentialsPort
    */
   public function changePassword(string $userId, string $plainPassword): bool
   {
+    $this->passwordPolicy->assertAcceptable($plainPassword);
+
     $user = $this->users->findById(new UserId($userId));
     if (null === $user) {
       return false;

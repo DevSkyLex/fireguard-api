@@ -26,6 +26,7 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Message\{CommandMessage, ResultMessage};
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
+use Shared\Application\Port\Outbound\Idempotency\HttpIdempotencyExecutionPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
@@ -215,6 +216,30 @@ final class CanonicalEquipmentMutationProcessorTest extends TestCase
     )->process(new PatchCanonicalEquipmentInput(), new Delete(), ['id' => self::EQUIPMENT_ID]);
   }
 
+  #[Test]
+  public function completedAuthorizedReplayKeepsTheOriginalPatchPreconditionAfterTheWorkflowBecameImmutable(): void
+  {
+    $resources = $this->createMock(InterventionResourceGatewayPort::class);
+    $resources->expects(self::never())->method('interventionAssignmentContext');
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->expects(self::never())->method('resolveAccess');
+    $execution = $this->createStub(HttpIdempotencyExecutionPort::class);
+    $execution->method('isReplay')->willReturn(true);
+    $commands = $this->recordingCommandBus();
+    $output = $this->processor(
+      $this->request('PATCH', '{"brand":null}'),
+      view: $this->view(recordStatus: 'draft', interventionId: self::INTERVENTION_ID),
+      commandBus: $commands,
+      authorization: $authorization,
+      resources: $resources,
+      idempotency: $execution,
+    )->process(new PatchCanonicalEquipmentInput(), new Patch(), ['id' => self::EQUIPMENT_ID]);
+    self::assertInstanceOf(EquipmentOutput::class, $output);
+    self::assertCount(1, $commands->dispatched);
+    self::assertInstanceOf(PatchCanonicalEquipmentCommand::class, $commands->dispatched[0]);
+    self::assertSame(3, $commands->dispatched[0]->expectedRevision);
+  }
+
   /**
    * Method testAPatchWithoutTheCanonicalInputIsABadRequest.
    *
@@ -368,6 +393,7 @@ final class CanonicalEquipmentMutationProcessorTest extends TestCase
    * @param ?Security $security the security helper
    * @param ?InterventionResourceGatewayPort $resources the intervention gateway
    * @param bool $found whether the query bus finds the row
+   * @param HttpIdempotencyExecutionPort|null $idempotency the authorized completed replay state
    *
    * @return CanonicalEquipmentMutationProcessor the processor under test
    */
@@ -379,6 +405,7 @@ final class CanonicalEquipmentMutationProcessorTest extends TestCase
     ?Security $security = null,
     ?InterventionResourceGatewayPort $resources = null,
     bool $found = true,
+    ?HttpIdempotencyExecutionPort $idempotency = null,
   ): CanonicalEquipmentMutationProcessor {
     $queryBus = $this->createStub(QueryBusPort::class);
     $queryBus->method('ask')->willReturn(new GetCanonicalEquipmentResult(
@@ -416,6 +443,7 @@ final class CanonicalEquipmentMutationProcessorTest extends TestCase
       $manager,
       new RevisionGuard($requestStack),
       new MergePatchFields($requestStack),
+      $idempotency,
     );
   }
 

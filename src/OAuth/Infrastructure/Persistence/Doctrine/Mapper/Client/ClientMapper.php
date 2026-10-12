@@ -56,6 +56,7 @@ final class ClientMapper
         isActive: $record->isActive,
         createdAt: $record->createdAt,
         deletedAt: $record->deletedAt,
+        securityRevision: $record->securityRevision,
       ),
     );
   }
@@ -81,6 +82,7 @@ final class ClientMapper
     $record->id = Uuid::fromString(uuid: $client->id()->value);
     $record->name = $client->name()->value;
     $record->secret = $client->secret()->value;
+    $record->securityRevision = $client->securityRevision();
     $record->redirectUris = $client->redirectUris();
     $record->grantTypes = $client->grantTypes()->toArray();
     $record->scopes = $client->scopes()->toArray();

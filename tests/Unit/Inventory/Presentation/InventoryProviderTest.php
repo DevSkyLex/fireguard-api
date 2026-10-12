@@ -52,6 +52,28 @@ final class InventoryProviderTest extends TestCase
   }
 
   #[Test]
+  public function consumptionOperationFilterRemainsBoundToTheAuthorizedOrganization(): void
+  {
+    $operationId = 'beb70000-0000-4000-8000-000000000004';
+    $queries = $this->createMock(QueryBusPort::class);
+    $queries->expects(self::once())->method('ask')->willReturnCallback(static function (ListInventoryQuery $query) use ($operationId): ListInventoryResult {
+      self::assertSame(self::ORG, $query->organizationId);
+      self::assertSame('consumptions', $query->type);
+      self::assertSame(['clientOperationId' => $operationId], $query->filters);
+
+      return new ListInventoryResult([], 0);
+    });
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
+    $requests = new RequestStack();
+    $requests->push(new Request(['clientOperationId' => $operationId]));
+    $provider = new InventoryProvider($queries, $this->access($authorization), new InventoryOutputFactory(), $requests);
+    $page = $provider->provide(new GetCollection(name: 'inventory_consumptions_list'), ['organizationId' => self::ORG]);
+    self::assertInstanceOf(\ApiPlatform\State\Pagination\TraversablePaginator::class, $page);
+    self::assertSame(0.0, $page->getTotalItems());
+  }
+
+  #[Test]
   public function missingReadPermissionStopsBeforeAnyInventoryQuery(): void
   {
     $queries = $this->createMock(QueryBusPort::class);

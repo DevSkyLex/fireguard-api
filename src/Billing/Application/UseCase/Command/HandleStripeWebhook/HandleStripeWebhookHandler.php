@@ -60,9 +60,6 @@ final readonly class HandleStripeWebhookHandler implements CommandHandler
   ) {
   }
 
-  // #endregion
-
-  // #region Methods
   /**
    * Method __invoke
    *
@@ -82,6 +79,28 @@ final readonly class HandleStripeWebhookHandler implements CommandHandler
     }
 
     return new VoidResult();
+  }
+
+  // #endregion
+
+  // #region Methods
+  /**
+   * Method reconcileOrganization.
+   *
+   * Reconciles verified current remote state after an uncertain outgoing operation, without sending the original mutation again.
+   * Missing customer mapping requires a signed webhook or operator resolution and remains retryable.
+   *
+   * @param string $organizationId the verified organization requiring reconciliation
+   */
+  public function reconcileOrganization(string $organizationId): void
+  {
+    $this->reconciliation->synchronized($organizationId, function () use ($organizationId): void {
+      $subscription = $this->subscriptions->findByOrganizationId($organizationId, refresh: true);
+      if (null === $subscription) {
+        throw new StripeSubscriptionReconciliationException('The uncertain Stripe operation requires customer mapping reconciliation.');
+      }
+      $this->reconcile($organizationId, new StripeEvent(type: 'billing.external_reconciliation', customerId: $subscription->stripeCustomerId(), liveMode: $this->stripe->isLiveMode()), $subscription);
+    });
   }
 
   /**

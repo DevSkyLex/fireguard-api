@@ -1,0 +1,4 @@
+framework:
+    messenger:
+        routing:
+            'Inspection\Application\UseCase\Command\Sweep\EscalateNonConformitySlaBreaches\EscalateNonConformitySlaBreachesCommand': async

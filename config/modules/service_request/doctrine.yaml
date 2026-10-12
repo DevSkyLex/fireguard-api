@@ -1,0 +1,11 @@
+doctrine:
+  orm:
+    entity_managers:
+      main:
+        mappings:
+          ServiceRequest:
+            is_bundle: false
+            type: attribute
+            dir: '%kernel.project_dir%/src/ServiceRequest/Infrastructure/Persistence/Doctrine/Record'
+            prefix: 'ServiceRequest\Infrastructure\Persistence\Doctrine\Record'
+            alias: ServiceRequest

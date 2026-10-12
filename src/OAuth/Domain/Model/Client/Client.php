@@ -68,6 +68,7 @@ final class Client
     private bool $isActive,
     private DateTimeImmutable $createdAt,
     private ?DateTimeImmutable $deletedAt = null,
+    private int $securityRevision = 1,
   ) {
   }
   // #endregion
@@ -152,6 +153,7 @@ final class Client
       isActive: $lifecycle->isActive,
       createdAt: $lifecycle->createdAt,
       deletedAt: $lifecycle->deletedAt,
+      securityRevision: $lifecycle->securityRevision,
     );
   }
 
@@ -361,6 +363,7 @@ final class Client
     }
 
     $this->isActive = true;
+    ++$this->securityRevision;
 
     $this->recordEvent(new ClientActivatedEvent(
       eventId: $eventIdProvider->nextEventId(),
@@ -387,6 +390,7 @@ final class Client
     }
 
     $this->isActive = false;
+    ++$this->securityRevision;
 
     $this->recordEvent(new ClientDeactivatedEvent(
       eventId: $eventIdProvider->nextEventId(),
@@ -410,6 +414,7 @@ final class Client
   public function regenerateSecret(ClientSecret $newSecret, EventIdProvider $eventIdProvider): void
   {
     $this->secret = $newSecret;
+    ++$this->securityRevision;
 
     $this->recordEvent(new ClientSecretRegeneratedEvent(
       eventId: $eventIdProvider->nextEventId(),
@@ -441,6 +446,7 @@ final class Client
     $this->name = $name;
     $this->redirectUris = array_values(array_map(fn (RedirectUri $uri) => $uri->value, $redirectUris));
     $this->scopes = $scopes;
+    ++$this->securityRevision;
 
     $this->recordEvent(new ClientUpdatedEvent(
       eventId: $eventIdProvider->nextEventId(),
@@ -468,12 +474,27 @@ final class Client
     }
 
     $this->deletedAt = new DateTimeImmutable();
+    ++$this->securityRevision;
 
     $this->recordEvent(new ClientDeletedEvent(
       eventId: $eventIdProvider->nextEventId(),
       clientId: $this->id,
       occurredAt: $this->deletedAt,
     ));
+  }
+
+  /**
+   * Method securityRevision
+   *
+   * Binds replay authorization to current secret, grants, redirects and lifecycle state.
+   *
+   * @access public
+   *
+   * @return int durable client security revision
+   */
+  public function securityRevision(): int
+  {
+    return $this->securityRevision;
   }
   // #endregion
 }

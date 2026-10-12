@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Inspection\Infrastructure\Adapter\Calendar;
 
 use Calendar\Application\Contract\Feed\CalendarFeedItem;
-use Calendar\Application\Port\Outbound\Feed\InspectionCalendarFeedPort;
+use Calendar\Application\Port\Outbound\Feed\CalendarFeedSourcePort;
 use DateTimeImmutable;
 use Inspection\Application\Contract\Inspection\{InspectionExecutionCriteria, InspectionListCriteria};
 use Inspection\Application\Port\Outbound\Internal\InspectionRepositoryPort;
@@ -35,7 +35,7 @@ use function sprintf;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class InspectionCalendarFeedAdapter implements InspectionCalendarFeedPort
+final readonly class InspectionCalendarFeedAdapter implements CalendarFeedSourcePort
 {
   // #region Constants
   /**
@@ -72,6 +72,18 @@ final readonly class InspectionCalendarFeedAdapter implements InspectionCalendar
   // #endregion
 
   // #region Methods
+  /**
+   * Method sourceKey
+   *
+   * @access public
+   *
+   * @return string the inspection contributor's stable source key
+   */
+  public function sourceKey(): string
+  {
+    return self::SOURCE_KEY;
+  }
+
   /**
    * Method findBetween.
    *

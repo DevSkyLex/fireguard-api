@@ -618,7 +618,7 @@ final class GenerateAssistantReplyHandlerTest extends TestCase
     // `$organizationSettings->includeBusinessContextFor()` returns true (see
     // `testInvokeInjectsBusinessContextWhenTheOrganizationHasOptedIn()` /
     // `testInvokeNeverInjectsBusinessContextWhenTheOrganizationHasNotOptedIn()`).
-    $promptBuilder = new AssistantPromptBuilder(new AssistantContextAssembler([$this->fakeContextProvider()], $logger));
+    $promptBuilder = new AssistantPromptBuilder(new AssistantContextAssembler([$this->fakeContextProvider()], $logger), \Tests\Support\Shared\ProductConfigFixture::create());
 
     return new GenerateAssistantReplyHandler(
       messages: $messages,

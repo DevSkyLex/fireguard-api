@@ -1,0 +1,16 @@
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: false
+
+  Maintenance\Infrastructure\DataFixtures\MaintenanceFixtures: ~
+
+  app.seed.maintenance:
+    class: Shared\Infrastructure\DataFixtures\SeedFixtureAdapter
+    arguments:
+      $fixture: '@Maintenance\Infrastructure\DataFixtures\MaintenanceFixtures'
+      $manager: '@doctrine.orm.main_entity_manager'
+      $seedKey: 'maintenance'
+      $prerequisites: ['organization', 'equipment']
+    tags:
+      - { name: 'app.seed_fixture.main' }

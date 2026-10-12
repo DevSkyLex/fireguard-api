@@ -30,7 +30,9 @@ final class ApprovalActionTypeCatalogProviderTest extends TestCase
   #[Test]
   public function testItExposesExactlyTheRegisteredActionTypes(): void
   {
-    $rows = \Tests\Support\Http\ModuleExceptionKernel::invoke('Approval', fn () => new ApprovalActionTypeCatalogProvider()->provide(new GetCollection()));
+    $rows = \Tests\Support\Http\ModuleExceptionKernel::invoke('Approval', fn () => new ApprovalActionTypeCatalogProvider(
+      \Tests\Support\Catalogs\BuiltInCapabilityCatalogs::approval(),
+    )->provide(new GetCollection()));
 
     self::assertCount(2, $rows);
     self::assertSame(ApprovalActionTypes::all(), array_column($rows, 'value'));
@@ -39,7 +41,9 @@ final class ApprovalActionTypeCatalogProviderTest extends TestCase
   #[Test]
   public function testItLabelsEveryRowFromTheCatalog(): void
   {
-    $rows = \Tests\Support\Http\ModuleExceptionKernel::invoke('Approval', fn () => new ApprovalActionTypeCatalogProvider()->provide(new GetCollection()));
+    $rows = \Tests\Support\Http\ModuleExceptionKernel::invoke('Approval', fn () => new ApprovalActionTypeCatalogProvider(
+      \Tests\Support\Catalogs\BuiltInCapabilityCatalogs::approval(),
+    )->provide(new GetCollection()));
 
     self::assertSame(ApprovalActionTypes::NC_WAIVER, $rows[0]->value);
     self::assertSame('Non-conformity waiver', $rows[0]->label);
@@ -51,7 +55,9 @@ final class ApprovalActionTypeCatalogProviderTest extends TestCase
   public function testItIgnoresUriVariablesAndContext(): void
   {
     // A static reference catalog is neither scoped nor filtered.
-    $provider = new ApprovalActionTypeCatalogProvider();
+    $provider = new ApprovalActionTypeCatalogProvider(
+      \Tests\Support\Catalogs\BuiltInCapabilityCatalogs::approval(),
+    );
 
     self::assertEquals(
       \Tests\Support\Http\ModuleExceptionKernel::invoke('Approval', fn () => $provider->provide(new GetCollection())),

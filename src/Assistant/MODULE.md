@@ -93,6 +93,8 @@ learning from a toggle whether the organization exists.
 
 ## Architecture
 
+HTTP mutation receipts recheck current organization membership and `organization.assistant.use`, the live assistant opt-in, and the thread creator before decoding conversation data. Thread ownership remains the authenticated user ID stored in `member_id`; message scope must match both thread and organization. Replays preserve the original thread/message result, including its initial generation state, and never enqueue another generation attempt. The replay adapter uses the main connection and the owner-provided fresh settings implementation.
+
 Generation handlers receive model and timeout values through module YAML wiring.
 Thread subscriptions enter their owning query: the canonical scoped read finishes
 before the token port mints a subscription to the published private thread topic.
@@ -380,6 +382,12 @@ the previous lots' notes; tables are `assistant_threads`/`assistant_messages`
 (**main** database), migration `Version20260718124213`.
 
 ## Configuration
+
+`AssistantPromptBuilder` reads its deployment-owned system instructions through Shared's
+`ProductConfigPort`. `product.assistant_instructions` in `config/packages/product.yaml`
+retains the existing Fireguard instructions by default. This configuration is not exposed
+as a browser or organization setting; transcript bounds and the business-context opt-in gate
+remain independent of it.
 
 - Service wiring: `config/modules/assistant.yaml` — a dedicated
   `assistant.http_client` factory service (mirrors `webhook.http_client`;

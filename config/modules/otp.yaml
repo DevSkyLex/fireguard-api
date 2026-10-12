@@ -1,3 +1,7 @@
+imports:
+  - { resource: 'otp/doctrine.yaml' }
+  - { resource: 'otp/api_platform.yaml' }
+
 parameters:
   # Fallback when TOTP_DIGITS is absent from the environment (.env.example
   # documents it); 6 digits is the authenticator-app standard.
@@ -83,12 +87,21 @@ services:
       $otpCodeLength: '%env(int:OTP_CODE_LENGTH)%'
     tags: ['messenger.message_handler']
   Otp\Application\UseCase\Command\Challenge\VerifyOtp\VerifyOtpHandler:
+    arguments:
+      $transaction: '@Shared\Infrastructure\Symfony\Adapter\Outbound\DoctrineTransactionManagerAdapter'
     tags: ['messenger.message_handler']
   Otp\Application\UseCase\Command\Totp\SetupTotp\SetupTotpHandler:
+    arguments:
+      $rootTransaction: '@shared.auth_root_transaction'
     tags: ['messenger.message_handler']
   Otp\Application\UseCase\Command\Totp\ConfirmTotp\ConfirmTotpHandler:
+    arguments:
+      $rootTransaction: '@shared.auth_root_transaction'
     tags: ['messenger.message_handler']
   Otp\Application\UseCase\Command\Totp\DisableTotp\DisableTotpHandler:
+    arguments:
+      $rootTransaction: '@shared.auth_root_transaction'
+      $durableEvents: '@shared.auth_event_dispatcher'
     tags: ['messenger.message_handler']
   Otp\Application\UseCase\Command\Challenge\ResendChallenge\ResendChallengeHandler:
     tags: ['messenger.message_handler']
@@ -123,9 +136,61 @@ services:
     class: Shared\Infrastructure\Symfony\Adapter\Outbound\DoctrineTransactionManagerAdapter
     arguments:
       $entityManager: '@doctrine.orm.auth_entity_manager'
-
+      $database: auth
+      $idempotency: '@Shared\Infrastructure\Idempotency\HttpIdempotencyExecutionContext'
   Otp\Application\Port\Inbound\OtpDataLifecyclePort:
     alias: Otp\Infrastructure\Adapter\Lifecycle\OtpDataLifecycleAdapter
   Otp\Infrastructure\Adapter\Lifecycle\OtpDataLifecycleAdapter:
     arguments:
       $entityManager: '@doctrine.orm.auth_entity_manager'
+
+  Otp\Infrastructure\Adapter\Event\IntegrationEventConverterAdapter: ~
+
+  Otp\Infrastructure\Adapter\Authorization\OtpPermissionContributionAdapter:
+    tags: [authorization.permission_catalog_contribution]
+
+  Otp\Infrastructure\Adapter\Audit\AuditRecordEventAdapter: ~
+
+  Otp\Application\Port\Inbound\Challenge\MfaChallengeVerificationPort: '@Otp\Application\Service\MfaChallengeVerificationService'
+  Otp\Application\Service\MfaChallengeVerificationService: ~
+  Otp\Application\Port\Outbound\Internal\Totp\RecoveryCodeGeneratorPort: '@Otp\Infrastructure\Adapter\Crypto\RecoveryCodeGeneratorAdapter'
+  Otp\Infrastructure\Adapter\Crypto\RecoveryCodeGeneratorAdapter: ~
+  Otp\Application\UseCase\Command\Totp\GenerateRecoveryCodes\GenerateRecoveryCodesHandler:
+    arguments:
+      $rootTransaction: '@shared.auth_root_transaction'
+      $events: '@shared.auth_event_dispatcher'
+    tags: [messenger.message_handler]
+  Otp\Application\UseCase\Command\Challenge\VerifyMfaChallenge\VerifyMfaChallengeHandler:
+    arguments:
+      $events: '@shared.auth_event_dispatcher'
+    tags: [messenger.message_handler]
+  Otp\Application\UseCase\Query\Totp\GetRecoveryCodesStatus\GetRecoveryCodesStatusHandler:
+    tags: [messenger.message_handler]
+
+  Otp\Presentation\Api\Processor\Totp\GenerateRecoveryCodesProcessor: ~
+  Otp\Presentation\Api\Provider\Totp\GetRecoveryCodesStatusProvider: ~
+  Otp\Presentation\Api\EventSubscriber\RecoveryCodesExceptionSubscriber: ~
+  Otp\Presentation\Api\Service\RecoveryCodesActor: ~
+
+  Otp\Application\Port\Inbound\Challenge\ChallengeReplayProofPort: '@Otp\Infrastructure\Adapter\Idempotency\ChallengeReplayProofAdapter'
+  Otp\Infrastructure\Adapter\Idempotency\ChallengeReplayProofAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.auth_entity_manager'
+
+  Otp\Infrastructure\Adapter\Idempotency\OtpAuthenticatorHttpIdempotencyOperationContributionAdapter:
+    tags: [http.idempotency_operation]
+
+  Otp\Application\Port\Inbound\Challenge\ChallengeLifecycleProofPort: '@Otp\Infrastructure\Adapter\Idempotency\ChallengeLifecycleProofAdapter'
+  Otp\Infrastructure\Adapter\Idempotency\ChallengeLifecycleProofAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.auth_entity_manager'
+
+  Otp\Infrastructure\Adapter\Idempotency\AuthenticatorIdempotencyProofAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.auth_entity_manager'
+    tags: [shared.sensitive_idempotency_proof]
+
+  Otp\Infrastructure\Adapter\Idempotency\OtpChallengeHttpIdempotencyOperationContributionAdapter:
+    tags: [http.idempotency_operation]
+  Otp\Infrastructure\Adapter\Idempotency\ChallengeIdempotencyProofAdapter:
+    tags: [shared.sensitive_idempotency_proof]

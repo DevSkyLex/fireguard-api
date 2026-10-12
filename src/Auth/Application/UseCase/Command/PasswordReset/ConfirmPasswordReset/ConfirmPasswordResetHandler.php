@@ -10,6 +10,7 @@ use Otp\Application\Port\Inbound\Challenge\{ChallengeAccessPort, OtpChallengePor
 use Session\Application\Port\Inbound\SessionRevocationPort;
 use Shared\Application\Message\CommandHandler;
 use User\Application\Port\Inbound\UserCredentialsPort;
+use User\Application\Port\Outbound\PasswordPolicyPort;
 
 /**
  * Handler ConfirmPasswordResetHandler.
@@ -43,6 +44,7 @@ final readonly class ConfirmPasswordResetHandler implements CommandHandler
    * @param UserCredentialsPort $userRepository the user repository port
    * @param SessionRevocationPort $sessionRepository the session repository port
    * @param TokenRevocationPort $tokenRevocation the token revocation port
+   * @param PasswordPolicyPort $passwordPolicy authoritative requirements checked before consuming the OTP
    */
   public function __construct(
     private readonly ChallengeAccessPort $otpRepository,
@@ -50,6 +52,7 @@ final readonly class ConfirmPasswordResetHandler implements CommandHandler
     private readonly SessionRevocationPort $sessionRepository,
     private readonly TokenRevocationPort $tokenRevocation,
     private OtpChallengePort $otpChallenge,
+    private PasswordPolicyPort $passwordPolicy,
   ) {
   }
   // #endregion
@@ -68,6 +71,8 @@ final readonly class ConfirmPasswordResetHandler implements CommandHandler
    */
   public function __invoke(ConfirmPasswordResetCommand $command): ConfirmPasswordResetResult
   {
+    $this->passwordPolicy->assertAcceptable($command->newPassword);
+
     $otp = $this->otpRepository->find($command->token);
     if (null === $otp || OtpPurpose::PASSWORD_RESET !== $otp->purpose) {
       return ConfirmPasswordResetResult::failed(

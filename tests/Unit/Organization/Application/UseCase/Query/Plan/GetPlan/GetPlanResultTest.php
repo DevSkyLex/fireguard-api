@@ -26,7 +26,7 @@ final class GetPlanResultTest extends TestCase
   #[Test]
   public function testFromDomainResolvesTaglineAndPerksForACatalogedPlan(): void
   {
-    $result = GetPlanResult::fromDomain($this->plan('pro'), $this->translator());
+    $result = GetPlanResult::fromDomain($this->plan('pro'), $this->translator(), \Tests\Support\OrganizationCatalogTestFactory::quota());
 
     self::assertSame(self::PLAN_ID, $result->id);
     self::assertSame('pro', $result->key);
@@ -41,7 +41,7 @@ final class GetPlanResultTest extends TestCase
   #[Test]
   public function testFromDomainLeavesTheTaglineNullForAnUncatalogedPlanKey(): void
   {
-    $result = GetPlanResult::fromDomain($this->plan('custom-enterprise'), $this->translator());
+    $result = GetPlanResult::fromDomain($this->plan('custom-enterprise'), $this->translator(), \Tests\Support\OrganizationCatalogTestFactory::quota());
 
     self::assertNull($result->tagline);
     self::assertSame([], $result->perks);
@@ -50,7 +50,7 @@ final class GetPlanResultTest extends TestCase
   #[Test]
   public function testFromDomainProjectsEveryQuotaResource(): void
   {
-    $result = GetPlanResult::fromDomain($this->plan('pro'), $this->translator());
+    $result = GetPlanResult::fromDomain($this->plan('pro'), $this->translator(), \Tests\Support\OrganizationCatalogTestFactory::quota());
 
     self::assertCount(4, $result->quotas);
 
@@ -71,7 +71,7 @@ final class GetPlanResultTest extends TestCase
   {
     $plan = $this->plan('pro');
 
-    $result = GetPlanResult::fromDomain($plan, $this->translator());
+    $result = GetPlanResult::fromDomain($plan, $this->translator(), \Tests\Support\OrganizationCatalogTestFactory::quota());
 
     self::assertSame($plan->isActive(), $result->isActive);
     self::assertSame($plan->isDefault(), $result->isDefault);

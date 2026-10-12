@@ -63,7 +63,7 @@ final readonly class SetChannelParentHandler implements CommandHandler
   public function __invoke(SetChannelParentCommand $command): SetChannelParentResult
   {
     $conversation = $this->conversations->findAggregateById($command->conversationId);
-    if (null === $conversation || MessagingSubjectType::CHANNEL !== $conversation->subjectType()) {
+    if (null === $conversation || MessagingSubjectType::CHANNEL !== $conversation->subjectType()->value) {
       throw MessagingNotFoundException::conversation($command->conversationId);
     }
 

@@ -7,7 +7,6 @@ namespace Tests\Unit\Auth\Application\UseCase\EmailOwnership;
 use Auth\Application\UseCase\Command\EmailOwnership\ConfirmEmailOwnership\{ConfirmEmailOwnershipCommand, ConfirmEmailOwnershipHandler};
 use Auth\Application\UseCase\Command\EmailOwnership\StartEmailOwnership\{StartEmailOwnershipCommand, StartEmailOwnershipHandler};
 use Auth\Application\UseCase\Query\EmailOwnership\GetEmailOwnership\{GetEmailOwnershipHandler, GetEmailOwnershipQuery};
-use Auth\Domain\Exception\EmailOwnershipException;
 use DateTimeImmutable;
 use Otp\Application\Contract\Challenge\{ChallengeInfo, OtpChannel, OtpPurpose, VerificationInfo};
 use Otp\Application\Port\Inbound\Challenge\{EmailOwnershipChallengePort, OtpChallengePort};
@@ -80,8 +79,7 @@ final class EmailOwnershipHandlersTest extends TestCase
     $ownership->expects(self::never())->method('confirm');
     $challenges = $this->createStub(EmailOwnershipChallengePort::class);
     $challenges->method('verify')->willReturn(new VerificationInfo(false));
-    $this->expectException(EmailOwnershipException::class);
-    (new ConfirmEmailOwnershipHandler($ownership, $challenges))(new ConfirmEmailOwnershipCommand('user', 'token', '123456'));
+    self::assertFalse((new ConfirmEmailOwnershipHandler($ownership, $challenges))(new ConfirmEmailOwnershipCommand('user', 'token', '123456'))->verified);
   }
 
   /**

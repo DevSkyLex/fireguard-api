@@ -13,6 +13,7 @@ use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Contract\Transaction\CommitOutcomeUnknownException;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\{FileCleanupPort, FileStoragePort, RootTransactionManagerPort, UuidGeneratorPort};
+use Shared\Application\Port\Outbound\Idempotency\HttpIdempotencyExecutionPort;
 use Shared\Domain\Attachment\{AttachmentConstraints, StoragePathScheme};
 use Shared\Domain\Exception\InvalidValueException;
 use Throwable;
@@ -51,6 +52,7 @@ final readonly class AddFacilityAttachmentHandler implements CommandHandler
     private RootTransactionManagerPort $transactionManager,
     private FileCleanupPort $cleanup,
     private OrganizationAuthorizationPort $authorization,
+    private ?HttpIdempotencyExecutionPort $idempotency = null,
   ) {
   }
   // #endregion
@@ -74,8 +76,24 @@ final readonly class AddFacilityAttachmentHandler implements CommandHandler
     $storagePath = null;
 
     try {
-      $attachment = $this->transactionManager->transactional(function () use ($command, $facilityId, $organizationId, $attachmentId, $kind, &$storagePath): FacilityAttachment {
-        return $this->storeAttachment($command, $facilityId, $organizationId, $attachmentId, $kind, $storagePath);
+      return $this->transactionManager->transactional(function () use ($command, $facilityId, $organizationId, $attachmentId, $kind, &$storagePath): AddFacilityAttachmentResult {
+        $attachment = $this->storeAttachment($command, $facilityId, $organizationId, $attachmentId, $kind, $storagePath);
+        $result = new AddFacilityAttachmentResult(
+          attachmentId: (string) $attachment->id(),
+          facilityId: (string) $attachment->facilityId(),
+          fileName: $attachment->file()->fileName,
+          mimeType: $attachment->file()->mimeType,
+          size: $attachment->file()->size,
+          label: $attachment->label(),
+          uploadedAt: $attachment->file()->uploadedAt,
+          kind: $attachment->kind()->value,
+          isPrimaryPlan: $attachment->isPrimaryPlan(),
+          imageWidth: $attachment->imageWidth(),
+          imageHeight: $attachment->imageHeight(),
+        );
+        $this->idempotency?->captureResult($result);
+
+        return $result;
       });
     } catch (CommitOutcomeUnknownException $exception) {
       throw $exception;
@@ -85,20 +103,6 @@ final readonly class AddFacilityAttachmentHandler implements CommandHandler
 
       throw $exception;
     }
-
-    return new AddFacilityAttachmentResult(
-      attachmentId: (string) $attachment->id(),
-      facilityId: (string) $attachment->facilityId(),
-      fileName: $attachment->file()->fileName,
-      mimeType: $attachment->file()->mimeType,
-      size: $attachment->file()->size,
-      label: $attachment->label(),
-      uploadedAt: $attachment->file()->uploadedAt,
-      kind: $attachment->kind()->value,
-      isPrimaryPlan: $attachment->isPrimaryPlan(),
-      imageWidth: $attachment->imageWidth(),
-      imageHeight: $attachment->imageHeight(),
-    );
   }
 
   /**

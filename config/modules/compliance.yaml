@@ -1,3 +1,7 @@
+imports:
+  - { resource: 'compliance/doctrine.yaml' }
+  - { resource: 'compliance/api_platform.yaml' }
+
 services:
   _defaults:
     autowire: true
@@ -74,3 +78,19 @@ services:
 
   Compliance\Application\UseCase\Command\Export\ExportSafetyRegister\ExportSafetyRegisterHandler:
     tags: ['messenger.message_handler']
+
+  Compliance\Infrastructure\Adapter\Event\IntegrationEventConverterAdapter: ~
+
+  Compliance\Infrastructure\Adapter\Audit\AuditRecordEventAdapter: ~
+
+  Compliance\Infrastructure\Adapter\OrganizationCatalog\ComplianceSystemRoleContributionAdapter:
+    tags: [organization.system_role_contribution]
+
+  Compliance\Infrastructure\Adapter\Idempotency\ComplianceHttpIdempotencyOperationContributionAdapter:
+    tags: [http.idempotency_operation]
+
+  Compliance\Infrastructure\Adapter\Idempotency\ComplianceHttpIdempotencyReplayAuthorizationAdapter:
+    arguments:
+      $connection: '@doctrine.dbal.main_connection'
+      $entitlement: '@Organization\Infrastructure\Adapter\Idempotency\FreshOrganizationExportEntitlementAdapter'
+    tags: [http.idempotency_replay_authorization]

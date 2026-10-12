@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Integration\Intervention\Infrastructure\Adapter\Publication;
 
+use Audit\Application\Contract\Event\AuditRecordRequestedEvent;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
@@ -24,6 +25,7 @@ use Shared\Infrastructure\Messaging\Outbox\{DbalTransactionManagerAdapter, Deliv
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
 
+use function hash;
 use function json_decode;
 use function sprintf;
 
@@ -597,7 +599,28 @@ final class DoctrinePublicationAdapterTest extends KernelTestCase
     self::assertInstanceOf(DeliverOutboxEventHandler::class, $delivery);
     $delivery($message);
     $delivery($message);
+    self::assertSame(0, $count(), 'Owner delivery queues a request before the separate ledger-consumption stage.');
+    $requests = [];
+    foreach (['main_outbox', 'auth_outbox'] as $queue) {
+      $requestsTransport = $container->get('messenger.transport.' . $queue);
+      self::assertInstanceOf(InMemoryTransport::class, $requestsTransport);
+      foreach ($requestsTransport->getSent() as $envelope) {
+        $request = $envelope->getMessage();
+        if ($request instanceof OutboxEvent && $request->event instanceof AuditRecordRequestedEvent && 'intervention.published' === $request->event->record->action && self::INTERVENTION_ID === $request->event->record->subjectId) {
+          $requests[] = $request;
+        }
+      }
+    }
+    self::assertCount(2, $requests);
+    foreach ($requests as $request) {
+      self::assertInstanceOf(AuditRecordRequestedEvent::class, $request->event);
+      self::assertSame($message->id, $request->event->requestId);
+      $delivery($request);
+      $delivery($request);
+    }
     self::assertSame(1, $count());
+    $receipt = hash('sha256', $message->id . "\0audit:intervention.published:intervention:" . self::INTERVENTION_ID);
+    self::assertSame(1, $auth->fetchOne('SELECT COUNT(*) FROM consumed_events WHERE id = ?', [$receipt]));
   }
 
   #[Test]

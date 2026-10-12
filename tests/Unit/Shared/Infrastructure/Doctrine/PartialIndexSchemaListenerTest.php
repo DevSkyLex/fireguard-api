@@ -156,7 +156,12 @@ final class PartialIndexSchemaListenerTest extends TestCase
   // #region Helpers
   private function listen(Schema $schema): void
   {
-    new PartialIndexSchemaListener()->postGenerateSchema(
+    new PartialIndexSchemaListener([
+      new \Approval\Infrastructure\Adapter\Schema\SchemaContributionAdapter(),
+      new \Facility\Infrastructure\Adapter\Schema\SchemaContributionAdapter(),
+      new \Intervention\Infrastructure\Adapter\Schema\SchemaContributionAdapter(),
+      new \Messaging\Infrastructure\Adapter\Schema\SchemaContributionAdapter(),
+    ])->postGenerateSchema(
       new GenerateSchemaEventArgs($this->createStub(EntityManagerInterface::class), $schema),
     );
   }

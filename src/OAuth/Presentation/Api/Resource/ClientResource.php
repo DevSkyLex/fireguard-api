@@ -47,7 +47,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
   operations: [
     new Post(
       name: ClientOperations::CREATE,
-      description: 'Register a new OAuth2 client application. The client secret is shown only once.',
+      description: 'Register a new OAuth2 client application. A keyed retry can recover its secret for five minutes while current authorization and client lineage still match.',
       uriTemplate: '/clients',
       input: ClientInput::class,
       output: ClientOutput::class,
@@ -58,7 +58,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       openapi: new Operation(
         tags: [self::OPENAPI_TAG_CLIENT_MANAGEMENT],
         summary: 'Register Client',
-        description: 'Register a new OAuth2 client application. The response includes the client secret which must be stored securely as it will never be shown again.',
+        description: 'Register a new OAuth2 client application. Store its secret securely. The same keyed operation can recover the original secret for five minutes while current authorization and client lineage still match.',
         security: [['bearerAuth' => []]],
         responses: [
           HttpResponse::HTTP_CREATED => new Response(
@@ -197,6 +197,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       input: ClientInput::class,
       output: ClientOutput::class,
       processor: UpdateClientProcessor::class,
+      read: false,
       normalizationContext: ['groups' => [OAuthSerializationGroup::CLIENT_READ]],
       denormalizationContext: ['groups' => [OAuthSerializationGroup::CLIENT_UPDATE]],
       security: self::SECURITY_CLIENTS_UPDATE,
@@ -309,6 +310,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       input: false,
       output: false,
       processor: DeleteClientProcessor::class,
+      read: false,
       security: "is_granted('clients.delete')",
       openapi: new Operation(
         tags: [self::OPENAPI_TAG_CLIENT_MANAGEMENT],

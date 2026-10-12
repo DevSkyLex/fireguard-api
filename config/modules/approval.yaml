@@ -1,3 +1,8 @@
+imports:
+  - { resource: 'approval/doctrine.yaml' }
+  - { resource: 'approval/api_platform.yaml' }
+  - { resource: 'approval/framework.yaml' }
+
 services:
   _defaults:
     autowire: true
@@ -68,3 +73,31 @@ services:
 
   Approval\Application\UseCase\Query\Request\ListApprovalRequests\ListApprovalRequestsHandler:
     tags: ['messenger.message_handler']
+
+  Approval\Infrastructure\Adapter\Event\IntegrationEventConverterAdapter: ~
+
+  Approval\Application\Port\Outbound\ApprovalActionCatalogPort: '@Approval\Application\Service\ApprovalActionCatalogRegistry'
+  Approval\Application\Service\ApprovalActionCatalogRegistry:
+    arguments:
+      $providers: !tagged_iterator approval.action_descriptor
+      $executors: !tagged_iterator approval.deferred_action_executor
+
+  Approval\Infrastructure\Adapter\Schema\SchemaContributionAdapter:
+    tags: [shared.schema_contribution]
+
+  Approval\Infrastructure\Adapter\Audit\AuditRecordEventAdapter: ~
+
+  Approval\Infrastructure\Adapter\OrganizationCatalog\ApprovalSystemRoleContributionAdapter:
+    tags: [organization.system_role_contribution]
+
+  Approval\Infrastructure\Adapter\OrganizationCatalog\ApprovalSettingsPolicyContributionAdapter:
+    tags: [organization.settings_policy_contribution]
+
+  Approval\Infrastructure\Adapter\Idempotency\ApprovalHttpIdempotencyOperationContributionAdapter:
+    tags: [http.idempotency_operation]
+
+  Approval\Infrastructure\Adapter\Idempotency\ApprovalHttpIdempotencyReplayAuthorizationAdapter:
+    arguments:
+      $connection: '@doctrine.dbal.main_connection'
+      $policy: '@Organization\Infrastructure\Adapter\Idempotency\FreshOrganizationApprovalPolicyAdapter'
+    tags: [http.idempotency_replay_authorization]

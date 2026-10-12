@@ -1,0 +1,7 @@
+parameters:
+  # Register generic OIDC providers here using server-owned HTTPS endpoints.
+  # Every entry is keyed by a stable lowercase identifier of at most 20 characters.
+  # Fields: label, enabled, issuer, authorization_endpoint, token_endpoint,
+  # jwks_uri, optional userinfo_endpoint, client_id and client_secret.
+  # Credentials must use Symfony env references. Changing an issuer requires a new key.
+  auth.federated_oidc_providers: {}

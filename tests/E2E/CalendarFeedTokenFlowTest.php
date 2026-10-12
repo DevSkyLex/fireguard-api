@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace App\Tests\E2E;
 
+use DAMA\DoctrineTestBundle\PHPUnit\SkipDatabaseRollback;
 use DateTimeImmutable;
 use Organization\Infrastructure\DataFixtures\OrganizationFixtures;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\HttpFoundation\Response;
+use Tests\Support\Database\RootCommitDatabaseIsolationTrait;
 
 use function http_build_query;
 use function is_string;
@@ -28,8 +30,11 @@ use function str_contains;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
+#[SkipDatabaseRollback]
 final class CalendarFeedTokenFlowTest extends OAuth2WebTestCase
 {
+  use RootCommitDatabaseIsolationTrait;
+
   private const string LD_JSON = 'application/ld+json';
 
   public function testFullFeedTokenLifecycle(): void

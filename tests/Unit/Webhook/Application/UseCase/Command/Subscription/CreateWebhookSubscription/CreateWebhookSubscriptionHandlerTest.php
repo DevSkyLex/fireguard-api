@@ -68,6 +68,7 @@ final class CreateWebhookSubscriptionHandlerTest extends TestCase
       $authorization,
       $this->uuidFactory(),
       $eventDispatcher,
+      eventCatalog: \Tests\Support\Catalogs\BuiltInCapabilityCatalogs::webhook(),
     );
 
     $result = $handler->__invoke(new CreateWebhookSubscriptionCommand(
@@ -102,6 +103,7 @@ final class CreateWebhookSubscriptionHandlerTest extends TestCase
       $authorization,
       $this->uuidFactory(),
       $this->createStub(EventDispatcherPort::class),
+      eventCatalog: \Tests\Support\Catalogs\BuiltInCapabilityCatalogs::webhook(),
     );
 
     $this->expectException(OrganizationAccessDeniedException::class);
@@ -129,6 +131,7 @@ final class CreateWebhookSubscriptionHandlerTest extends TestCase
       $authorization,
       $this->uuidFactory(),
       $this->createStub(EventDispatcherPort::class),
+      eventCatalog: \Tests\Support\Catalogs\BuiltInCapabilityCatalogs::webhook(),
     );
 
     $this->expectException(WebhookValidationException::class);
@@ -157,6 +160,7 @@ final class CreateWebhookSubscriptionHandlerTest extends TestCase
       $authorization,
       $this->uuidFactory(),
       $this->createStub(EventDispatcherPort::class),
+      eventCatalog: \Tests\Support\Catalogs\BuiltInCapabilityCatalogs::webhook(),
     );
 
     $this->expectException(WebhookValidationException::class);
@@ -182,6 +186,7 @@ final class CreateWebhookSubscriptionHandlerTest extends TestCase
       $authorization,
       $this->uuidFactory(),
       $this->createStub(EventDispatcherPort::class),
+      eventCatalog: \Tests\Support\Catalogs\BuiltInCapabilityCatalogs::webhook(),
     );
 
     $this->expectException(WebhookValidationException::class);
@@ -208,6 +213,7 @@ final class CreateWebhookSubscriptionHandlerTest extends TestCase
       $this->createStub(OrganizationAuthorizationPort::class),
       $this->uuidFactory(),
       $this->createStub(EventDispatcherPort::class),
+      eventCatalog: \Tests\Support\Catalogs\BuiltInCapabilityCatalogs::webhook(),
     );
 
     $this->expectException(WebhookValidationException::class);

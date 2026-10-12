@@ -7,9 +7,10 @@ namespace Onboarding\Presentation\Api\Provider\Onboarding;
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
 use Auth\Application\Contract\User\AuthenticatedUser;
-use Onboarding\Application\Port\Inbound\Internal\OrganizationOnboardingServicePort;
+use Onboarding\Application\UseCase\Command\Flow\SynchronizeOrganizationOnboarding\{SynchronizeOrganizationOnboardingCommand, SynchronizeOrganizationOnboardingResult};
 use Onboarding\Presentation\Api\Dto\Output\Onboarding\OrganizationOnboardingOutput;
 use Onboarding\Presentation\Api\Mapper\Onboarding\OrganizationOnboardingOutputAssembler;
+use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
@@ -33,13 +34,13 @@ final readonly class OrganizationOnboardingProvider implements ProviderInterface
    *
    * @access public
    *
-   * @param OrganizationOnboardingServicePort $flowService service port for reading organization onboarding state
+   * @param CommandBusPort $commandBus owns stateful synchronization and its durable result
    * @param Security $security security context used to identify the authenticated user
    *
    * @return void
    */
   public function __construct(
-    private OrganizationOnboardingServicePort $flowService,
+    private CommandBusPort $commandBus,
     private Security $security,
   ) {
   }
@@ -62,9 +63,10 @@ final readonly class OrganizationOnboardingProvider implements ProviderInterface
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
-    return OrganizationOnboardingOutputAssembler::fromState(
-      $this->flowService->getFlow($user->getId()),
-    );
+    /** @var SynchronizeOrganizationOnboardingResult $result */
+    $result = $this->commandBus->dispatch(new SynchronizeOrganizationOnboardingCommand($user->getId()));
+
+    return OrganizationOnboardingOutputAssembler::fromState($result->state);
   }
   // #endregion
 }

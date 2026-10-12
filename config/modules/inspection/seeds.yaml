@@ -1,0 +1,16 @@
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: false
+
+  Inspection\Infrastructure\DataFixtures\InspectionFixtures: ~
+
+  app.seed.inspection:
+    class: Shared\Infrastructure\DataFixtures\SeedFixtureAdapter
+    arguments:
+      $fixture: '@Inspection\Infrastructure\DataFixtures\InspectionFixtures'
+      $manager: '@doctrine.orm.main_entity_manager'
+      $seedKey: 'inspection'
+      $prerequisites: ['organization', 'facility', 'equipment']
+    tags:
+      - { name: 'app.seed_fixture.main' }

@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Organization\Infrastructure\Persistence\Doctrine\Mapper;
 
-use Organization\Domain\Catalog\OrganizationQuotaCatalog;
 use Organization\Domain\Model\Plan\{Plan, RestoredPlanMetadata};
 use Organization\Domain\ValueObject\{PlanId, PlanKey};
 use Organization\Infrastructure\Persistence\Doctrine\Record\PlanRecord;
 
 use function is_int;
+use function preg_match;
 
 /**
  * Mapper PlanMapper.
@@ -39,7 +39,7 @@ final class PlanMapper
   {
     $limits = [];
     foreach ($record->limits as $key => $value) {
-      if (OrganizationQuotaCatalog::isValid((string) $key) && is_int($value) && $value >= 0) {
+      if (1 === preg_match('/^[a-z][a-z0-9_]{0,79}$/D', (string) $key) && is_int($value) && $value >= 0) {
         $limits[(string) $key] = $value;
       }
     }

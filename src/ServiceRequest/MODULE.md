@@ -113,6 +113,8 @@ customer contacts or request descriptions.
 
 ## Configuration
 
+HTTP mutations require `Idempotency-Key` and retain their original immutable `ServiceRequestView` response in the same owning main transaction. Creation rechecks the current `.create` permission; subsequent lifecycle actions and conversion recheck `.manage`. The owner gate reads current request organization through scalar SQL and verifies the signed result identifier before any receipt decoding. Foreign or missing requests preserve the existing not-found contract. The operation contribution and replay authorization adapters are tagged for Shared's HTTP driver with an explicit main connection; native conversion receipts retain their existing work identity.
+
 `config/modules/service_request.yaml` registers main repositories, public target
 aliases, guards, the named main transaction manager, bus handlers and API services.
 The owning Inspection and Intervention modules register their origin/work bridges.

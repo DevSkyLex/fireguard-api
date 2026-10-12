@@ -49,7 +49,7 @@ final class ExecuteOrganizationOnboardingStepProcessorTest extends TestCase
       ->willReturn(null);
 
     $processor = new ExecuteOrganizationOnboardingStepProcessor(
-      flowService: $this->buildFlowService(),
+      commandBus: new \Tests\Helper\Onboarding\OrganizationOnboardingCommandBus($this->buildFlowService()),
       security: $security,
     );
 
@@ -73,7 +73,7 @@ final class ExecuteOrganizationOnboardingStepProcessorTest extends TestCase
       ->willReturn($this->createSecurityUser($userId));
 
     $processor = new ExecuteOrganizationOnboardingStepProcessor(
-      flowService: $this->buildFlowService(),
+      commandBus: new \Tests\Helper\Onboarding\OrganizationOnboardingCommandBus($this->buildFlowService()),
       security: $security,
     );
 
@@ -119,12 +119,12 @@ final class ExecuteOrganizationOnboardingStepProcessorTest extends TestCase
     $input = new ExecuteOrganizationOnboardingStepInput();
 
     $processor = new ExecuteOrganizationOnboardingStepProcessor(
-      flowService: $this->buildFlowService(
+      commandBus: new \Tests\Helper\Onboarding\OrganizationOnboardingCommandBus($this->buildFlowService(
         sessionRepository: $sessionRepository,
         queryBus: $queryBus,
         uuidFactory: $uuidFactory,
         transactionManager: $transactionManager,
-      ),
+      )),
       security: $security,
     );
 
@@ -170,12 +170,12 @@ final class ExecuteOrganizationOnboardingStepProcessorTest extends TestCase
     $this->expectExceptionMessage('"invite_members" is not available');
 
     $processor = new ExecuteOrganizationOnboardingStepProcessor(
-      flowService: $this->buildFlowService(
+      commandBus: new \Tests\Helper\Onboarding\OrganizationOnboardingCommandBus($this->buildFlowService(
         sessionRepository: $sessionRepository,
         queryBus: $queryBus,
         uuidFactory: $uuidFactory,
         transactionManager: $transactionManager,
-      ),
+      )),
       security: $security,
     );
 
@@ -220,12 +220,12 @@ final class ExecuteOrganizationOnboardingStepProcessorTest extends TestCase
     $this->expectExceptionMessage('No organization found.');
 
     $processor = new ExecuteOrganizationOnboardingStepProcessor(
-      flowService: $this->buildFlowService(
+      commandBus: new \Tests\Helper\Onboarding\OrganizationOnboardingCommandBus($this->buildFlowService(
         sessionRepository: $sessionRepository,
         queryBus: $queryBus,
         uuidFactory: $uuidFactory,
         transactionManager: $transactionManager,
-      ),
+      )),
       security: $security,
     );
 
@@ -354,7 +354,7 @@ final class ExecuteOrganizationOnboardingStepProcessorTest extends TestCase
     $flowService->method('executeStep')->willThrowException($failure);
 
     $processor = new ExecuteOrganizationOnboardingStepProcessor(
-      flowService: $flowService,
+      commandBus: new \Tests\Helper\Onboarding\OrganizationOnboardingCommandBus($flowService),
       security: $security,
     );
 
@@ -381,8 +381,7 @@ final class ExecuteOrganizationOnboardingStepProcessorTest extends TestCase
     return new OrganizationOnboardingFlowService(
       sessionRepository: $sessionRepository ?? $this->createStub(OrganizationOnboardingSessionRepositoryPort::class),
       organizationDirectory: new \Organization\Infrastructure\Adapter\Onboarding\OrganizationOnboardingDirectoryAdapter($queryBus ?? $this->createStub(QueryBusPort::class), $commandBus ?? $this->createStub(CommandBusPort::class)),
-      facilities: new \Facility\Infrastructure\Adapter\Onboarding\FacilityAvailabilityAdapter($queryBus ?? $this->createStub(QueryBusPort::class)),
-      equipment: new \Equipment\Infrastructure\Adapter\Onboarding\EquipmentAvailabilityAdapter($queryBus ?? $this->createStub(QueryBusPort::class)),
+      steps: \Tests\Helper\Onboarding\RegisteredOrganizationOnboardingSteps::withAvailability(new \Facility\Infrastructure\Adapter\Onboarding\FacilityAvailabilityAdapter($queryBus ?? $this->createStub(QueryBusPort::class)), new \Equipment\Infrastructure\Adapter\Onboarding\EquipmentAvailabilityAdapter($queryBus ?? $this->createStub(QueryBusPort::class))),
       uuidFactory: $uuidFactory ?? $this->createStub(UuidGeneratorPort::class),
       transactionManager: $transactionManager,
       eventDispatcher: $eventDispatcher ?? $this->createStub(EventDispatcherPort::class),

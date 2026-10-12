@@ -58,7 +58,7 @@ final class TotpEnrollmentMutationConcurrencyTest extends KernelTestCase
     $setupService->expects(self::never())->method('generateSecret');
     $accountStatus = $this->createStub(AccountStatusPort::class);
     $accountStatus->method('isActive')->willReturn(true);
-    $setupHandler = new SetupTotpHandler($setupService, $setupRepository, $accountStatus);
+    $setupHandler = new SetupTotpHandler($setupService, $setupRepository, $accountStatus, rootTransaction: new \Shared\Infrastructure\Messaging\Outbox\RootTransactionManagerAdapter($setupConnection, $setupManager), securityRevision: $this->createStub(\User\Application\Port\Inbound\UserSecurityRevisionPort::class));
     $confirmingService = $this->createMock(TotpServicePort::class);
     $confirmingService->expects(self::once())->method('verify')->willReturnCallback(static function () use ($setupHandler, $userId): bool {
       try {
@@ -70,7 +70,7 @@ final class TotpEnrollmentMutationConcurrencyTest extends KernelTestCase
 
       return true;
     });
-    $confirmingHandler = new ConfirmTotpHandler($confirmingRepository, $confirmingService, $this->createStub(EventDispatcherPort::class));
+    $confirmingHandler = new ConfirmTotpHandler($confirmingRepository, $confirmingService, $this->createStub(EventDispatcherPort::class), accountStatus: $accountStatus, rootTransaction: new \Shared\Infrastructure\Messaging\Outbox\RootTransactionManagerAdapter($confirmingConnection, $confirmingManager), securityRevision: $this->createStub(\User\Application\Port\Inbound\UserSecurityRevisionPort::class));
 
     try {
       self::assertTrue($confirmingHandler->__invoke(new ConfirmTotpCommand($userId, '123456'))->success);

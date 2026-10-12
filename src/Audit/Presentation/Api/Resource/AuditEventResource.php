@@ -297,7 +297,8 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         description: 'Streams a CSV export of audit events (Content-Disposition: attachment) using the same filters '
           . 'as the list endpoint. Bounded to ' . ExportAuditEventsHandler::MAX_EXPORT_ROWS . ' matching rows — the '
           . 'request is rejected with 422 if the filters match more; narrow with a shorter from/to range or a more '
-          . 'specific filter and retry. The CSV contains exactly the same fields already exposed by the JSON list/get '
+          . 'specific filter and retry. A CSV exceeding 64 MiB is also rejected with 422. A matching Idempotency-Key '
+          . 'replays the original CSV and filename after current export authorization is rechecked. The CSV contains exactly the same fields already exposed by the JSON list/get '
           . 'endpoints (including actorEmail/ipAddress, which are only non-null when SECURITY_LOG_INCLUDE_PII was true '
           . 'at the time the event was recorded) — no additional data is exposed and no extra redaction is applied '
           . 'beyond what the ledger already stores.',
@@ -305,7 +306,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         parameters: [],
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'CSV export streamed successfully'),
-          HttpResponse::HTTP_UNPROCESSABLE_ENTITY => new Response(description: 'Export exceeds the row cap; narrow the filters and retry'),
+          HttpResponse::HTTP_UNPROCESSABLE_ENTITY => new Response(description: 'Export exceeds the row or 64 MiB byte cap; narrow the filters and retry'),
           HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions (requires audit.export)'),
         ],
       ),

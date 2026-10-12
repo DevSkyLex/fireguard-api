@@ -8,7 +8,6 @@ use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Facility\Infrastructure\Adapter\Messaging\FacilityMessagingSubjectResolverAdapter;
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
-use Messaging\Application\Contract\Subject\MessagingSubjectType;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -58,8 +57,7 @@ final class FacilityMessagingSubjectResolverAdapterTest extends KernelTestCase
   #[Test]
   public function testSupportsOnlyFacilitySubjects(): void
   {
-    self::assertTrue($this->adapter->supports(MessagingSubjectType::FACILITY));
-    self::assertFalse($this->adapter->supports(MessagingSubjectType::EQUIPMENT));
+    self::assertSame('facility', $this->adapter->descriptor()->type);
   }
 
   #[Test]

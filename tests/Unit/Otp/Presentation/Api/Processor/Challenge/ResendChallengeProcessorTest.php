@@ -69,7 +69,12 @@ final class ResendChallengeProcessorTest extends TestCase
   #[Test]
   public function testProcessReturnsChallengeOutput(): void
   {
-    $user = new class () implements UserInterface {
+    $user = new class () implements UserInterface, \Auth\Application\Contract\User\AuthenticatedUser {
+      public function getId(): string
+      {
+        return $this->getUserIdentifier();
+      }
+
       public function getUserIdentifier(): string
       {
         return 'user-1';
@@ -123,7 +128,12 @@ final class ResendChallengeProcessorTest extends TestCase
   #[Test]
   public function testProcessMapsOtpNotFoundException(): void
   {
-    $user = new class () implements UserInterface {
+    $user = new class () implements UserInterface, \Auth\Application\Contract\User\AuthenticatedUser {
+      public function getId(): string
+      {
+        return $this->getUserIdentifier();
+      }
+
       public function getUserIdentifier(): string
       {
         return 'user-2';
@@ -162,7 +172,12 @@ final class ResendChallengeProcessorTest extends TestCase
   #[Test]
   public function testProcessMapsResendNotAllowedException(): void
   {
-    $user = new class () implements UserInterface {
+    $user = new class () implements UserInterface, \Auth\Application\Contract\User\AuthenticatedUser {
+      public function getId(): string
+      {
+        return $this->getUserIdentifier();
+      }
+
       public function getUserIdentifier(): string
       {
         return 'user-3';
@@ -201,7 +216,12 @@ final class ResendChallengeProcessorTest extends TestCase
   #[Test]
   public function testProcessMapsOtpNotFoundHandlerFailedException(): void
   {
-    $user = new class () implements UserInterface {
+    $user = new class () implements UserInterface, \Auth\Application\Contract\User\AuthenticatedUser {
+      public function getId(): string
+      {
+        return $this->getUserIdentifier();
+      }
+
       public function getUserIdentifier(): string
       {
         return 'user-4';
@@ -245,7 +265,12 @@ final class ResendChallengeProcessorTest extends TestCase
   #[Test]
   public function testProcessMapsResendNotAllowedMessengerException(): void
   {
-    $user = new class () implements UserInterface {
+    $user = new class () implements UserInterface, \Auth\Application\Contract\User\AuthenticatedUser {
+      public function getId(): string
+      {
+        return $this->getUserIdentifier();
+      }
+
       public function getUserIdentifier(): string
       {
         return 'user-5';
@@ -289,7 +314,12 @@ final class ResendChallengeProcessorTest extends TestCase
   #[Test]
   public function testProcessMapsResendNotAllowedHandlerFailedException(): void
   {
-    $user = new class () implements UserInterface {
+    $user = new class () implements UserInterface, \Auth\Application\Contract\User\AuthenticatedUser {
+      public function getId(): string
+      {
+        return $this->getUserIdentifier();
+      }
+
       public function getUserIdentifier(): string
       {
         return 'user-6';
@@ -333,7 +363,12 @@ final class ResendChallengeProcessorTest extends TestCase
   #[Test]
   public function testProcessMapsOtpNotFoundMessengerPreviousChain(): void
   {
-    $user = new class () implements UserInterface {
+    $user = new class () implements UserInterface, \Auth\Application\Contract\User\AuthenticatedUser {
+      public function getId(): string
+      {
+        return $this->getUserIdentifier();
+      }
+
       public function getUserIdentifier(): string
       {
         return 'user-7';
@@ -375,7 +410,12 @@ final class ResendChallengeProcessorTest extends TestCase
   #[Test]
   public function testProcessMapsResendNotAllowedMessengerPreviousChain(): void
   {
-    $user = new class () implements UserInterface {
+    $user = new class () implements UserInterface, \Auth\Application\Contract\User\AuthenticatedUser {
+      public function getId(): string
+      {
+        return $this->getUserIdentifier();
+      }
+
       public function getUserIdentifier(): string
       {
         return 'user-8';
@@ -417,7 +457,12 @@ final class ResendChallengeProcessorTest extends TestCase
   #[Test]
   public function testProcessRethrowsUnhandledException(): void
   {
-    $user = new class () implements UserInterface {
+    $user = new class () implements UserInterface, \Auth\Application\Contract\User\AuthenticatedUser {
+      public function getId(): string
+      {
+        return $this->getUserIdentifier();
+      }
+
       public function getUserIdentifier(): string
       {
         return 'user-9';
@@ -456,7 +501,12 @@ final class ResendChallengeProcessorTest extends TestCase
   #[Test]
   public function testProcessMapsOtpNotFoundWrappedInAMessengerHandlerFailure(): void
   {
-    $user = new class () implements UserInterface {
+    $user = new class () implements UserInterface, \Auth\Application\Contract\User\AuthenticatedUser {
+      public function getId(): string
+      {
+        return $this->getUserIdentifier();
+      }
+
       public function getUserIdentifier(): string
       {
         return 'user-10';
@@ -500,7 +550,12 @@ final class ResendChallengeProcessorTest extends TestCase
   #[Test]
   public function testProcessRethrowsAHandlerFailureCarryingNeitherMappedException(): void
   {
-    $user = new class () implements UserInterface {
+    $user = new class () implements UserInterface, \Auth\Application\Contract\User\AuthenticatedUser {
+      public function getId(): string
+      {
+        return $this->getUserIdentifier();
+      }
+
       public function getUserIdentifier(): string
       {
         return 'user-11';

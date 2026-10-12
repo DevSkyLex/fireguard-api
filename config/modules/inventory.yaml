@@ -1,3 +1,7 @@
+imports:
+  - { resource: 'inventory/doctrine.yaml' }
+  - { resource: 'inventory/api_platform.yaml' }
+
 services:
   _defaults:
     autowire: true
@@ -19,7 +23,8 @@ services:
     class: Shared\Infrastructure\Symfony\Adapter\Outbound\DoctrineTransactionManagerAdapter
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
-
+      $database: main
+      $idempotency: '@Shared\Infrastructure\Idempotency\HttpIdempotencyExecutionContext'
   Inventory\Application\UseCase\Command\ApplyInventoryStock\ApplyInventoryStockHandler:
     arguments:
       $transactions: '@inventory.main_transaction_manager'
@@ -51,3 +56,12 @@ services:
 
   Inventory\Application\Port\Inbound\InventoryInterventionHistoryPort:
     alias: Inventory\Infrastructure\Adapter\Intervention\InventoryInterventionHistoryAdapter
+
+  Inventory\Infrastructure\Adapter\Idempotency\InventoryHttpIdempotencyOperationContributionAdapter:
+    tags: [http.idempotency_operation]
+  Inventory\Infrastructure\Adapter\Idempotency\InventoryHttpIdempotencyReplayAuthorizationAdapter:
+    arguments:
+      $connection: '@doctrine.dbal.main_connection'
+    tags: [http.idempotency_replay_authorization]
+
+  Inventory\Application\Port\Outbound\InventoryHttpResponseVisibilityPort: '@Inventory\Infrastructure\Adapter\Idempotency\InventoryHttpIdempotencyReplayAuthorizationAdapter'

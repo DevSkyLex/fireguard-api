@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace OAuth\Infrastructure\Adapter\Event;
 
+use OAuth\Application\Contract\Event\Client\ClientLifecycleChangedEvent;
 use Shared\Application\Port\Outbound\Event\{IntegrationEventConverterPort, IntegrationEventSnapshotPort};
+use Shared\Domain\Event\DomainEvent;
 use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 
 /**
@@ -32,6 +34,18 @@ final readonly class IntegrationEventConverterAdapter implements IntegrationEven
     'OAuth\Domain\Event\Token\TokenRefreshedEvent' => \OAuth\Application\Contract\Event\Token\TokenRefreshedEvent::class,
     'OAuth\Domain\Event\Token\TokenRefreshFailedEvent' => \OAuth\Application\Contract\Event\Token\TokenRefreshFailedEvent::class,
     'OAuth\Domain\Event\Token\TokenRevokedEvent' => \OAuth\Application\Contract\Event\Token\TokenRevokedEvent::class,
+  ];
+
+  /**
+   * @var array<class-string, string> private domain types to stable public lifecycle names
+   */
+  private const array CLIENT_EVENTS = [
+    'OAuth\Domain\Event\Client\ClientRegisteredEvent' => 'oauth.client.registered',
+    'OAuth\Domain\Event\Client\ClientUpdatedEvent' => 'oauth.client.updated',
+    'OAuth\Domain\Event\Client\ClientSecretRegeneratedEvent' => 'oauth.client.secret_regenerated',
+    'OAuth\Domain\Event\Client\ClientActivatedEvent' => 'oauth.client.activated',
+    'OAuth\Domain\Event\Client\ClientDeactivatedEvent' => 'oauth.client.deactivated',
+    'OAuth\Domain\Event\Client\ClientDeletedEvent' => 'oauth.client.deleted',
   ];
   // #endregion
 
@@ -66,6 +80,10 @@ final readonly class IntegrationEventConverterAdapter implements IntegrationEven
    */
   public function convert(object $event): ?object
   {
+    $type = self::CLIENT_EVENTS[$event::class] ?? null;
+    if (null !== $type && $event instanceof DomainEvent) {
+      return new ClientLifecycleChangedEvent($type, $event->eventId()->value, $event->aggregateId(), $event->occurredAt(), $event->payload());
+    }
     $contract = self::CONTRACTS[$event::class] ?? null;
 
     return null === $contract ? null : $this->snapshots->copy($event, $contract);

@@ -6,7 +6,7 @@ namespace Equipment\Infrastructure\Adapter\Messaging;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
-use Messaging\Application\Contract\Subject\{MessagingSubjectResolution, MessagingSubjectType};
+use Messaging\Application\Contract\Subject\{MessagingSubjectDescriptor, MessagingSubjectResolution};
 use Messaging\Application\Port\Outbound\MessagingSubjectResolverPort;
 
 use function sprintf;
@@ -54,19 +54,17 @@ final readonly class EquipmentMessagingSubjectResolverAdapter implements Messagi
 
   // #region Methods
   /**
-   * Method supports
+   * Method descriptor.
    *
-   * Reports whether this resolver handles equipment subjects.
+   * Publishes the stable subject metadata and required read permission.
    *
    * @access public
    *
-   * @param MessagingSubjectType $type subject type to check
-   *
-   * @return bool whether the type is equipment
+   * @return MessagingSubjectDescriptor the owner-published subject descriptor
    */
-  public function supports(MessagingSubjectType $type): bool
+  public function descriptor(): MessagingSubjectDescriptor
   {
-    return MessagingSubjectType::EQUIPMENT === $type;
+    return new MessagingSubjectDescriptor('equipment', 'Equipment', 'equipment', self::REQUIRED_READ_PERMISSION);
   }
 
   /**

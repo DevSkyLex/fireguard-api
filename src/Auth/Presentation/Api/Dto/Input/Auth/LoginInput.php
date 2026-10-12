@@ -59,9 +59,7 @@ final class LoginInput
   /**
    * Property password.
    *
-   * Password of the user. Must meet security requirements.
-   * Minimum 8 characters with at least one uppercase, one lowercase,
-   * one digit, and one special character.
+   * Existing account credential. Creation policy is not reapplied during sign-in.
    *
    * @example SecureP@ssw0rd!
    *
@@ -69,9 +67,7 @@ final class LoginInput
    */
   #[Assert\NotBlank(message: 'The password field is required.')]
   #[Assert\Length(
-    min: 8,
-    max: 128,
-    minMessage: 'Password must be at least {{ limit }} characters long.',
+    max: 4096,
     maxMessage: 'Password cannot exceed {{ limit }} characters.',
   )]
   #[Groups(groups: [AuthSerializationGroup::TOKEN_WRITE])]
@@ -87,8 +83,7 @@ final class LoginInput
     openapiContext: [
       'type' => 'string',
       'format' => 'password',
-      'minLength' => 8,
-      'maxLength' => 128,
+      'maxLength' => 4096,
       'writeOnly' => true,
     ],
     jsonSchemaContext: [

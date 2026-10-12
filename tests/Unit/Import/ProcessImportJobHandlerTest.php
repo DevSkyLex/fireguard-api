@@ -10,11 +10,10 @@ use Equipment\Application\Port\Inbound\EquipmentProvisioningPort;
 use Facility\Application\Contract\Hierarchy\FacilityHierarchyNode;
 use Facility\Application\Contract\Provisioning\{ProvisionFacilityRequest, ProvisionFacilityResult, ProvisionOutcome as FacilityProvisionOutcome};
 use Facility\Application\Port\Inbound\FacilityProvisioningPort;
+use Facility\Infrastructure\Import\FacilityImportProjection;
 use Generator;
 use Import\Application\Port\Outbound\CsvRowStreamerPort;
 use Import\Application\Port\Outbound\Internal\ImportJobRepositoryPort;
-use Import\Application\Service\{EquipmentRowFactory, FacilityRowFactory, MemberRowFactory};
-use Import\Application\Support\DryRunProjection;
 use Import\Application\UseCase\Command\ProcessImportJob\{ProcessImportJobCommand, ProcessImportJobHandler};
 use Import\Domain\Event\{ImportJobCompletedEvent, ImportJobFailedEvent};
 use Import\Domain\Model\ImportJob\ImportJob;
@@ -49,6 +48,75 @@ final class ProcessImportJobHandlerTest extends TestCase
   private const string ORGANIZATION_ID = '018f0b68-6758-7a12-8a1d-3f0d97f65a02';
 
   private const string CREATED_BY = '018f0b68-6758-7a12-8a1d-3f0d97f65a03';
+
+  #[Test]
+  public function itResumesAnIndependentContributionRestoringOnlyConfirmedSimulationSuccesses(): void
+  {
+    $job = ImportJob::create(ImportJobId::fromString(self::JOB_ID), self::ORGANIZATION_ID, ImportKind::from('test_asset'), 'simulation.csv', 'simulation.csv', self::CREATED_BY, true);
+    $job->markProcessing(new DateTimeImmutable());
+    $job->recordRowSuccess(new \Import\Domain\ValueObject\ImportRowError(1, 'would_create', 'Would create a test asset.'));
+    $job->recordRowError(new \Import\Domain\ValueObject\ImportRowError(2, 'invalid', 'Rejected test asset.'));
+    $repository = new InMemoryImportJobRepositoryFake($job);
+    $csv = $this->createStub(CsvRowStreamerPort::class);
+    $csv->method('countDataRows')->willReturn(3);
+    $csv->method('rows')->willReturn($this->generatorFrom([1 => ['name' => 'First'], 2 => ['name' => 'Rejected'], 3 => ['name' => 'Third']]));
+    $processor = new \Tests\Support\Import\RecordingImportKindProcessor();
+    $authorization = $this->createMock(\Organization\Application\Port\Inbound\OrganizationAuthorizationPort::class);
+    $authorization->expects(self::once())->method('resolveAccess')
+      ->with('resuming-actor', self::ORGANIZATION_ID, 'organization.test_assets.write')
+      ->willReturn(\Organization\Application\Contract\Authorization\OrganizationAccessDecision::GRANTED);
+    $handler = $this->handler(
+      $repository,
+      $csv,
+      $this->neverCalledEquipmentPort(),
+      $this->neverCalledFacilityPort(),
+      $this->createStub(EventDispatcherPort::class),
+      authorization: $authorization,
+      kinds: new \Import\Application\Service\ImportKindProcessorRegistry([$processor]),
+    );
+
+    $handler(new ProcessImportJobCommand(self::JOB_ID, 'resuming-actor'));
+    $handler(new ProcessImportJobCommand(self::JOB_ID, 'resuming-actor'));
+
+    self::assertCount(1, $processor->contexts);
+    self::assertSame(self::JOB_ID, $processor->contexts[0]->jobId);
+    self::assertSame(self::ORGANIZATION_ID, $processor->contexts[0]->organizationId);
+    self::assertSame('resuming-actor', $processor->contexts[0]->actorId);
+    self::assertTrue($processor->contexts[0]->dryRun);
+    self::assertEquals([new \Import\Application\Contract\ImportRowInput(1, ['name' => 'First'])], $processor->restored);
+    self::assertEquals([new \Import\Application\Contract\ImportRowInput(3, ['name' => 'Third'])], $processor->processed);
+    $reloaded = $repository->findById($job->id());
+    self::assertInstanceOf(ImportJob::class, $reloaded);
+    self::assertSame(ImportStatus::COMPLETED, $reloaded->status());
+    self::assertSame(2, $reloaded->successfulRows());
+    self::assertSame(1, $reloaded->failedRows());
+    self::assertCount(3, $reloaded->errorReport());
+  }
+
+  #[Test]
+  public function itCreatesAFreshContributionSessionForEachJob(): void
+  {
+    $processor = new \Tests\Support\Import\RecordingImportKindProcessor();
+    $registry = new \Import\Application\Service\ImportKindProcessorRegistry([$processor]);
+    foreach ([self::JOB_ID, '018f0b68-6758-7a12-8a1d-3f0d97f65a09'] as $jobId) {
+      $job = ImportJob::create(ImportJobId::fromString($jobId), self::ORGANIZATION_ID, ImportKind::from('test_asset'), 'assets.csv', 'assets.csv', self::CREATED_BY);
+      $repository = new InMemoryImportJobRepositoryFake($job);
+      $csv = $this->createStub(CsvRowStreamerPort::class);
+      $csv->method('countDataRows')->willReturn(1);
+      $csv->method('rows')->willReturn($this->generatorFrom([1 => ['name' => 'Asset']]));
+      $this->handler($repository, $csv, $this->neverCalledEquipmentPort(), $this->neverCalledFacilityPort(), $this->createStub(EventDispatcherPort::class), kinds: $registry)
+        ->__invoke(new ProcessImportJobCommand($jobId));
+      $reloaded = $repository->findById($job->id());
+      self::assertInstanceOf(ImportJob::class, $reloaded);
+      self::assertSame(1, $reloaded->successfulRows());
+      self::assertSame([], $reloaded->errorReport());
+    }
+
+    self::assertCount(2, $processor->sessions);
+    self::assertNotSame($processor->sessions[0], $processor->sessions[1]);
+    self::assertSame(self::JOB_ID, $processor->contexts[0]->jobId);
+    self::assertSame('018f0b68-6758-7a12-8a1d-3f0d97f65a09', $processor->contexts[1]->jobId);
+  }
 
   #[Test]
   public function itCompletesWithEveryRowSuccessfulOnTheHappyPath(): void
@@ -240,7 +308,7 @@ final class ProcessImportJobHandlerTest extends TestCase
     $job = ImportJob::create(
       id: ImportJobId::fromString(self::JOB_ID),
       organizationId: self::ORGANIZATION_ID,
-      kind: ImportKind::FACILITY,
+      kind: ImportKind::from('facility'),
       storagePath: 'imports/' . self::ORGANIZATION_ID . '/' . self::JOB_ID . '.csv',
       originalFilename: 'facilities.csv',
       createdBy: self::CREATED_BY,
@@ -376,7 +444,7 @@ final class ProcessImportJobHandlerTest extends TestCase
     $job = ImportJob::create(
       id: ImportJobId::fromString(self::JOB_ID),
       organizationId: self::ORGANIZATION_ID,
-      kind: ImportKind::FACILITY,
+      kind: ImportKind::from('facility'),
       storagePath: 'imports/' . self::ORGANIZATION_ID . '/' . self::JOB_ID . '.csv',
       originalFilename: 'facilities.csv',
       createdBy: self::CREATED_BY,
@@ -447,7 +515,7 @@ final class ProcessImportJobHandlerTest extends TestCase
     $job = ImportJob::create(
       id: ImportJobId::fromString(self::JOB_ID),
       organizationId: self::ORGANIZATION_ID,
-      kind: ImportKind::EQUIPMENT,
+      kind: ImportKind::from('equipment'),
       storagePath: 'imports/' . self::ORGANIZATION_ID . '/' . self::JOB_ID . '.csv',
       originalFilename: 'equipment.csv',
       createdBy: self::CREATED_BY,
@@ -497,7 +565,7 @@ final class ProcessImportJobHandlerTest extends TestCase
     $job = ImportJob::create(
       id: ImportJobId::fromString(self::JOB_ID),
       organizationId: self::ORGANIZATION_ID,
-      kind: ImportKind::EQUIPMENT,
+      kind: ImportKind::from('equipment'),
       storagePath: 'imports/' . self::ORGANIZATION_ID . '/' . self::JOB_ID . '.csv',
       originalFilename: 'equipment.csv',
       createdBy: self::CREATED_BY,
@@ -536,7 +604,7 @@ final class ProcessImportJobHandlerTest extends TestCase
     $job = ImportJob::create(
       ImportJobId::fromString(self::JOB_ID),
       self::ORGANIZATION_ID,
-      ImportKind::FACILITY,
+      ImportKind::from('facility'),
       'facilities.csv',
       'facilities.csv',
       self::CREATED_BY,
@@ -575,7 +643,7 @@ final class ProcessImportJobHandlerTest extends TestCase
     self::assertSame(['HQ' => $captured[0]->resourceId, 'BLD' => $captured[1]->resourceId], $captured[2]->pendingCodeIds);
     self::assertSame('building', $captured[2]->projectedHierarchy[1]->type);
     self::assertSame($captured[0]->resourceId, $captured[2]->projectedHierarchy[1]->parentFacilityId);
-    self::assertSame(DryRunProjection::simulatedFacilityId(self::JOB_ID, 3), $captured[2]->resourceId);
+    self::assertSame(FacilityImportProjection::simulatedFacilityId(self::JOB_ID, 3), $captured[2]->resourceId);
   }
 
   #[Test]
@@ -744,7 +812,7 @@ final class ProcessImportJobHandlerTest extends TestCase
     $job = ImportJob::create(
       ImportJobId::fromString(self::JOB_ID),
       self::ORGANIZATION_ID,
-      ImportKind::FACILITY,
+      ImportKind::from('facility'),
       'simulation.csv',
       'simulation.csv',
       self::CREATED_BY,
@@ -771,15 +839,15 @@ final class ProcessImportJobHandlerTest extends TestCase
       });
     $facilities->expects(self::once())->method('provision')
       ->willReturnCallback(function (ProvisionFacilityRequest $request): ProvisionFacilityResult {
-        $siteId = DryRunProjection::simulatedFacilityId(self::JOB_ID, 1);
-        $buildingId = DryRunProjection::simulatedFacilityId(self::JOB_ID, 2);
+        $siteId = FacilityImportProjection::simulatedFacilityId(self::JOB_ID, 1);
+        $buildingId = FacilityImportProjection::simulatedFacilityId(self::JOB_ID, 2);
         self::assertTrue($request->dryRun);
         self::assertSame(2, $request->quotaProjectionOffset);
         self::assertSame(['HQ' => $siteId, 'BLD' => $buildingId], $request->pendingCodeIds);
         self::assertCount(2, $request->projectedHierarchy);
         self::assertEquals(new FacilityHierarchyNode($siteId, 'site', null), $request->projectedHierarchy[0]);
         self::assertEquals(new FacilityHierarchyNode($buildingId, 'building', $siteId), $request->projectedHierarchy[1]);
-        self::assertSame(DryRunProjection::simulatedFacilityId(self::JOB_ID, 3), $request->resourceId);
+        self::assertSame(FacilityImportProjection::simulatedFacilityId(self::JOB_ID, 3), $request->resourceId);
 
         return $this->simulatedFacilityResult($request);
       });
@@ -790,8 +858,8 @@ final class ProcessImportJobHandlerTest extends TestCase
     self::assertInstanceOf(ImportJob::class, $reloaded);
     self::assertSame(3, $reloaded->successfulRows());
     self::assertSame(0, $reloaded->failedRows());
-    self::assertSame(DryRunProjection::simulatedFacilityId(self::JOB_ID, 1), $restored[0]->resourceId);
-    self::assertSame(DryRunProjection::simulatedFacilityId(self::JOB_ID, 2), $restored[1]->resourceId);
+    self::assertSame(FacilityImportProjection::simulatedFacilityId(self::JOB_ID, 1), $restored[0]->resourceId);
+    self::assertSame(FacilityImportProjection::simulatedFacilityId(self::JOB_ID, 2), $restored[1]->resourceId);
   }
 
   #[Test]
@@ -871,7 +939,7 @@ final class ProcessImportJobHandlerTest extends TestCase
     return ImportJob::create(
       id: ImportJobId::fromString(self::JOB_ID),
       organizationId: self::ORGANIZATION_ID,
-      kind: ImportKind::EQUIPMENT,
+      kind: ImportKind::from('equipment'),
       storagePath: 'imports/' . self::ORGANIZATION_ID . '/' . self::JOB_ID . '.csv',
       originalFilename: 'equipment.csv',
       createdBy: self::CREATED_BY,
@@ -907,7 +975,7 @@ final class ProcessImportJobHandlerTest extends TestCase
     return ImportJob::create(
       id: ImportJobId::fromString(self::JOB_ID),
       organizationId: self::ORGANIZATION_ID,
-      kind: ImportKind::MEMBER,
+      kind: ImportKind::from('member'),
       storagePath: 'imports/' . self::ORGANIZATION_ID . '/' . self::JOB_ID . '.csv',
       originalFilename: 'members.csv',
       createdBy: self::CREATED_BY,
@@ -925,6 +993,7 @@ final class ProcessImportJobHandlerTest extends TestCase
     ?LoggerPort $logger = null,
     ?MemberInvitationProvisioningPort $memberInvitationProvisioning = null,
     ?\Organization\Application\Port\Inbound\OrganizationAuthorizationPort $authorization = null,
+    ?\Import\Application\Port\Outbound\Internal\ImportKindRegistryPort $kinds = null,
   ): ProcessImportJobHandler {
     if (null === $fileStorage) {
       $fileStorage = $this->createStub(FileStoragePort::class);
@@ -944,12 +1013,7 @@ final class ProcessImportJobHandlerTest extends TestCase
       execution: new InMemoryImportExecutionFake($repository),
       fileStorage: $fileStorage,
       csvStreamer: $csvStreamer,
-      equipmentRowFactory: new EquipmentRowFactory(),
-      facilityRowFactory: new FacilityRowFactory(),
-      memberRowFactory: new MemberRowFactory(),
-      equipmentProvisioning: $equipmentProvisioning,
-      facilityProvisioning: $facilityProvisioning,
-      memberInvitationProvisioning: $memberInvitationProvisioning ?? $this->neverCalledMemberPort(),
+      kinds: $kinds ?? \Tests\Support\Import\BuiltinImportProcessors::create($equipmentProvisioning, $facilityProvisioning, $memberInvitationProvisioning ?? $this->neverCalledMemberPort()),
       eventDispatcher: $eventDispatcher,
       clock: $clock,
       logger: $logger ?? $this->createStub(LoggerPort::class),

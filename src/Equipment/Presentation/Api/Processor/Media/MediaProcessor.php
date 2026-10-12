@@ -80,7 +80,23 @@ final readonly class MediaProcessor implements ProcessorInterface
       $clientId,
     ));
     if (null !== $scope->replay) {
-      return MediaProvider::output($scope->replay);
+      $existing = $scope->replay;
+      /** @var AddAttachmentResult $acknowledged */
+      $acknowledged = $this->commandBus->dispatch(new AddAttachmentCommand(
+        organizationId: $scope->organizationId,
+        equipmentId: $scope->equipmentId,
+        fileName: $existing->fileName,
+        contents: '',
+        mimeType: $existing->mimeType,
+        size: $existing->size,
+        label: $existing->label,
+        attachmentId: $existing->id,
+        userId: $this->userId(),
+        interventionId: $scope->interventionId,
+        acknowledgementOnly: true,
+      ));
+
+      return MediaProvider::output($acknowledged);
     }
     $uploaded = $this->attachmentGuard->fromRequest($request);
     /** @var AddAttachmentResult $result */

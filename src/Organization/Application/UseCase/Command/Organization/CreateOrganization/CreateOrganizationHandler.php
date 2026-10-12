@@ -9,6 +9,7 @@ use Onboarding\Application\Contract\Setup\OrganizationSetupConflict;
 use Onboarding\Application\Port\Inbound\OrganizationSetupPort;
 use Organization\Application\Contract\Event\Organization\OrganizationCreatedEvent;
 use Organization\Application\Contract\Exception\OrganizationSlugAlreadyExistsException;
+use Organization\Application\Port\Inbound\{OrganizationSettingsPolicyCatalogPort, OrganizationSystemRoleCatalogPort};
 use Organization\Application\Port\Outbound\Internal\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort, PlanRepositoryPort};
 use Organization\Domain\Catalog\OrganizationSystemRoleCatalog;
 use Organization\Domain\Model\Organization\{Organization, OrganizationCreationOptions};
@@ -74,6 +75,8 @@ final readonly class CreateOrganizationHandler implements CommandHandler
     private UuidGeneratorPort $uuidFactory,
     private TransactionManagerPort $transactionManager,
     private EventDispatcherPort $eventDispatcher,
+    private OrganizationSystemRoleCatalogPort $systemRoles,
+    private OrganizationSettingsPolicyCatalogPort $settingsPolicies,
     private ?OrganizationSetupPort $setup = null,
   ) {
   }
@@ -134,6 +137,7 @@ final readonly class CreateOrganizationHandler implements CommandHandler
       name: new OrganizationName($command->name),
       ownerUserId: $command->ownerUserId,
       options: new OrganizationCreationOptions(
+        settings: \Organization\Domain\ValueObject\OrganizationSettings::fromArray([], $this->settingsPolicies->allDefaults()),
         operatingProfile: \Organization\Domain\ValueObject\OrganizationOperatingProfile::fromString($command->operatingProfile),
         slug: null !== $normalizedSlug ? new OrganizationSlug($normalizedSlug) : null,
         planId: $defaultPlan?->id(),
@@ -144,7 +148,7 @@ final readonly class CreateOrganizationHandler implements CommandHandler
       id: $ownerRoleId,
       organizationId: $organizationId,
       name: new OrganizationRoleName(OrganizationSystemRoleCatalog::ADMIN),
-      permissions: OrganizationSystemRoleCatalog::permissionsFor(OrganizationSystemRoleCatalog::ADMIN),
+      permissions: $this->systemRoles->permissionsFor(OrganizationSystemRoleCatalog::ADMIN),
       isSystem: true,
       description: 'Full administrator of the organization',
     );
@@ -153,7 +157,7 @@ final readonly class CreateOrganizationHandler implements CommandHandler
       id: $memberRoleId,
       organizationId: $organizationId,
       name: new OrganizationRoleName(OrganizationSystemRoleCatalog::MEMBER),
-      permissions: OrganizationSystemRoleCatalog::permissionsFor(OrganizationSystemRoleCatalog::MEMBER),
+      permissions: $this->systemRoles->permissionsFor(OrganizationSystemRoleCatalog::MEMBER),
       isSystem: true,
       description: 'Regular member of the organization',
     );

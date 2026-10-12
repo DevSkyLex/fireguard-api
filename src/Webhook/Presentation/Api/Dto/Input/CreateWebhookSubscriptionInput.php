@@ -7,8 +7,8 @@ namespace Webhook\Presentation\Api\Dto\Input;
 use ApiPlatform\Metadata\ApiProperty;
 use Symfony\Component\Serializer\Attribute\Groups;
 use Symfony\Component\Validator\Constraints as Assert;
-use Webhook\Application\Contract\Event\WebhookEventCatalog;
 use Webhook\Presentation\Api\Serialization\WebhookSerializationGroup;
+use Webhook\Presentation\Api\Validator\ValidWebhookEventType\ValidWebhookEventType;
 use Webhook\Presentation\Api\Validator\ValidWebhookUrl\ValidWebhookUrl;
 
 /**
@@ -42,7 +42,7 @@ final class CreateWebhookSubscriptionInput
    */
   #[Assert\Count(min: 1, minMessage: 'At least one event type is required.')]
   #[Assert\All([
-    new Assert\Choice(callback: [WebhookEventCatalog::class, 'allowedEventTypes']),
+    new ValidWebhookEventType(),
   ])]
   #[Groups([WebhookSerializationGroup::WRITE])]
   #[ApiProperty(description: 'Subscribed public event type allowlist', required: true, example: ['intervention.published'])]

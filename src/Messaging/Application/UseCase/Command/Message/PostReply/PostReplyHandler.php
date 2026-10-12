@@ -12,6 +12,7 @@ use Messaging\Domain\Model\Message\{Message, MessageCreationLinks};
 use Messaging\Domain\Service\MentionExtractor;
 use Messaging\Domain\ValueObject\{ConversationVisibility, MessageId};
 use Shared\Application\Message\CommandHandler;
+use Shared\Application\Port\Outbound\Idempotency\HttpIdempotencyExecutionPort;
 use Shared\Application\Port\Outbound\{LoggerPort, RootTransactionManagerPort};
 use Shared\Application\Port\Outbound\UuidGeneratorPort;
 use Throwable;
@@ -81,6 +82,7 @@ final readonly class PostReplyHandler implements CommandHandler
     private UuidGeneratorPort $uuidFactory,
     private LoggerPort $logger,
     private RootTransactionManagerPort $transactions,
+    private ?HttpIdempotencyExecutionPort $idempotency = null,
   ) {
   }
 
@@ -145,13 +147,17 @@ final readonly class PostReplyHandler implements CommandHandler
       links: new MessageCreationLinks(parentMessageId: $command->parentMessageId),
     );
 
-    $view = $this->transactions->transactional(function () use ($reply, $conversationId, $command) {
+    $result = $this->transactions->transactional(function () use ($reply, $conversationId, $command, $authorMemberId): PostReplyResult {
       $view = $this->messages->append($reply);
       $this->conversations->touchOnNewMessage($conversationId, $view->createdAt);
       $this->messages->incrementReplyCount($command->parentMessageId);
 
-      return $view;
+      $result = new PostReplyResult($view, $authorMemberId);
+      $this->idempotency?->captureResult($result);
+
+      return $result;
     });
+    $view = $result->message;
 
     try {
       $this->realtime->publishMessage($organizationId, $conversationId, [
@@ -180,7 +186,7 @@ final readonly class PostReplyHandler implements CommandHandler
       );
     }
 
-    return new PostReplyResult($view, $authorMemberId);
+    return $result;
   }
 
   /**

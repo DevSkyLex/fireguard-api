@@ -19,6 +19,15 @@ final class DisableTotpInput
 {
   // #region Properties
   /**
+   * Property proofType
+   *
+   * Recovery disable requires an unconsumed code independent of any code used for login.
+   */
+  #[Assert\Choice(choices: ['totp', 'recovery_code'])]
+  #[ApiProperty(description: 'Current authenticator or unconsumed recovery code proof.', openapiContext: ['type' => 'string', 'enum' => ['totp', 'recovery_code'], 'default' => 'totp'])]
+  public string $proofType = 'totp';
+
+  /**
    * Property code.
    *
    * The current TOTP code, proving possession of the authenticator app
@@ -26,7 +35,7 @@ final class DisableTotpInput
    */
   #[Assert\NotBlank]
   #[ApiProperty(
-    description: 'The current TOTP code from the authenticator app.',
+    description: 'A current TOTP code or unconsumed recovery proof matching proofType.',
     readable: false,
     writable: true,
     required: true,

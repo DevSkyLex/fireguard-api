@@ -1,0 +1,26 @@
+api_platform:
+  mapping:
+    paths:
+      - '%kernel.project_dir%/src/Facility/Presentation/Api/Resource'
+  exception_to_status:
+    Facility\Domain\Exception\FacilityHasActiveDependentsException: 409
+    Facility\Domain\Exception\CanonicalFacilityConflictException: 409
+    Facility\Domain\Exception\CanonicalFacilityValidationException: 422
+    Facility\Domain\Exception\FacilityRevisionMismatchException: 412
+    Facility\Domain\Exception\FacilityArchivedException: 400
+    Facility\Domain\Exception\FacilityAttachmentNotAncestorException: 409
+    Facility\Domain\Exception\FacilityAttachmentNotFloorPlanException: 409
+    Facility\Domain\Exception\FacilityAttachmentNotFoundException: 404
+    Facility\Domain\Exception\FacilityCodeAlreadyExistsException: 409
+    Facility\Domain\Exception\FacilityHierarchyException: 422
+    Facility\Domain\Exception\FacilityNotBuildingException: 409
+    Facility\Domain\Exception\FacilityOrganizationNotFoundException: 400
+    Facility\Domain\Exception\FacilityAddressNotFoundException: 404
+    Facility\Domain\Exception\FacilityAddressSuggestionsUnavailableException: 503
+    Facility\Domain\Exception\FacilityAccessDeniedException: 403
+    Facility\Domain\Exception\FacilityMetadataFieldKeyAlreadyExistsException: 409
+    Facility\Domain\Exception\FacilityMetadataFieldLimitExceededException: 422
+    Facility\Domain\Exception\FacilityMetadataFieldNotFoundException: 404
+    Facility\Domain\Exception\FacilityNotFoundException: 404
+    Facility\Domain\Exception\FacilitySubtreeSourceArchivedException: 409
+    Facility\Domain\Exception\FacilitySubtreeTooLargeException: 422

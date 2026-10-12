@@ -7,7 +7,7 @@ namespace Tests\Unit\Billing\Infrastructure\Adapter\Stripe;
 use Billing\Application\Contract\Stripe\StripeEvent;
 use Billing\Domain\Exception\InvalidWebhookSignatureException;
 use Billing\Infrastructure\Adapter\Stripe\StripeGatewayAdapter;
-use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\{DataProvider, Test};
 use PHPUnit\Framework\TestCase;
 use Stripe\ApiRequestor;
 use Stripe\HttpClient\ClientInterface;
@@ -40,6 +40,54 @@ final class StripeGatewayAdapterTest extends TestCase
       'cus_existing',
       $this->adapter()->ensureCustomer('org-1', 'cus_existing'),
     );
+  }
+
+  /**
+   * @return iterable<string, array{'checkout'|'portal'|'cancel'|'resume', non-empty-string, non-empty-string}>
+   */
+  public static function idempotentWrites(): iterable
+  {
+    yield 'checkout' => ['checkout', '/v1/checkout/sessions', 'checkout.session'];
+    yield 'portal' => ['portal', '/v1/billing_portal/sessions', 'billing_portal.session'];
+    yield 'cancel' => ['cancel', '/v1/subscriptions/sub_123', 'subscription'];
+    yield 'resume' => ['resume', '/v1/subscriptions/sub_123', 'subscription'];
+  }
+
+  /**
+   * @param 'checkout'|'portal'|'cancel'|'resume' $operation the provider operation
+   * @param non-empty-string $path the Stripe endpoint suffix
+   * @param non-empty-string $object the Stripe response object type
+   */
+  #[Test]
+  #[DataProvider('idempotentWrites')]
+  public function outgoingWritesKeepTheSameProviderKeyOnRetry(string $operation, string $path, string $object): void
+  {
+    $previous = ApiRequestor::httpClient();
+    $http = $this->createMock(ClientInterface::class);
+    $http->expects(self::exactly(2))->method('request')->willReturnCallback(
+      static function (string $method, string $url, array $headers, array $params) use ($path, $object): array {
+        self::assertSame('post', $method);
+        self::assertStringEndsWith($path, $url);
+        self::assertContains('Idempotency-Key: stable-provider-intention', $headers);
+
+        return [json_encode(['id' => 'sub_123', 'object' => $object, 'url' => 'https://stripe.test/session'], JSON_THROW_ON_ERROR), 200, []];
+      },
+    );
+    ApiRequestor::setHttpClient($http);
+
+    try {
+      $adapter = $this->adapter();
+      for ($attempt = 0; $attempt < 2; ++$attempt) {
+        match ($operation) {
+          'checkout' => $adapter->createCheckoutSession('cus_123', 'price_123', 'org-1', 'pro', 'https://app.test/success', 'https://app.test/cancel', 'stable-provider-intention'),
+          'portal' => $adapter->createBillingPortalSession('cus_123', 'https://app.test/return', 'stable-provider-intention'),
+          'cancel' => $adapter->scheduleCancellation('sub_123', 'stable-provider-intention'),
+          'resume' => $adapter->resumeCancellation('sub_123', 'stable-provider-intention'),
+        };
+      }
+    } finally {
+      ApiRequestor::setHttpClient($previous);
+    }
   }
 
   #[Test]

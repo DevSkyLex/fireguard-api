@@ -26,6 +26,7 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Message\{CommandMessage, ResultMessage};
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
+use Shared\Application\Port\Outbound\Idempotency\HttpIdempotencyExecutionPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
@@ -161,8 +162,9 @@ final class CanonicalInspectionMutationProcessorTest extends TestCase
   #[Test]
   public function testAScratchpadRowAsksTheInterventionForThePermission(): void
   {
-    $resources = $this->createStub(InterventionResourceGatewayPort::class);
-    $resources->method('interventionMutationContext')->willReturn(
+    $resources = $this->createMock(InterventionResourceGatewayPort::class);
+    $resources->expects(self::never())->method('interventionMutationContext');
+    $resources->expects(self::once())->method('interventionAssignmentContext')->with(self::INTERVENTION_ID)->willReturn(
       new InterventionAssignmentContext(self::INTERVENTION_ID, self::ORGANIZATION_ID, 'draft'),
     );
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
@@ -188,7 +190,7 @@ final class CanonicalInspectionMutationProcessorTest extends TestCase
   public function testAMissingParentInterventionIsNotFound(): void
   {
     $resources = $this->createStub(InterventionResourceGatewayPort::class);
-    $resources->method('interventionMutationContext')->willReturn(null);
+    $resources->method('interventionAssignmentContext')->willReturn(null);
 
     $this->expectException(NotFoundHttpException::class);
 
@@ -208,7 +210,7 @@ final class CanonicalInspectionMutationProcessorTest extends TestCase
   public function testAnImmutableParentInterventionIsAConflict(): void
   {
     $resources = $this->createStub(InterventionResourceGatewayPort::class);
-    $resources->method('interventionMutationContext')->willReturn(
+    $resources->method('interventionAssignmentContext')->willReturn(
       new InterventionAssignmentContext(self::INTERVENTION_ID, self::ORGANIZATION_ID, 'published'),
     );
 
@@ -219,6 +221,32 @@ final class CanonicalInspectionMutationProcessorTest extends TestCase
       view: $this->view(recordStatus: 'draft', interventionId: self::INTERVENTION_ID),
       resources: $resources,
     )->process(new PatchCanonicalInspectionInput(), new Delete(), ['id' => self::INSPECTION_ID]);
+  }
+
+  #[Test]
+  public function testAuthorizedReplayDoesNotResolveTheCurrentMutationPermissionAgain(): void
+  {
+    $execution = $this->createStub(HttpIdempotencyExecutionPort::class);
+    $execution->method('isReplay')->willReturn(true);
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->expects(self::never())->method('resolveAccess');
+    $resources = $this->createMock(InterventionResourceGatewayPort::class);
+    $resources->expects(self::never())->method('interventionMutationContext');
+    $commandBus = $this->recordingCommandBus();
+
+    $output = $this->processor(
+      $this->request('DELETE'),
+      view: $this->view(recordStatus: 'draft', interventionId: self::INTERVENTION_ID),
+      commandBus: $commandBus,
+      authorization: $authorization,
+      resources: $resources,
+      idempotency: $execution,
+    )->process(new PatchCanonicalInspectionInput(), new Delete(), ['id' => self::INSPECTION_ID]);
+
+    self::assertNull($output);
+    self::assertCount(1, $commandBus->dispatched);
+    self::assertInstanceOf(DeleteCanonicalInspectionCommand::class, $commandBus->dispatched[0]);
+    self::assertSame(3, $commandBus->dispatched[0]->expectedRevision);
   }
 
   /**
@@ -334,6 +362,7 @@ final class CanonicalInspectionMutationProcessorTest extends TestCase
    * @param ?OrganizationAuthorizationPort $authorization the authorization port
    * @param ?Security $security the security helper
    * @param ?InterventionResourceGatewayPort $resources the intervention gateway
+   * @param ?HttpIdempotencyExecutionPort $idempotency the authorized completed replay capability
    *
    * @return CanonicalInspectionMutationProcessor the processor under test
    */
@@ -345,6 +374,7 @@ final class CanonicalInspectionMutationProcessorTest extends TestCase
     ?Security $security = null,
     ?InterventionResourceGatewayPort $resources = null,
     bool $found = true,
+    ?HttpIdempotencyExecutionPort $idempotency = null,
   ): CanonicalInspectionMutationProcessor {
     $queryBus = $this->createStub(QueryBusPort::class);
     $queryBus->method('ask')->willReturn(new GetCanonicalInspectionResult(
@@ -377,6 +407,7 @@ final class CanonicalInspectionMutationProcessorTest extends TestCase
       new \Intervention\Infrastructure\Adapter\Resource\InterventionResourcesAdapter($manager),
       new RevisionGuard($requestStack),
       new MergePatchFields($requestStack),
+      $idempotency,
     );
   }
 

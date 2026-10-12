@@ -89,6 +89,7 @@ final class UpdateOrganizationRoleHandlerTest extends TestCase
       eventDispatcher: $eventDispatcher,
       lastAdminGuard: $lastAdminGuard,
       transactionManager: $this->passthroughTransactionManager(),
+      permissionCatalog: \Tests\Support\OrganizationCatalogTestFactory::permissions(),
     );
 
     $result = $handler->__invoke(new UpdateOrganizationRoleCommand(
@@ -143,6 +144,7 @@ final class UpdateOrganizationRoleHandlerTest extends TestCase
       eventDispatcher: $eventDispatcher,
       lastAdminGuard: $lastAdminGuard,
       transactionManager: $this->passthroughTransactionManager(),
+      permissionCatalog: \Tests\Support\OrganizationCatalogTestFactory::permissions(),
     );
 
     $this->expectException(OrganizationSystemRoleImmutableException::class);
@@ -181,6 +183,7 @@ final class UpdateOrganizationRoleHandlerTest extends TestCase
       eventDispatcher: $eventDispatcher,
       lastAdminGuard: $lastAdminGuard,
       transactionManager: $transactionManager,
+      permissionCatalog: \Tests\Support\OrganizationCatalogTestFactory::permissions(),
     );
 
     $this->expectException(OrganizationNotFoundException::class);
@@ -217,6 +220,7 @@ final class UpdateOrganizationRoleHandlerTest extends TestCase
       eventDispatcher: $eventDispatcher,
       lastAdminGuard: $lastAdminGuard,
       transactionManager: $this->passthroughTransactionManager(),
+      permissionCatalog: \Tests\Support\OrganizationCatalogTestFactory::permissions(),
     );
 
     // Not InvalidArgument: a role that does not exist, or belongs to another
@@ -265,6 +269,7 @@ final class UpdateOrganizationRoleHandlerTest extends TestCase
       eventDispatcher: $eventDispatcher,
       lastAdminGuard: $lastAdminGuard,
       transactionManager: $this->passthroughTransactionManager(),
+      permissionCatalog: \Tests\Support\OrganizationCatalogTestFactory::permissions(),
     );
 
     // Not InvalidArgument: a role that does not exist, or belongs to another
@@ -306,6 +311,7 @@ final class UpdateOrganizationRoleHandlerTest extends TestCase
       eventDispatcher: $eventDispatcher,
       lastAdminGuard: $lastAdminGuard,
       transactionManager: $transactionManager,
+      permissionCatalog: \Tests\Support\OrganizationCatalogTestFactory::permissions(),
     );
 
     $this->expectException(InvalidValueException::class);
@@ -339,6 +345,7 @@ final class UpdateOrganizationRoleHandlerTest extends TestCase
       eventDispatcher: $eventDispatcher,
       lastAdminGuard: $this->createStub(OrganizationLastAdminGuardPort::class),
       transactionManager: $this->passthroughTransactionManager(),
+      permissionCatalog: \Tests\Support\OrganizationCatalogTestFactory::permissions(),
     );
 
     $updated = $handler->__invoke(new UpdateOrganizationRoleCommand(
@@ -386,6 +393,7 @@ final class UpdateOrganizationRoleHandlerTest extends TestCase
       eventDispatcher: $eventDispatcher,
       lastAdminGuard: $this->createStub(OrganizationLastAdminGuardPort::class),
       transactionManager: $this->passthroughTransactionManager(),
+      permissionCatalog: \Tests\Support\OrganizationCatalogTestFactory::permissions(),
     );
 
     $result = $handler->__invoke(new UpdateOrganizationRoleCommand(
@@ -420,6 +428,7 @@ final class UpdateOrganizationRoleHandlerTest extends TestCase
       eventDispatcher: $eventDispatcher,
       lastAdminGuard: $this->createStub(OrganizationLastAdminGuardPort::class),
       transactionManager: $this->passthroughTransactionManager(),
+      permissionCatalog: \Tests\Support\OrganizationCatalogTestFactory::permissions(),
     );
 
     $result = $handler->__invoke(new UpdateOrganizationRoleCommand(
@@ -462,6 +471,7 @@ final class UpdateOrganizationRoleHandlerTest extends TestCase
       eventDispatcher: $eventDispatcher,
       lastAdminGuard: $this->createStub(OrganizationLastAdminGuardPort::class),
       transactionManager: $this->passthroughTransactionManager(),
+      permissionCatalog: \Tests\Support\OrganizationCatalogTestFactory::permissions(),
     );
 
     $this->expectException(OrganizationRoleNameAlreadyExistsException::class);
@@ -501,6 +511,7 @@ final class UpdateOrganizationRoleHandlerTest extends TestCase
       eventDispatcher: $eventDispatcher,
       lastAdminGuard: $lastAdminGuard,
       transactionManager: $this->passthroughTransactionManager(),
+      permissionCatalog: \Tests\Support\OrganizationCatalogTestFactory::permissions(),
     );
 
     $this->expectException(OrganizationLastAdminException::class);
@@ -548,6 +559,7 @@ final class UpdateOrganizationRoleHandlerTest extends TestCase
       eventDispatcher: $this->createStub(EventDispatcherPort::class),
       lastAdminGuard: $lastAdminGuard,
       transactionManager: $transactionManager,
+      permissionCatalog: \Tests\Support\OrganizationCatalogTestFactory::permissions(),
     );
 
     $handler->__invoke(new UpdateOrganizationRoleCommand(

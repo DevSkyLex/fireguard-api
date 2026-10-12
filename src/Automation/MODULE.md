@@ -44,6 +44,8 @@ Disabled rules record a skipped run without creating a draft.
 
 ## Architecture
 
+HTTP retry receipts recheck current automation read/manage grants, the run organization, its original attempt and the live rule policy before decoding the accepted result. The replay adapter explicitly uses the main connection and fresh owner-provided policy implementation. It preserves the original pending attempt snapshot and never reserves or enqueues another attempt during replay; later worker progress remains available through the ordinary history reads.
+
 Execution logging uses Shared's published LoggerPort. Vendor loggers remain in
 Infrastructure, preserving the reservation, transaction and retry contracts above.
 

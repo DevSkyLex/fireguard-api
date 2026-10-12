@@ -6,10 +6,13 @@ namespace Organization\Infrastructure\Adapter\Automation;
 
 use Automation\Application\Contract\Policy\AutomationPolicy;
 use Automation\Application\Port\Outbound\AutomationPolicyPort;
+use Organization\Application\Port\Inbound\OrganizationSettingsPolicyCatalogPort;
 use Organization\Application\Port\Outbound\Internal\OrganizationRepositoryPort;
-use Organization\Domain\Catalog\OrganizationComplianceDefaults;
 use Organization\Domain\ValueObject\OrganizationId;
 use Shared\Domain\Exception\InvalidValueException;
+
+use function is_array;
+use function is_int;
 
 /**
  * Adapter OrganizationAutomationPolicyAdapter.
@@ -40,6 +43,7 @@ final readonly class OrganizationAutomationPolicyAdapter implements AutomationPo
    */
   public function __construct(
     private OrganizationRepositoryPort $organizationRepository,
+    private OrganizationSettingsPolicyCatalogPort $settingsPolicies,
   ) {
   }
   // #endregion
@@ -61,18 +65,36 @@ final readonly class OrganizationAutomationPolicyAdapter implements AutomationPo
     try {
       $organization = $this->organizationRepository->findById(OrganizationId::fromString($organizationId));
     } catch (InvalidValueException) {
-      return new AutomationPolicy(false, OrganizationComplianceDefaults::NON_CONFORMITY_SLA_DAYS);
+      return new AutomationPolicy(false, $this->defaultSlaDays());
     }
 
     $settings = $organization?->settings();
     if (null === $settings) {
-      return new AutomationPolicy(false, OrganizationComplianceDefaults::NON_CONFORMITY_SLA_DAYS);
+      return new AutomationPolicy(false, $this->defaultSlaDays());
     }
 
     return new AutomationPolicy(
       $settings->automation->autoCreateInterventionOnCriticalNc,
       $settings->compliance->effectiveNonConformitySlaDays(),
     );
+  }
+
+  /**
+   * @return array<string, int>
+   */
+  private function defaultSlaDays(): array
+  {
+    $value = $this->settingsPolicies->get('compliance.non_conformity_sla_days')->default;
+    $defaults = [];
+    if (is_array($value)) {
+      foreach ($value as $key => $days) {
+        if (is_int($days)) {
+          $defaults[(string) $key] = $days;
+        }
+      }
+    }
+
+    return $defaults;
   }
   // #endregion
 }

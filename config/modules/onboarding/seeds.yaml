@@ -1,0 +1,16 @@
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: false
+
+  Onboarding\Infrastructure\DataFixtures\OnboardingFixtures: ~
+
+  app.seed.onboarding:
+    class: Shared\Infrastructure\DataFixtures\SeedFixtureAdapter
+    arguments:
+      $fixture: '@Onboarding\Infrastructure\DataFixtures\OnboardingFixtures'
+      $manager: '@doctrine.orm.main_entity_manager'
+      $seedKey: 'onboarding'
+      $prerequisites: ['organization']
+    tags:
+      - { name: 'app.seed_fixture.main' }

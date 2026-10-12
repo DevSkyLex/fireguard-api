@@ -1,0 +1,5 @@
+parameters:
+  authentication_policy.signup_enabled: true
+  authentication_policy.email_verification_required: true
+  authentication_policy.trusted_device_mfa_bypass_enabled: true
+  authentication_policy.federated_provisioning_enabled: true

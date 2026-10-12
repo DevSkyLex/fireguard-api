@@ -37,19 +37,32 @@ final class AssistantPromptBuilderTest extends TestCase
   #[Test]
   public function testBuildStartsWithASystemPromptWhenTranscriptIsEmpty(): void
   {
-    $builder = new AssistantPromptBuilder($this->assembler());
+    $builder = new AssistantPromptBuilder($this->assembler(), \Tests\Support\Shared\ProductConfigFixture::create());
 
     $messages = $builder->build([], self::ORG_ID, self::scope(), false);
 
     self::assertCount(1, $messages);
     self::assertSame('system', $messages[0]['role']);
-    self::assertNotSame('', $messages[0]['content']);
+    self::assertSame('You are the Fireguard assistant, helping an organization member with fire-safety compliance questions about their facilities, equipment, and interventions. Answer concisely and only from information you are actually given; say so plainly when you do not know.', $messages[0]['content']);
+  }
+
+  #[Test]
+  public function testBuildUsesConfiguredProductInstructions(): void
+  {
+    $builder = new AssistantPromptBuilder($this->assembler(), \Tests\Support\Shared\ProductConfigFixture::create([
+      'product.assistant_instructions' => 'You are the Workshop assistant. Answer only with supplied workshop facts.',
+    ]));
+
+    self::assertSame(
+      [['role' => 'system', 'content' => 'You are the Workshop assistant. Answer only with supplied workshop facts.']],
+      $builder->build([], self::ORG_ID, self::scope(), false),
+    );
   }
 
   #[Test]
   public function testBuildAppendsTheTranscriptInOrderAfterTheSystemPrompt(): void
   {
-    $builder = new AssistantPromptBuilder($this->assembler());
+    $builder = new AssistantPromptBuilder($this->assembler(), \Tests\Support\Shared\ProductConfigFixture::create());
     $now = new DateTimeImmutable('2026-01-01T00:00:00+00:00');
 
     $userMessage = AssistantMessage::askUser(
@@ -74,7 +87,7 @@ final class AssistantPromptBuilderTest extends TestCase
     $providers = [$this->neverCalledProvider()];
     $assembler = new AssistantContextAssembler($providers, $this->createStub(LoggerPort::class));
 
-    $builder = new AssistantPromptBuilder($assembler);
+    $builder = new AssistantPromptBuilder($assembler, \Tests\Support\Shared\ProductConfigFixture::create());
 
     $messages = $builder->build([], self::ORG_ID, self::scope(), false);
 
@@ -100,7 +113,7 @@ final class AssistantPromptBuilderTest extends TestCase
     };
 
     $assembler = new AssistantContextAssembler([$provider], $this->createStub(LoggerPort::class));
-    $builder = new AssistantPromptBuilder($assembler);
+    $builder = new AssistantPromptBuilder($assembler, \Tests\Support\Shared\ProductConfigFixture::create());
 
     $messages = $builder->build([], self::ORG_ID, self::scope(), true);
 
@@ -128,7 +141,7 @@ final class AssistantPromptBuilderTest extends TestCase
       $transcript[] = $this->message('Message ' . $index, $index);
     }
 
-    $messages = new AssistantPromptBuilder($this->assembler())->build($transcript, self::ORG_ID, self::scope(), false);
+    $messages = new AssistantPromptBuilder($this->assembler(), \Tests\Support\Shared\ProductConfigFixture::create())->build($transcript, self::ORG_ID, self::scope(), false);
 
     self::assertCount(21, $messages);
     self::assertSame('Message 30', $messages[1]['content']);
@@ -154,7 +167,7 @@ final class AssistantPromptBuilderTest extends TestCase
       $transcript[] = $this->message(str_repeat(['é', '漢', '🙂', 'Ω'][$index], 8000), $index);
     }
 
-    $messages = new AssistantPromptBuilder($this->assembler())->build($transcript, self::ORG_ID, self::scope(), false);
+    $messages = new AssistantPromptBuilder($this->assembler(), \Tests\Support\Shared\ProductConfigFixture::create())->build($transcript, self::ORG_ID, self::scope(), false);
 
     self::assertCount(4, $messages);
     self::assertSame(str_repeat('漢', 8000), $messages[1]['content']);
@@ -178,7 +191,7 @@ final class AssistantPromptBuilderTest extends TestCase
   public function testBuildDropsAnOversizedEarlierReplyWithoutTruncatingTheNewestQuestion(): void
   {
     $transcript = [$this->message('Earlier question', 0), $this->message(str_repeat('x', 30000), 1), $this->message('Current question', 2)];
-    $messages = new AssistantPromptBuilder($this->assembler())->build($transcript, self::ORG_ID, self::scope(), false);
+    $messages = new AssistantPromptBuilder($this->assembler(), \Tests\Support\Shared\ProductConfigFixture::create())->build($transcript, self::ORG_ID, self::scope(), false);
 
     self::assertCount(2, $messages);
     self::assertSame('Current question', $messages[1]['content']);
@@ -198,7 +211,7 @@ final class AssistantPromptBuilderTest extends TestCase
   public function testBuildRejectsAnOversizedInternalPromptInsteadOfSilentlyLosingItsContent(): void
   {
     $this->expectException(LengthException::class);
-    new AssistantPromptBuilder($this->assembler())->build([$this->message(str_repeat('x', 24001), 0)], self::ORG_ID, self::scope(), false);
+    new AssistantPromptBuilder($this->assembler(), \Tests\Support\Shared\ProductConfigFixture::create())->build([$this->message(str_repeat('x', 24001), 0)], self::ORG_ID, self::scope(), false);
   }
 
   private function assembler(): AssistantContextAssembler

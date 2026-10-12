@@ -157,6 +157,24 @@ final class OrganizationInvitationNotifierTest extends TestCase
     self::assertSame('en', $this->notifier()->clampLocale(null));
   }
 
+  #[Test]
+  public function itUsesTheConfiguredPublicNameInTheInvitationSubject(): void
+  {
+    $captured = null;
+    $notifier = new OrganizationInvitationNotifier(
+      $this->capturingPort($captured),
+      self::FRONTEND_URL,
+      new OrganizationInvitationTokenHasher(),
+      new \Shared\Infrastructure\Symfony\Adapter\Outbound\TranslatorAdapter(\Tests\Support\Factory\EmailTranslatorTestFactory::create()),
+      \Tests\Support\Shared\ProductConfigFixture::create(['product.public_name' => 'Workshop']),
+    );
+
+    $notifier->send('Acme', 'invitee@example.test', 'https://app.fireguard.test/accept?token=raw', new DateTimeImmutable(self::EXPIRES_AT));
+
+    self::assertInstanceOf(SendNotificationRequest::class, $captured);
+    self::assertSame("You're invited to join Acme on Workshop", $captured->subject);
+  }
+
   /**
    * Narrows the email channel's delivery payload to an array for assertions.
    *
@@ -200,6 +218,7 @@ final class OrganizationInvitationNotifierTest extends TestCase
       $frontendUrl,
       new OrganizationInvitationTokenHasher(),
       $this->translator(),
+      \Tests\Support\Shared\ProductConfigFixture::create(),
     );
   }
 

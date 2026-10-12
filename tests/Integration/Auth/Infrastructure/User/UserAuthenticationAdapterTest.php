@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Integration\Auth\Infrastructure\User;
 
 use Auth\Application\Contract\User\UserAuthenticationResult;
+use Auth\Infrastructure\Adapter\Policy\ConfiguredAuthenticationPolicyAdapter;
 use Auth\Infrastructure\Adapter\User\UserAuthenticationAdapter;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use Psr\Log\NullLogger;
@@ -36,7 +37,7 @@ final class UserAuthenticationAdapterTest extends KernelTestCase
 
     /** @var UserAuthenticationPort $queryBus */
     $queryBus = $container->get(UserAuthenticationPort::class);
-    $this->adapter = new UserAuthenticationAdapter(queryBus: $queryBus, logger: new NullLogger());
+    $this->adapter = new UserAuthenticationAdapter(queryBus: $queryBus, logger: new NullLogger(), authenticationPolicy: new ConfiguredAuthenticationPolicyAdapter());
   }
 
   protected function tearDown(): void

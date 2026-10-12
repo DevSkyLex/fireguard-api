@@ -81,6 +81,7 @@ final class CreateOrganizationRoleHandlerTest extends TestCase
       roleRepository: $roleRepository,
       uuidFactory: $uuidFactory,
       eventDispatcher: $eventDispatcher,
+      permissionCatalog: \Tests\Support\OrganizationCatalogTestFactory::permissions(),
     );
 
     $result = $handler->__invoke(new CreateOrganizationRoleCommand(
@@ -120,6 +121,7 @@ final class CreateOrganizationRoleHandlerTest extends TestCase
       roleRepository: $this->createStub(OrganizationRoleRepositoryPort::class),
       uuidFactory: $this->createStub(UuidGeneratorPort::class),
       eventDispatcher: $eventDispatcher,
+      permissionCatalog: \Tests\Support\OrganizationCatalogTestFactory::permissions(),
     );
 
     $this->expectException(OrganizationNotFoundException::class);
@@ -163,6 +165,7 @@ final class CreateOrganizationRoleHandlerTest extends TestCase
       roleRepository: $roleRepository,
       uuidFactory: $this->createStub(UuidGeneratorPort::class),
       eventDispatcher: $eventDispatcher,
+      permissionCatalog: \Tests\Support\OrganizationCatalogTestFactory::permissions(),
     );
 
     $this->expectException(InvalidValueException::class);
@@ -223,6 +226,7 @@ final class CreateOrganizationRoleHandlerTest extends TestCase
       roleRepository: $roleRepository,
       uuidFactory: $this->createStub(UuidGeneratorPort::class),
       eventDispatcher: $eventDispatcher,
+      permissionCatalog: \Tests\Support\OrganizationCatalogTestFactory::permissions(),
     );
 
     $this->expectException(OrganizationRoleNameAlreadyExistsException::class);

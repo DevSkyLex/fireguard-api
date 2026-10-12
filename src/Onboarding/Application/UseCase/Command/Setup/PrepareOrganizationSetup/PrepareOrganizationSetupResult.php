@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Onboarding\Application\UseCase\Command\Setup\PrepareOrganizationSetup;
 
+use InvalidArgumentException;
 use Onboarding\Application\Service\OrganizationOnboardingSessionState;
 
 /**
@@ -19,7 +20,13 @@ final readonly class PrepareOrganizationSetupResult implements \Shared\Applicati
   /**
    * @since 1.0.0
    */
-  public function __construct(public OrganizationOnboardingSessionState $state)
+  public ?string $organizationId;
+
+  public function __construct(public OrganizationOnboardingSessionState $state, ?string $organizationId = null)
   {
+    $this->organizationId = $state->targetOrganizationId ?? $state->accessibleOrganizationId;
+    if (null !== $organizationId && $organizationId !== $this->organizationId) {
+      throw new InvalidArgumentException('Onboarding result organization does not match its state.');
+    }
   }
 }

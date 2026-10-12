@@ -163,6 +163,18 @@ case "$*" in
   *'app:geoip:update'*) exit "${FAKE_UPDATE_FAILURE:-0}" ;;
   *'app:geoip:purge-session-locations'*) exit "${FAKE_PURGE_FAILURE:-0}" ;;
   *'app:cleanup:auth-data'*) exit "${FAKE_AUTH_FAILURE:-0}" ;;
+  *'list --raw'*)
+    if [ "${FAKE_IDEMPOTENCY_UNAVAILABLE:-0}" != 1 ]; then
+      printf 'app:cleanup:http-idempotency-results Erase elapsed replay payloads\\n'
+    fi
+    exit "${FAKE_IDEMPOTENCY_PROBE_FAILURE:-0}"
+    ;;
+  *'app:cleanup:http-idempotency-results'*)
+    if [ "${FAKE_IDEMPOTENCY_FAILURE:-0}" != 0 ]; then
+      echo 'PRIVATE_REPLAY_PAYLOAD_MUST_NOT_LEAK' >&2
+      exit "$FAKE_IDEMPOTENCY_FAILURE"
+    fi
+    ;;
   *'bin/worker-health.php --sweeps'*) exit "${FAKE_SWEEP_FAILURE:-0}" ;;
   *'bin/worker-health.php'*) exit "${FAKE_WORKER_FAILURE:-0}" ;;
   *'app:workers:queues'*) exit "${FAKE_QUEUE_FAILURE:-0}" ;;
@@ -263,6 +275,33 @@ exit "${FAKE_LOGGER_FAILURE:-0}"
         self.assertEqual(0, self.run_task("geoip-purge").returncode)
         for command in self.docker_calls():
             self.assertTrue(command.startswith("compose -f compose.yaml -f compose.dev.yaml "))
+
+    def test_replay_retention_erases_results_without_a_geoip_dependency(self):
+        (self.app / "compose.yaml").write_text("services:\n  app:\n")
+        result = self.run_task("http-idempotency-retention")
+        self.assertEqual(0, result.returncode, result.stderr)
+        calls = self.docker_calls()
+        self.assertEqual(2, len(calls))
+        self.assertIn("list --raw --env=prod", calls[0])
+        self.assertIn("app:cleanup:http-idempotency-results --env=prod", calls[1])
+
+    def test_rollback_skips_replay_cleanup_only_when_the_command_is_absent(self):
+        result = self.run_task("http-idempotency-retention", FAKE_IDEMPOTENCY_UNAVAILABLE="1")
+        self.assertEqual(0, result.returncode)
+        self.assertEqual(1, len(self.docker_calls()))
+        self.assertFalse(self.events.exists())
+
+    def test_replay_retention_failure_is_sanitized_and_keeps_its_status(self):
+        result = self.run_task("http-idempotency-retention", FAKE_IDEMPOTENCY_FAILURE="29")
+        self.assertEqual(29, result.returncode)
+        self.assertEqual("HTTP replay retention task failed\n", result.stderr)
+        self.assertNotIn("PRIVATE_REPLAY", result.stdout + result.stderr + self.events.read_text())
+
+    def test_replay_capability_failure_cannot_be_mistaken_for_a_rollback(self):
+        result = self.run_task("http-idempotency-retention", FAKE_IDEMPOTENCY_PROBE_FAILURE="28")
+        self.assertEqual(28, result.returncode)
+        self.assertEqual("HTTP replay retention capability check failed\n", result.stderr)
+        self.assertEqual(1, len(self.docker_calls()))
 
     def test_worker_observation_checks_all_consumers_sweeps_and_both_queue_histories(self):
         self.assertEqual(0, self.run_task("worker-observe").returncode)

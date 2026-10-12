@@ -16,7 +16,7 @@ compose() {
 }
 
 case "${1-}" in
-  geoip-update|geoip-purge|auth-retention|worker-observe) task="$1" ;;
+  geoip-update|geoip-purge|auth-retention|http-idempotency-retention|worker-observe) task="$1" ;;
   *) fail 64 'Unknown maintenance task' ;;
 esac
 
@@ -44,6 +44,17 @@ fi
 if [ "$task" = 'auth-retention' ]; then
   compose run --rm --no-deps --entrypoint php app -d memory_limit=1G bin/console app:cleanup:auth-data --env=prod >/dev/null 2>&1 \
     || fail "$?" 'Authentication retention task failed'
+  exit 0
+fi
+
+if [ "$task" = 'http-idempotency-retention' ]; then
+  # A rollback can retain this host helper while restoring an older application.
+  # Probe its public command list instead of invoking a command it never shipped.
+  commands=$(compose exec -T app php -d memory_limit=1G bin/console list --raw --env=prod 2>/dev/null) \
+    || fail "$?" 'HTTP replay retention capability check failed'
+  printf '%s\n' "$commands" | grep -q '^app:cleanup:http-idempotency-results[[:space:]]' || exit 0
+  compose exec -T app php -d memory_limit=1G bin/console app:cleanup:http-idempotency-results --env=prod >/dev/null 2>&1 \
+    || fail "$?" 'HTTP replay retention task failed'
   exit 0
 fi
 

@@ -14,8 +14,6 @@ use Tenant\Domain\ValueObject\TenantSettings;
 use Tenant\Presentation\Api\Dto\Input\Tenant\TenantInput;
 use Tenant\Presentation\Api\Dto\Output\Tenant\TenantOutput;
 
-use function date;
-
 /**
  * Processor CreateTenantProcessor.
  *
@@ -83,7 +81,7 @@ final readonly class CreateTenantProcessor implements ProcessorInterface
     $output->allowPublicClients = $settings->allowPublicClients;
     $output->allowedScopes = $settings->allowedScopes;
     $output->customIssuer = $settings->customIssuer;
-    $output->createdAt = date('c');
+    $output->createdAt = $result->createdAt->format('c');
 
     return $output;
   }

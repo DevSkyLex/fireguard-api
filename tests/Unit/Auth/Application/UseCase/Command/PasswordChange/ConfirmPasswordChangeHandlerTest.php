@@ -22,6 +22,7 @@ use Session\Application\Port\Inbound\SessionRevocationPort;
 use Shared\Domain\ValueObject\Email;
 use Tests\Helper\{IdentityBoundaryFactories, TestEventIdProvider};
 use User\Application\Port\Outbound\Internal\UserRepositoryPort;
+use User\Application\Port\Outbound\PasswordPolicyPort;
 use User\Domain\Model\User\User;
 use User\Domain\ValueObject\{HashedPassword, UserId, UserProfile, Username};
 
@@ -129,7 +130,7 @@ final class ConfirmPasswordChangeHandlerTest extends TestCase
     /** @var OtpRepositoryPort&MockObject $otpRepo */
     $otpRepo = $this->createMock(OtpRepositoryPort::class);
     $otpRepo->method('findByChallengeToken')->willReturn($otp);
-    $otpRepo->expects(self::never())->method('save');
+    $otpRepo->expects(self::once())->method('save')->with(self::callback(static fn (Otp $saved): bool => $saved->attempts() === $saved->maxAttempts()));
 
     $result = $this->makeHandler(otpRepository: $otpRepo)(
       $this->makeCommand(code: '123456')
@@ -223,6 +224,7 @@ final class ConfirmPasswordChangeHandlerTest extends TestCase
     $userRepository ??= $this->createStub(UserRepositoryPort::class);
 
     return new ConfirmPasswordChangeHandler(
+      passwordPolicy: $this->createStub(PasswordPolicyPort::class),
       otpRepository: new ChallengeAccessService($otpRepository),
       otpChallenge: $this->challengeCapability($otpRepository),
       userRepository: $this->credentialCapability($userRepository),

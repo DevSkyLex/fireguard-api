@@ -73,7 +73,7 @@ final class ImportJobMapperTest extends KernelTestCase
     $completedAt = new DateTimeImmutable('2026-01-10T08:14:00+00:00');
 
     $job = ImportJob::reconstitute(
-      source: new ImportJobSource(ImportJobId::fromString(self::COMPLETED_JOB_ID), self::ORGANIZATION_ID, ImportKind::EQUIPMENT, 'imports/2026/01/' . self::COMPLETED_JOB_ID . '.csv', 'equipment-batch.csv', self::CREATED_BY, false),
+      source: new ImportJobSource(ImportJobId::fromString(self::COMPLETED_JOB_ID), self::ORGANIZATION_ID, ImportKind::from('equipment'), 'imports/2026/01/' . self::COMPLETED_JOB_ID . '.csv', 'equipment-batch.csv', self::CREATED_BY, false),
       progress: new ImportJobProgress(ImportStatus::COMPLETED, 3, 3, 1, 2, [
         new ImportRowError(rowNumber: 2, code: 'missing_required', message: 'Name is required.', column: 'name'),
         new ImportRowError(rowNumber: 3, code: 'quota_exceeded', message: 'Plan quota exceeded.'),
@@ -117,7 +117,7 @@ final class ImportJobMapperTest extends KernelTestCase
 
     self::assertSame(self::COMPLETED_JOB_ID, (string) $mapped->id());
     self::assertSame(self::ORGANIZATION_ID, $mapped->organizationId());
-    self::assertSame(ImportKind::EQUIPMENT, $mapped->kind());
+    self::assertSame('equipment', $mapped->kind()->value);
     self::assertSame(ImportStatus::COMPLETED, $mapped->status());
     self::assertSame('imports/2026/01/' . self::COMPLETED_JOB_ID . '.csv', $mapped->storagePath());
     self::assertSame('equipment-batch.csv', $mapped->originalFilename());
@@ -174,7 +174,7 @@ final class ImportJobMapperTest extends KernelTestCase
 
     $mapped = ImportJobMapper::toDomain($fetched);
 
-    self::assertSame(ImportKind::FACILITY, $mapped->kind());
+    self::assertSame('facility', $mapped->kind()->value);
     self::assertSame(ImportStatus::PENDING, $mapped->status());
     self::assertSame([], $mapped->errorReport());
     self::assertNull($mapped->totalRows());
@@ -187,12 +187,27 @@ final class ImportJobMapperTest extends KernelTestCase
   }
 
   #[Test]
+  public function testMapperPreservesAPersistedKindWithoutARegisteredContributor(): void
+  {
+    $job = ImportJob::create(ImportJobId::fromString(self::PENDING_JOB_ID), self::ORGANIZATION_ID, ImportKind::from('test_asset'), 'retained.csv', 'assets.csv', self::CREATED_BY);
+    $record = new ImportJobRecord();
+
+    ImportJobMapper::toRecord($job, $record);
+    $restored = ImportJobMapper::toDomain($record);
+
+    self::assertSame('test_asset', $record->kind);
+    self::assertSame('test_asset', $restored->kind()->value);
+    self::assertSame('retained.csv', $restored->storagePath());
+    self::assertSame(ImportStatus::PENDING, $restored->status());
+  }
+
+  #[Test]
   public function testToRecordThenToDomainRoundTripsAFailedJobWithAJobErrorAndEmptyReport(): void
   {
     $now = new DateTimeImmutable('2026-01-12T10:00:00+00:00');
 
     $job = ImportJob::reconstitute(
-      source: new ImportJobSource(ImportJobId::fromString(self::FAILED_JOB_ID), self::ORGANIZATION_ID, ImportKind::FACILITY, 'imports/2026/01/' . self::FAILED_JOB_ID . '.csv', 'broken.csv', self::CREATED_BY, false),
+      source: new ImportJobSource(ImportJobId::fromString(self::FAILED_JOB_ID), self::ORGANIZATION_ID, ImportKind::from('facility'), 'imports/2026/01/' . self::FAILED_JOB_ID . '.csv', 'broken.csv', self::CREATED_BY, false),
       progress: new ImportJobProgress(ImportStatus::FAILED, null, 0, 0, 0, [], 'The uploaded file has an invalid header.'),
       timeline: new ImportJobTimeline($now, $now, $now, $now),
     );

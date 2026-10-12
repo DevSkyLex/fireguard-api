@@ -33,41 +33,6 @@ framework:
                 options:
                     queue_name: async
             sync: 'sync://'
-            # Dedicated transport for outbound webhook fan-out/delivery: isolated
-            # from the general-purpose `async` transport so a slow/unreachable
-            # third-party endpoint (and its retries) cannot starve other async
-            # work, with its own tuned backoff and a per-transport dead-letter.
-            webhook:
-                dsn: 'doctrine://main?queue_name=webhook&auto_setup=false'
-                options:
-                    redeliver_timeout: 120
-                retry_strategy:
-                    max_retries: 5
-                    delay: 1000
-                    multiplier: 3
-                    max_delay: 3600000
-                    jitter: 0.5
-                failure_transport: main_failed
-            # Dedicated transport for AI-assistant reply generation: isolated
-            # from the general-purpose `async` transport for the same reason
-            # as `webhook` (an unresponsive Ollama backend and its retries
-            # must never starve other async work), with its own dead-letter.
-            # `max_retries: 1` is deliberate and NOT a copy/paste of
-            # `webhook`'s 5: a retried generation command would re-run
-            # against a message that may already be partially `streaming` —
-            # replaying it re-publishes the same fragments and the member
-            # would see the answer twice. One retry only, then straight to
-            # `failed` (the pending/streaming assistant message is settled by
-            # `GenerateAssistantReplyHandler` calling `AssistantMessage::markFailed()`).
-            assistant:
-                dsn: 'doctrine://main'
-                options:
-                    queue_name: assistant
-                retry_strategy:
-                    max_retries: 1
-                    delay: 1000
-                    multiplier: 2
-                failure_transport: failed
             # Explicit "auth" connection name (not the "default" alias, which
             # is not a registered Doctrine connection name in this project —
             # see config/packages/doctrine.yaml's `default_connection: auth`).
@@ -75,18 +40,6 @@ framework:
 
         routing:
             'Shared\Infrastructure\Messaging\Outbox\OutboxEvent': main_outbox
-            'Intervention\Application\UseCase\Command\Publication\ExecutePublication\ExecutePublicationCommand': main_outbox
-            'Intervention\Application\UseCase\Command\Sweep\MaterializeDueRecurrences\MaterializeDueRecurrencesCommand': async
-            'Maintenance\Application\UseCase\Command\Sweep\RecomputeMaintenanceSchedules\RecomputeMaintenanceSchedulesCommand': async
-            'Inspection\Application\UseCase\Command\Sweep\EscalateNonConformitySlaBreaches\EscalateNonConformitySlaBreachesCommand': async
-            'Organization\Application\UseCase\Command\Sweep\SendWeeklyDigests\SendWeeklyDigestsCommand': async
-            'Automation\Application\UseCase\Command\Rule\ExecuteAutomationRule\ExecuteAutomationRuleCommand': main_outbox
-            'Import\Application\UseCase\Command\ProcessImportJob\ProcessImportJobCommand': main_outbox
-            'Organization\Application\UseCase\Command\Organization\DeliverOrganizationInvitation\DeliverOrganizationInvitationCommand': main_outbox
-            'Approval\Application\UseCase\Command\Sweep\ExpireStaleApprovalRequests\ExpireStaleApprovalRequestsCommand': async
-            'Webhook\Application\UseCase\Command\Delivery\DispatchWebhookEvent\DispatchWebhookEventCommand': webhook
-            'Webhook\Application\UseCase\Command\Delivery\DeliverWebhook\DeliverWebhookCommand': webhook
-            'Assistant\Application\UseCase\Command\Message\GenerateAssistantReply\GenerateAssistantReplyCommand': assistant
 
 when@test:
     framework:
@@ -95,5 +48,3 @@ when@test:
                 main_outbox: 'in-memory://'
                 auth_outbox: 'in-memory://'
                 async: 'in-memory://'
-                webhook: 'in-memory://'
-                assistant: 'in-memory://'

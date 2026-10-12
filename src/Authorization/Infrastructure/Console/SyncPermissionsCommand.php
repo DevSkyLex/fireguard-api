@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Authorization\Infrastructure\Console;
 
-use Authorization\Infrastructure\Catalog\{PermissionCatalog, RoleCatalog};
+use Authorization\Application\Port\Outbound\{PermissionCatalogPort, RoleCatalogPort};
 use Authorization\Infrastructure\Persistence\Doctrine\Record\{PermissionRecord, RoleRecord};
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
@@ -38,11 +38,15 @@ final class SyncPermissionsCommand extends Command
    * @access public
    *
    * @param EntityManagerInterface $entityManager the entity manager
+   * @param PermissionCatalogPort $permissionCatalog registered permission vocabulary
+   * @param RoleCatalogPort $roleCatalog registered bootstrap policy
    *
    * @return void
    */
   public function __construct(
     private readonly EntityManagerInterface $entityManager,
+    private readonly PermissionCatalogPort $permissionCatalog,
+    private readonly RoleCatalogPort $roleCatalog,
   ) {
     parent::__construct();
   }
@@ -108,32 +112,32 @@ final class SyncPermissionsCommand extends Command
     $updated = 0;
     $permissionsByName = [];
 
-    foreach (PermissionCatalog::definitions() as $definition) {
-      $existing = $permissionRepo->findOneBy(['name' => $definition['name']]);
+    foreach ($this->permissionCatalog->definitions() as $definition) {
+      $existing = $permissionRepo->findOneBy(['name' => $definition->name]);
 
       if (!$existing instanceof PermissionRecord) {
         $record = null;
         if (!$dryRun) {
           $record = new PermissionRecord();
           $record->id = Uuid::v7()->toRfc4122();
-          $record->name = $definition['name'];
-          $record->description = $definition['description'];
+          $record->name = $definition->name;
+          $record->description = $definition->description;
           $record->createdAt = new DateTimeImmutable();
           $this->entityManager->persist($record);
         }
         if ($record instanceof PermissionRecord) {
-          $permissionsByName[$definition['name']] = $record;
+          $permissionsByName[$definition->name] = $record;
         }
         ++$created;
 
         continue;
       }
 
-      $permissionsByName[$definition['name']] = $existing;
+      $permissionsByName[$definition->name] = $existing;
 
-      if ($existing->description !== $definition['description']) {
+      if ($existing->description !== $definition->description) {
         if (!$dryRun) {
-          $existing->description = $definition['description'];
+          $existing->description = $definition->description;
         }
         ++$updated;
       }
@@ -156,35 +160,21 @@ final class SyncPermissionsCommand extends Command
     $roleRepo = $this->entityManager->getRepository(RoleRecord::class);
     $roleCreations = 0;
     $roleUpdates = 0;
-    $roleMap = [
-      'super_admin' => [
-        'description' => 'Full system access with all permissions',
-        'permissions' => RoleCatalog::superAdminPermissionNames(),
-      ],
-      'admin' => [
-        'description' => 'Administrative access for user and client management',
-        'permissions' => RoleCatalog::adminPermissionNames(),
-      ],
-      'user' => [
-        'description' => 'Standard user access with profile and session management',
-        'permissions' => RoleCatalog::userPermissionNames(),
-      ],
-    ];
-    foreach ($roleMap as $roleName => $roleDefinition) {
-      $role = $roleRepo->findOneBy(['name' => $roleName]);
+    foreach ($this->roleCatalog->definitions() as $roleDefinition) {
+      $role = $roleRepo->findOneBy(['name' => $roleDefinition->name]);
       if (!$role instanceof RoleRecord) {
         if (!$dryRun) {
           $role = new RoleRecord();
           $role->id = Uuid::v7()->toRfc4122();
-          $role->name = $roleName;
-          $role->description = $roleDefinition['description'];
-          $role->isSystem = true;
+          $role->name = $roleDefinition->name;
+          $role->description = $roleDefinition->description;
+          $role->isSystem = $roleDefinition->isSystem;
           $role->createdAt = new DateTimeImmutable();
           $this->entityManager->persist($role);
         }
         ++$roleCreations;
       }
-      $roleUpdates += $this->synchronizeRolePermissions($role instanceof RoleRecord ? $role : null, $roleDefinition['permissions'], $permissionsByName, $dryRun, $io);
+      $roleUpdates += $this->synchronizeRolePermissions($role instanceof RoleRecord ? $role : null, $roleDefinition->permissionNames, $permissionsByName, $dryRun, $io);
     }
     if (!$dryRun) {
       $this->entityManager->flush();

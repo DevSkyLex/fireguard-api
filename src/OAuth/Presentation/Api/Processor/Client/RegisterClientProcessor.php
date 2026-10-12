@@ -91,7 +91,7 @@ final readonly class RegisterClientProcessor implements ProcessorInterface
     $output->grantTypes = $data->grantTypes;
     $output->scopes = $data->scopes;
     $output->isActive = true;
-    $output->createdAt = date(format: 'Y-m-d H:i:s');
+    $output->createdAt = $result->createdAt ?? date(format: 'Y-m-d H:i:s');
 
     return $output;
   }

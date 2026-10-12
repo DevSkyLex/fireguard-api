@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Auth\Infrastructure\Adapter\Federation;
 
 use Auth\Application\Contract\Federation\{FederatedAuthorization, FederatedProfile};
-use Auth\Application\Contract\Federation\FederatedProvider;
+use Auth\Application\Contract\Federation\{FederatedProviderDescriptor, ProviderId};
 use Auth\Application\Port\Outbound\Federation\FederatedProviderClientPort;
 use Auth\Domain\Exception\Federation\FederatedAuthException;
 use Auth\Infrastructure\Exception\FederatedProviderFailureException;
@@ -69,25 +69,41 @@ final readonly class LeagueFederatedProviderAdapter implements FederatedProvider
 
   // #region Methods
   /**
+   * Method descriptors
+   *
+   * @access public
+   *
+   * @return list<FederatedProviderDescriptor> legacy provider metadata
+   */
+  public function descriptors(): array
+  {
+    return [
+      new FederatedProviderDescriptor(ProviderId::from('google'), 'Google', $this->isEnabled(ProviderId::from('google'))),
+      new FederatedProviderDescriptor(ProviderId::from('microsoft'), 'Microsoft', $this->isEnabled(ProviderId::from('microsoft'))),
+    ];
+  }
+
+  /**
    * Method isEnabled
    *
    * Reports a provider as usable only when its feature flag and both credentials are configured.
    *
    * @access public
    *
-   * @param FederatedProvider $provider the identity provider to check
+   * @param ProviderId $provider the identity provider to check
    *
    * @return bool whether the provider has complete enabled configuration
    */
-  public function isEnabled(FederatedProvider $provider): bool
+  public function isEnabled(ProviderId $provider): bool
   {
-    return match ($provider) {
-      FederatedProvider::GOOGLE => $this->googleEnabled
+    return match ($provider->value) {
+      'google' => $this->googleEnabled
         && '' !== trim($this->googleClientId)
         && '' !== trim($this->googleClientSecret),
-      FederatedProvider::MICROSOFT => $this->microsoftEnabled
+      'microsoft' => $this->microsoftEnabled
         && '' !== trim($this->microsoftClientId)
         && '' !== trim($this->microsoftClientSecret),
+      default => false,
     };
   }
 
@@ -98,7 +114,7 @@ final readonly class LeagueFederatedProviderAdapter implements FederatedProvider
    *
    * @access public
    *
-   * @param FederatedProvider $provider the identity provider
+   * @param ProviderId $provider the identity provider
    * @param string $redirectUri the registered callback URI for this flow
    * @param string $state the caller-generated CSRF state value
    *
@@ -107,7 +123,7 @@ final readonly class LeagueFederatedProviderAdapter implements FederatedProvider
    * @throws FederatedProviderFailureException when the provider is disabled or cannot create a verifier
    */
   public function start(
-    FederatedProvider $provider,
+    ProviderId $provider,
     string $redirectUri,
     string $state,
   ): FederatedAuthorization {
@@ -133,7 +149,7 @@ final readonly class LeagueFederatedProviderAdapter implements FederatedProvider
    *
    * @access public
    *
-   * @param FederatedProvider $provider the identity provider used for authorization
+   * @param ProviderId $provider the identity provider used for authorization
    * @param string $redirectUri the callback URI used to obtain the authorization code
    * @param string $code the provider-issued authorization code
    * @param string $codeVerifier the PKCE verifier returned by start
@@ -144,10 +160,11 @@ final readonly class LeagueFederatedProviderAdapter implements FederatedProvider
    * @throws FederatedAuthException when the provider identity or email is unusable
    */
   public function complete(
-    FederatedProvider $provider,
+    ProviderId $provider,
     string $redirectUri,
     string $code,
     string $codeVerifier,
+    ?string $nonceHash = null,
   ): FederatedProfile {
     $client = $this->client($provider, $redirectUri);
     $client->setPkceCode($codeVerifier);
@@ -168,7 +185,7 @@ final readonly class LeagueFederatedProviderAdapter implements FederatedProvider
     }
 
     $verifiedClaim = $claims['email_verified'] ?? $claims['verified_email'] ?? null;
-    $verified = FederatedProvider::MICROSOFT === $provider
+    $verified = 'microsoft' === $provider->value
       || true === $verifiedClaim
       || (is_string($verifiedClaim) && 'true' === $verifiedClaim);
 
@@ -189,27 +206,27 @@ final readonly class LeagueFederatedProviderAdapter implements FederatedProvider
    *
    * @access private
    *
-   * @param FederatedProvider $provider the provider client to create
+   * @param ProviderId $provider the provider client to create
    * @param string $redirectUri the callback URI registered for the authorization flow
    *
    * @return AbstractProvider the configured League OAuth client
    *
    * @throws FederatedProviderFailureException when the provider is not enabled
    */
-  private function client(FederatedProvider $provider, string $redirectUri): AbstractProvider
+  private function client(ProviderId $provider, string $redirectUri): AbstractProvider
   {
     if (!$this->isEnabled($provider)) {
       throw new FederatedProviderFailureException('The requested identity provider is unavailable.');
     }
 
-    return match ($provider) {
-      FederatedProvider::GOOGLE => new GooglePkceProviderAdapter([
+    return match ($provider->value) {
+      'google' => new GooglePkceProviderAdapter([
         'clientId' => $this->googleClientId,
         'clientSecret' => $this->googleClientSecret,
         'redirectUri' => $redirectUri,
         'scopes' => ['openid', 'profile', 'email'],
       ], ['httpClient' => new Client(['connect_timeout' => 5.0, 'timeout' => 10.0])]),
-      FederatedProvider::MICROSOFT => new OidcPkceProviderAdapter([
+      'microsoft' => new OidcPkceProviderAdapter([
         'clientId' => $this->microsoftClientId,
         'clientSecret' => $this->microsoftClientSecret,
         'redirectUri' => $redirectUri,
@@ -220,6 +237,7 @@ final readonly class LeagueFederatedProviderAdapter implements FederatedProvider
         'scopeSeparator' => ' ',
         'pkceMethod' => AbstractProvider::PKCE_METHOD_S256,
       ], ['httpClient' => new Client(['connect_timeout' => 5.0, 'timeout' => 10.0])]),
+      default => throw new FederatedProviderFailureException('The requested identity provider is unavailable.'),
     };
   }
   // #endregion

@@ -173,10 +173,10 @@ final class ChangeOrganizationPlanHandlerTest extends TestCase
     }
     if (null === $quota) {
       $quota = $this->createStub(OrganizationQuotaPort::class);
-      $quota->method('getUsage')->willReturnCallback(static fn (string $id, OrganizationQuotaResource $resource): int => OrganizationQuotaResource::MEMBERS === $resource ? $usage : 0);
+      $quota->method('getUsage')->willReturnCallback(static fn (string $id, OrganizationQuotaResource|string $resource): int => (OrganizationQuotaResource::MEMBERS === $resource || 'members' === $resource) ? $usage : 0);
     }
 
-    return new ChangeOrganizationPlanHandler($organizations, $plans, $quota, $transactions, $events);
+    return new ChangeOrganizationPlanHandler($organizations, $plans, $quota, $transactions, $events, quotaCatalog: \Tests\Support\OrganizationCatalogTestFactory::quota());
   }
 
   private function transactions(): TransactionManagerPort

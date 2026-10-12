@@ -6,10 +6,10 @@ namespace Tests\Functional\Api;
 
 use Auth\Application\UseCase\Command\Session\Login\LoginResult;
 use Auth\Application\UseCase\Command\Session\Logout\LogoutResult;
-use Auth\Application\UseCase\Query\Session\RefreshToken\RefreshTokenResult;
+use Auth\Application\UseCase\Command\Session\RefreshToken\RefreshTokenResult;
 use PHPUnit\Framework\Attributes\DataProvider;
-use Shared\Application\Message\{CommandMessage, QueryMessage, ResultMessage};
-use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
+use Shared\Application\Message\{CommandMessage, ResultMessage};
+use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\BrowserKit\Cookie;
@@ -93,17 +93,17 @@ final class AuthApiTest extends WebTestCase
   }
 
   #[DataProvider('localizedPasswordErrors')]
-  public function testLoginValidationUsesRequestLanguage(string $locale, string $message): void
+  public function testRegistrationPasswordValidationUsesRequestLanguage(string $locale, string $message): void
   {
     $this->client?->request(
       method: 'POST',
-      uri: '/api/auth/login',
+      uri: '/api/auth/register',
       server: [
         'CONTENT_TYPE' => 'application/ld+json',
         'HTTP_ACCEPT' => 'application/ld+json',
         'HTTP_ACCEPT_LANGUAGE' => $locale,
       ],
-      content: json_encode(['email' => 'user@example.com', 'password' => 'short']) ?: '',
+      content: json_encode(['email' => 'user@example.com', 'password' => 'short', 'firstName' => 'Test', 'lastName' => 'User']) ?: '',
     );
 
     $response = $this->client?->getResponse();
@@ -278,7 +278,7 @@ final class AuthApiTest extends WebTestCase
 
   public function testRefreshEndpointReturnsTokensWhenCookieProvided(): void
   {
-    $this->setQueryBus(new RefreshTokenResult(
+    $this->setCommandBus(new RefreshTokenResult(
       success: true,
       userId: 'user-123',
       accessToken: 'new-access',
@@ -463,14 +463,6 @@ final class AuthApiTest extends WebTestCase
     );
   }
 
-  private function setQueryBus(ResultMessage $result): void
-  {
-    static::getContainer()->set(
-      id: QueryBusPort::class,
-      service: new TestQueryBus($result),
-    );
-  }
-
   private function assertOkOrCreated(Response $response): void
   {
     self::assertTrue(
@@ -488,18 +480,6 @@ final class TestCommandBus implements CommandBusPort
   }
 
   public function dispatch(CommandMessage $command): ResultMessage
-  {
-    return $this->result;
-  }
-}
-
-final class TestQueryBus implements QueryBusPort
-{
-  public function __construct(private ResultMessage $result)
-  {
-  }
-
-  public function ask(QueryMessage $query): ResultMessage
   {
     return $this->result;
   }

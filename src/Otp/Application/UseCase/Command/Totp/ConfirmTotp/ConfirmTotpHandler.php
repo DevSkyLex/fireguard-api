@@ -7,9 +7,10 @@ namespace Otp\Application\UseCase\Command\Totp\ConfirmTotp;
 use Otp\Application\Exception\TotpPendingEnrollmentNotFoundException;
 use Otp\Application\Port\Outbound\Internal\Totp\{TotpEnrollmentRepositoryPort, TotpServicePort};
 use Otp\Domain\Event\Totp\TotpEnrollmentConfirmedEvent;
-use Otp\Domain\Exception\{TotpEnrollmentAlreadyActiveException, TotpEnrollmentMaxAttemptsException};
+use Otp\Domain\Exception\{TotpEnrollmentAlreadyActiveException, TotpEnrollmentMaxAttemptsException, TotpEnrollmentUnavailableException};
 use Shared\Application\Message\CommandHandler;
-use Shared\Application\Port\Outbound\EventDispatcherPort;
+use Shared\Application\Port\Outbound\{EventDispatcherPort, RootTransactionManagerPort};
+use User\Application\Port\Inbound\{AccountStatusPort, UserSecurityRevisionPort};
 
 /**
  * Handler ConfirmTotpHandler.
@@ -28,11 +29,17 @@ final readonly class ConfirmTotpHandler implements CommandHandler
    * @param TotpEnrollmentRepositoryPort $enrollmentRepository the enrollment repository
    * @param TotpServicePort $totpService the TOTP service
    * @param EventDispatcherPort $eventDispatcher the event dispatcher
+   * @param UserSecurityRevisionPort $securityRevision atomic auth-side account revision
+   * @param RootTransactionManagerPort $rootTransaction final owning auth commit
+   * @param AccountStatusPort $accountStatus fresh management eligibility inside the factor lock
    */
   public function __construct(
     private TotpEnrollmentRepositoryPort $enrollmentRepository,
     private TotpServicePort $totpService,
     private EventDispatcherPort $eventDispatcher,
+    private UserSecurityRevisionPort $securityRevision,
+    private RootTransactionManagerPort $rootTransaction,
+    private AccountStatusPort $accountStatus,
   ) {
   }
   // #endregion
@@ -53,7 +60,10 @@ final readonly class ConfirmTotpHandler implements CommandHandler
    */
   public function __invoke(ConfirmTotpCommand $command): ConfirmTotpResult
   {
-    $result = $this->enrollmentRepository->withUserLock($command->userId, function () use ($command): ConfirmTotpResult {
+    $result = $this->rootTransaction->transactional(fn (): ConfirmTotpResult => $this->enrollmentRepository->withUserLock($command->userId, function () use ($command): ConfirmTotpResult {
+      if (!$this->accountStatus->isActive($command->userId)) {
+        throw TotpEnrollmentUnavailableException::forAccount();
+      }
       $enrollment = $this->enrollmentRepository->findByUserId($command->userId);
 
       if (null === $enrollment) {
@@ -90,8 +100,10 @@ final readonly class ConfirmTotpHandler implements CommandHandler
         );
       }
 
+      $this->securityRevision->advance($command->userId);
+
       return ConfirmTotpResult::success();
-    });
+    }));
     if (!$result->success) {
       return $result;
     }

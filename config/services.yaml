@@ -7,7 +7,7 @@ parameters:
   shared.file_storage.base_path: '%kernel.project_dir%/var/storage'
   database_storage_timezone_default: 'UTC'
   # Public frontend base URL used to build deep links in transactional emails
-  app.frontend_url: '%env(APP_FRONTEND_URL)%'
+  app.frontend_url: '%product.frontend_url%'
   # Security headers configuration with defaults
   security_headers.enabled_default: 'true'
   security_headers.csp_default: ''
@@ -15,9 +15,6 @@ parameters:
   security_headers.enabled: '%env(default:security_headers.enabled_default:SECURITY_HEADERS_ENABLED)%'
   security_headers.csp: '%env(default:security_headers.csp_default:SECURITY_HEADERS_CSP)%'
   security_headers.hsts_max_age: '%env(int:default:security_headers.hsts_max_age_default:SECURITY_HEADERS_HSTS_MAX_AGE)%'
-  # Maximum facility hierarchy depth (root = level 1); no facility may end up deeper than this.
-  facility.hierarchy.max_depth_default: 8
-  facility.hierarchy.max_depth: '%env(int:default:facility.hierarchy.max_depth_default:FACILITY_MAX_DEPTH)%'
 
 services:
   # default configuration for services in *this* file
@@ -31,13 +28,6 @@ services:
   # in their respective module files in config/modules/
 
 
-  # MFA Port/Adapter Configuration
-  Auth\Application\Port\Outbound\Internal\Mfa\ChallengeGeneratorPort:
-    class: Auth\Infrastructure\Adapter\Mfa\OtpModuleChallengeGeneratorAdapter
-
-  Auth\Application\Port\Outbound\Internal\Mfa\ChallengeVerifierPort:
-    class: Auth\Infrastructure\Adapter\Mfa\OtpModuleChallengeVerifierAdapter
-
   app.doctrine_migrations.main_schema_filter_listener:
     class: Doctrine\Bundle\MigrationsBundle\EventListener\SchemaFilterListener
     arguments:
@@ -50,12 +40,14 @@ services:
   # Re-declares main's PostgreSQL partial indexes (which ORM attributes cannot
   # express) so schema:validate and migrations:diff stop flagging them as drift.
   Shared\Infrastructure\Doctrine\PartialIndexSchemaListener:
+    arguments:
+      $contributions: !tagged_iterator shared.schema_contribution
     tags:
       - { name: 'doctrine.event_listener', event: 'postGenerateSchema', connection: 'main' }
 
   Shared\Infrastructure\Doctrine\ScalarForeignKeySchemaListener:
+    arguments:
+      $contributions: !tagged_iterator shared.schema_contribution
     tags:
       - { name: 'doctrine.event_listener', event: 'postGenerateSchema', connection: 'auth' }
       - { name: 'doctrine.event_listener', event: 'postGenerateSchema', connection: 'main' }
-
-

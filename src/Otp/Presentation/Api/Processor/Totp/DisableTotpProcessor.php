@@ -80,6 +80,7 @@ final readonly class DisableTotpProcessor implements ProcessorInterface
       $command = new DisableTotpCommand(
         userId: $userId,
         code: $data->code,
+        proofType: $data->proofType,
       );
 
       /** @var DisableTotpResult $result */

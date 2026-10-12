@@ -52,6 +52,12 @@ class ClientRecord
   public string $secret;
 
   /**
+   * Property securityRevision. Durable secret/configuration/lifecycle epoch.
+   */
+  #[ORM\Column(name: 'security_revision', type: 'integer', options: ['default' => 1])]
+  public int $securityRevision = 1;
+
+  /**
    * Property redirectUris.
    *
    * The allowed redirect URIs.

@@ -92,7 +92,35 @@ Consumers use pure AuthorizationPort and the published Auth authentication-cache
 
 Repositories and capabilities exposing owner-local types are private under Application/Port/Outbound/Internal; cross-module access uses published ports and pure contracts.
 
+Authorization publishes pure `PermissionCatalogContributionPort` and
+`RoleCatalogContributionPort` contracts. Owners register immutable definitions through
+`authorization.permission_catalog_contribution` and
+`authorization.role_catalog_contribution`. Composition rejects duplicate keys,
+fixture references, conflicting default-role policies and unknown role grants at boot.
+Permission publication and bootstrap order are explicit and deterministic.
+
+New permission creation accepts only an exact registered key; a wildcard contribution
+does not admit unrelated keys. Registration does not grant access or constrain historical
+PermissionName hydration. Custom roles remain ordinary business resources. The optional
+registered default-role policy drives account-creation assignment. Authorization fixtures
+and permission synchronization consume the composed catalogs; User owns sample-account
+role assignments through AuthorizationSeedRoleAssignmentsPort.
+
 ## Configuration
+
+Module selection loads [the service entry point](../../config/modules/authorization.yaml)
+together with its [owner configuration fragments](../../config/modules/authorization/).
+Those fragments contribute owned mappings, API/error metadata and configured
+framework/seed registrations. Shared package configuration supplies connections and
+manager definitions; this module's persistence remains explicitly wired to `auth`.
+See the [composition standard](../../ARCHITECTURE.md#service-wiring).
+
+Module selection loads [the service entry point](../../config/modules/authorization.yaml)
+together with its [owner configuration fragments](../../config/modules/authorization/).
+Those fragments contribute owned mappings, API/error metadata and configured
+framework/seed registrations. Shared package configuration supplies connections and
+manager definitions; this module's persistence remains explicitly wired to `auth`.
+See the [composition standard](../../ARCHITECTURE.md#service-wiring).
 
 - Service wiring: `config/modules/authorization.yaml`
 - Voters: `Authorization\Infrastructure\Security\Voter`
@@ -110,3 +138,16 @@ Repositories and capabilities exposing owner-local types are private under Appli
 - `RoleNotFoundException` -> role not found
 - `PermissionNotFoundException` -> permission not found
 - `SystemRoleDeletionException` -> system role cannot be deleted
+
+`UserGrantSnapshotPort` publishes current scoped role names, registered effective permissions and
+active catalog facts from owner-native auth queries. It excludes expired assignments and avoids
+shared role caches and managed-record state. Auth uses the snapshot to mint current RBAC claims
+and to invalidate encrypted credential replay after role, permission or catalog-policy changes.
+
+Ordinary platform receipts use `FreshAuthorizationPort` to recheck owner assignments, tenant
+scope, registered permission metadata and assignment expiration directly in auth. Successful
+actual permission/any-role/all-role gates contribute signed request evidence; resource role
+or permission targets are checked again before stored result decoding. Creation and mutation
+descriptors explicitly select auth rather than relying on a generic database fallback.
+The evidence decorator substitutes fresh predicates only for the exact principal verified by
+an active idempotency boundary; ordinary untracked calls retain the original owner service.

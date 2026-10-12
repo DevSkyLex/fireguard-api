@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Auth\Application\UseCase\Command\Registration\RegisterUser;
 
+use Auth\Application\Port\Outbound\AuthenticationPolicyPort;
 use Otp\Application\Contract\Challenge\{OtpChannel, OtpPurpose};
 use Otp\Application\Port\Inbound\Challenge\{ChallengeAccessPort, OtpChallengePort};
 use Shared\Application\Message\CommandHandler;
@@ -23,9 +24,8 @@ use const STR_PAD_RIGHT;
 /**
  * Handler RegisterUserHandler.
  *
- * Handles public self-service registration: creates a pending-verification user
- * (reusing the User module's the owned registration capability) and issues an
- * email-verification OTP challenge. Mirrors the password-reset request handler.
+ * Creates accounts through the User owner capability when project signup is enabled.
+ * The installed default requires email verification; an explicit policy waiver skips its challenge.
  *
  * @category Handler
  * @version 1.0.0
@@ -52,10 +52,12 @@ final readonly class RegisterUserHandler implements CommandHandler
    *
    * @param UserRegistrationPort $userRepository the user repository port
    * @param OtpChallengePort $otpChallenge the OTP challenge port
+   * @param AuthenticationPolicyPort $authenticationPolicy project registration choices
    */
   public function __construct(
     private readonly UserRegistrationPort $userRepository,
     private readonly OtpChallengePort $otpChallenge,
+    private AuthenticationPolicyPort $authenticationPolicy,
   ) {
   }
   // #endregion
@@ -74,6 +76,10 @@ final readonly class RegisterUserHandler implements CommandHandler
    */
   public function __invoke(RegisterUserCommand $command): RegisterUserResult
   {
+    if (!$this->authenticationPolicy->signupEnabled()) {
+      return RegisterUserResult::failed('Self-service registration is disabled.', RegisterUserResult::ERROR_REGISTRATION_DISABLED);
+    }
+
     $email = new Email(strtolower($command->email));
 
     // Unlike password reset, a sign-up must report a taken email (409).
@@ -92,7 +98,12 @@ final readonly class RegisterUserHandler implements CommandHandler
       password: $command->password,
       firstName: $command->firstName,
       lastName: $command->lastName,
+      requireEmailVerification: $this->authenticationPolicy->emailVerificationRequired(),
     );
+
+    if (!$this->authenticationPolicy->emailVerificationRequired()) {
+      return new RegisterUserResult(success: true, message: 'Your account has been created. You can now sign in.');
+    }
 
     $challenge = $this->otpChallenge->generate(
       userId: $userId,

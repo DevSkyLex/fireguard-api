@@ -4,8 +4,8 @@
 
 ## Overview
 
-Messaging hosts contextual discussion threads bound one-to-one to a core-entity
-subject (facility | equipment | intervention | non-conformity in v1), with
+Messaging hosts contextual discussion threads bound one-to-one to registered owner
+subjects (initially facility, equipment, intervention and non-conformity), with
 server-parsed `@{memberUuid}` mentions, tombstone deletes (body retained for
 compliance), per-member unread markers, and Mercure real-time push on a private
 per-conversation topic.
@@ -544,17 +544,33 @@ inject it directly, the same "shared port straight into a handler" shape
 already used by `Organization\Application\Service\OrganizationAuthorizationService`'s
 permission cache.
 
-### The `messaging.subject_resolver` tagged-iterator seam
+### The `messaging.subject_resolver` subject catalog
 
 A copy of the `intervention.resource_owner` pattern: each provider module
 hosts its own adapter under `Infrastructure/Adapter/Messaging/`, implementing
 `MessagingSubjectResolverPort`, tagged `messaging.subject_resolver` in its own
 `config/modules/<module>.yaml`. `MessagingSubjectResolverRegistry` (consumed
-via `!tagged_iterator messaging.subject_resolver`) routes a subject type to
-the adapter that supports it. Its public `supports()` signature uses
-`Application/Contract/Subject/MessagingSubjectType`; the registry converts the
-module's internal Domain enum at this boundary. Aggregate persistence ports live
-under `Application/Port/Outbound/Internal` and are not integration capabilities.
+via `!tagged_iterator messaging.subject_resolver`) indexes each adapter's public
+`descriptor()` and rejects duplicate keys or invalid metadata during composition.
+`MessagingSubjectDescriptor` publishes the stable string key, display label,
+descriptive resource path segment and required organization read permission.
+`MessagingSubjectCatalogPort` exposes these descriptors to metadata consumers;
+subject resolution remains organization-scoped through the same registered adapter.
+A new owner contributes its adapter and tag without changing Messaging's domain.
+Aggregate persistence ports live under `Application/Port/Outbound/Internal` and
+are not integration capabilities.
+
+`MessagingSubjectType::from()` validates only the lowercase snake-case key syntax
+and existing 32-character persistence limit. It preserves historical wire literals
+without normalization and never consults the registry during hydration. Persisted
+unloaded types remain readable as metadata with their raw key and a safe fallback
+resource link. Contextual content reads and writes require a loaded contributor
+and its scoped subject check; unknown subjects fail closed. `channel` and `direct`
+are reserved participant conversation kinds and cannot be owner contributions.
+Message references accept the same open owner keys and verify registration and
+organization-scoped existence in their write handlers. Inbox mentions obtain their
+subject permission from catalog metadata, keeping batched reads free of per-row
+subject resolution and duplicated subject-permission tables.
 
 | Subject type     | Adapter                                                                                     | Required read permission          |
 | ---------------- | ------------------------------------------------------------------------------------------- | --------------------------------- |
@@ -658,9 +674,9 @@ later tombstoned — only POSTING a NEW reply to a tombstoned parent is
 refused. See "Threaded replies" below.
 
 Value objects (`Domain/ValueObject`): `ConversationId`/`MessageId`
-(Uuid-backed), `MessagingSubjectType` (`facility` | `equipment` |
-`intervention` | `non_conformity` | `channel` | `direct` — `channel` (v2)
-and `direct` (L2.4) are the two cases with no resolver-backed subject; see
+(Uuid-backed), `MessagingSubjectType` (an open validated string key with unchanged
+historical literals — `channel` (v2) and `direct` (L2.4) are the two reserved kinds
+with no resolver-backed subject; see
 "v2 channels" and "Direct messages" below), `ConversationVisibility`
 (`subject` | `participants`), `MessageBody` (trims, rejects blank/`>4000` chars),
 `MessagingEmoji` (L1.4 — trims, bounds to 32 characters (mirrors
@@ -776,11 +792,11 @@ reopens the oracle silently, since the happy path is unaffected.
 `organization.messaging.read` / `.write` / `.manage`
 (`Organization\Domain\Catalog\OrganizationPermissionCatalog`).
 `organization.messaging.read` is included in the `member` system role's
-canonical permission set (`OrganizationSystemRoleCatalog::permissionsFor()`);
+canonical permission set (`OrganizationSystemRoleCatalogPort::permissionsFor()`);
 `.write`/`.manage` are NOT member defaults (mirrors the read-only default
 for interventions) — a custom/admin role must grant posting/moderation
 rights. Canonical system-role permissions are merged in at **read time**
-(`OrganizationSystemRoleCatalog::mergePermissions()`), so existing
+(`OrganizationSystemRoleCatalogPort::mergePermissions()`), so existing
 organizations' `member` roles pick up the new read permission automatically —
 no backfill migration is needed.
 
@@ -1190,7 +1206,7 @@ conversation id, so it reuses every `/api/conversations/{id}/...` and
    organizations.
 5. Derives `subjectId = DirectConversationKey::for($callerMemberId, $otherMemberId)`
    and calls `MessagingConversationRepositoryPort::getOrCreate(organizationId,
-MessagingSubjectType::DIRECT, $subjectId, ConversationVisibility::PARTICIPANTS)`
+MessagingSubjectType::from(MessagingSubjectType::DIRECT), $subjectId, ConversationVisibility::PARTICIPANTS)`
    — **`ConversationVisibility::PARTICIPANTS` is passed explicitly**, never
    defaulted (see the three mandatory fixes below).
 6. **Seeds both members as real `messaging_participants` rows
@@ -1452,6 +1468,11 @@ No endpoint enumerates all online members; reads remain bounded to supplied iden
 
 ## Configuration
 
+`MessagingSubjectCatalogPort` aliases `MessagingSubjectResolverRegistry`. The registry
+retains the existing `messaging.subject_resolver` tagged iterator; owner contributors
+keep their explicit main entity-manager wiring. The output factory and inbox source
+consume the catalog port for resource-path and permission metadata.
+
 - Message writes and attachment commands use Shared's explicitly wired `main`
   `RootTransactionManagerPort`. Uploads lock their parent message while checking
   identity and the attachment cap. A replay returns the winning metadata without
@@ -1527,6 +1548,11 @@ No endpoint enumerates all online members; reads remain bounded to supplied iden
   database table, by design (see "Online presence" above).
 
 ## Testing
+
+Subject catalog tests cover an additional fake owner, duplicate and reserved keys,
+unknown-key write denial before persistence, immutable permission metadata and
+historical output fallbacks. Repository integration tests verify that a persisted
+unloaded owner key hydrates without a registered contributor.
 
 Unit tests cover owned domain/use-case and HTTP translation contracts. Integration tests execute real PostgreSQL queries and persistence behavior. Functional/E2E tests preserve authorization, contextual isolation, replay and failure recovery.
 

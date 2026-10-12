@@ -76,6 +76,8 @@ because they reveal overload.
 
 ## Configuration
 
+Capacity mutations require `Idempotency-Key` and retain their original stable result identifier in the owning main transaction. The fresh owner gate verifies current active organization/member scope and `organization.workload.manage` before decoding, then reads only Workload's scalar capacity rows. Cancellation replay can use its signed original organization, member and exception identity after physical target removal, while current membership and permission remain required. The operation contribution and replay adapters are tagged for Shared's HTTP driver with the explicit main connection. `workload_assess` remains a pure read-only POST without a mutation receipt.
+
 Persistence uses the main entity manager and new main migrations.
 Capacity management is online-only.
 Install main migration `Version20260916090509` before deploying the API, then deploy

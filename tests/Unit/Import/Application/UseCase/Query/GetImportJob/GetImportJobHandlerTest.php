@@ -42,7 +42,7 @@ final class GetImportJobHandlerTest extends TestCase
       ->with(self::USER_ID, self::ORGANIZATION_ID, 'organization.facilities.read')
       ->willReturn(OrganizationAccessDecision::GRANTED);
 
-    $handler = new GetImportJobHandler($repository, $authorization, $this->createStub(\Import\Application\Port\Outbound\Internal\ImportExecutionPort::class));
+    $handler = new GetImportJobHandler($repository, $authorization, $this->createStub(\Import\Application\Port\Outbound\Internal\ImportExecutionPort::class), \Tests\Support\Import\BuiltinImportProcessors::create());
 
     $result = $handler->__invoke(new GetImportJobQuery(self::USER_ID, self::JOB_ID));
 
@@ -62,7 +62,7 @@ final class GetImportJobHandlerTest extends TestCase
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::OUTSIDE_SCOPE);
 
-    $handler = new GetImportJobHandler($repository, $authorization, $this->createStub(\Import\Application\Port\Outbound\Internal\ImportExecutionPort::class));
+    $handler = new GetImportJobHandler($repository, $authorization, $this->createStub(\Import\Application\Port\Outbound\Internal\ImportExecutionPort::class), \Tests\Support\Import\BuiltinImportProcessors::create());
 
     $this->expectException(ImportJobNotFoundException::class);
     $this->expectExceptionMessage(self::JOB_ID);
@@ -79,7 +79,7 @@ final class GetImportJobHandlerTest extends TestCase
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::MISSING_PERMISSION);
 
-    $handler = new GetImportJobHandler($repository, $authorization, $this->createStub(\Import\Application\Port\Outbound\Internal\ImportExecutionPort::class));
+    $handler = new GetImportJobHandler($repository, $authorization, $this->createStub(\Import\Application\Port\Outbound\Internal\ImportExecutionPort::class), \Tests\Support\Import\BuiltinImportProcessors::create());
 
     $this->expectException(ImportAccessDeniedException::class);
     $this->expectExceptionMessage('organization.facilities.read');
@@ -93,7 +93,7 @@ final class GetImportJobHandlerTest extends TestCase
     $repository = $this->createStub(ImportJobRepositoryPort::class);
     $repository->method('findForExecution')->willReturn(null);
 
-    $handler = new GetImportJobHandler($repository, $this->createStub(OrganizationAuthorizationPort::class), $this->createStub(\Import\Application\Port\Outbound\Internal\ImportExecutionPort::class));
+    $handler = new GetImportJobHandler($repository, $this->createStub(OrganizationAuthorizationPort::class), $this->createStub(\Import\Application\Port\Outbound\Internal\ImportExecutionPort::class), \Tests\Support\Import\BuiltinImportProcessors::create());
 
     $this->expectException(ImportJobNotFoundException::class);
 
@@ -105,7 +105,7 @@ final class GetImportJobHandlerTest extends TestCase
     return ImportJob::create(
       id: ImportJobId::fromString(self::JOB_ID),
       organizationId: self::ORGANIZATION_ID,
-      kind: ImportKind::FACILITY,
+      kind: ImportKind::from('facility'),
       storagePath: 'imports/org-1/job.csv',
       originalFilename: 'facilities.csv',
       createdBy: self::USER_ID,

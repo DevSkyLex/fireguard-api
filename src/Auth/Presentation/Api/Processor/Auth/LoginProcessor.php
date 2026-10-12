@@ -6,6 +6,7 @@ namespace Auth\Presentation\Api\Processor\Auth;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
+use Auth\Application\Port\Outbound\JwtTokenServicePort;
 use Auth\Application\UseCase\Command\Session\Login\{LoginCommand, LoginResult};
 use Auth\Presentation\Api\Dto\Input\Auth\LoginInput;
 use Auth\Presentation\Api\Dto\Output\Auth\LoginOutput;
@@ -51,6 +52,7 @@ final readonly class LoginProcessor implements ProcessorInterface
     private RefreshTokenCookieService $cookieService,
     private TrustedDeviceCookieService $trustedDeviceCookieService,
     private TranslatorInterface $translator,
+    private ?JwtTokenServicePort $tokens = null,
   ) {
   }
   // #endregion
@@ -165,6 +167,7 @@ final readonly class LoginProcessor implements ProcessorInterface
         $cookie = $this->cookieService->createCookie(
           refreshToken: $result->refreshToken,
           rememberMe: $data->rememberMe ?? false,
+          absoluteExpiresAt: $this->tokens?->decodeRefreshToken($result->refreshToken)['expires_at'] ?? null,
         );
 
         $request->attributes->set(

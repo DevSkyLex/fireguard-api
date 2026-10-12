@@ -1,0 +1,8 @@
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: false
+
+  Workload\Infrastructure\DataFixtures\WorkloadFixtures:
+    tags:
+      - { name: 'app.seed_fixture.append', priority: 10 }

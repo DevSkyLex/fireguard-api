@@ -62,7 +62,7 @@ final class ExportSafetyRegisterController extends AbstractController
     /** @var ExportSafetyRegisterResult $result */
     $result = $this->commandBus->dispatch(new ExportSafetyRegisterCommand($organizationId, $user->getId(), $facilityId));
 
-    return new Response($result->contents, Response::HTTP_OK, [
+    return new Response($result->contents(), Response::HTTP_OK, [
       'Content-Type' => 'application/pdf',
       'Content-Disposition' => sprintf('attachment; filename="%s"', $result->fileName),
     ]);

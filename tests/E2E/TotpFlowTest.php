@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Tests\E2E;
 
+use DAMA\DoctrineTestBundle\PHPUnit\SkipDatabaseRollback;
 use Symfony\Component\HttpFoundation\Response;
+use Tests\Support\Database\RootCommitDatabaseIsolationTrait;
 
 /**
  * TotpFlowTest - E2E tests for TOTP (Time-based One-Time Password) management API.
@@ -31,8 +33,11 @@ use Symfony\Component\HttpFoundation\Response;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
+#[SkipDatabaseRollback]
 class TotpFlowTest extends OAuth2WebTestCase
 {
+  use RootCommitDatabaseIsolationTrait;
+
   // #region Setup TOTP Tests
 
   /**
@@ -57,9 +62,7 @@ class TotpFlowTest extends OAuth2WebTestCase
   public function testSetupTotpWithValidToken(): void
   {
     $client = static::createClientWithFixtures();
-    $token = $this->getAccessToken($client);
-
-    $this->assertNotNull($token, 'Should be able to obtain access token');
+    $token = $this->authenticateAsSeededAdmin($client);
 
     $client->request(
       method: 'POST',
@@ -74,7 +77,7 @@ class TotpFlowTest extends OAuth2WebTestCase
 
     $this->assertContains(
       $response->getStatusCode(),
-      [Response::HTTP_CREATED, Response::HTTP_OK, Response::HTTP_FORBIDDEN, Response::HTTP_UNAUTHORIZED, Response::HTTP_BAD_REQUEST, Response::HTTP_INTERNAL_SERVER_ERROR],
+      [Response::HTTP_CREATED],
       'Setup TOTP should respond appropriately. Response: ' . $response->getContent(),
     );
 

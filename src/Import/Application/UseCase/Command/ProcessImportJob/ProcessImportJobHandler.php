@@ -4,23 +4,14 @@ declare(strict_types=1);
 
 namespace Import\Application\UseCase\Command\ProcessImportJob;
 
-use Equipment\Application\Contract\Provisioning\{ProvisionEquipmentRequest, ProvisionOutcome as EquipmentProvisionOutcome};
-use Equipment\Application\Port\Inbound\EquipmentProvisioningPort;
-use Facility\Application\Contract\Provisioning\{ProvisionFacilityRequest, ProvisionFacilityResult, ProvisionOutcome as FacilityProvisionOutcome};
-use Facility\Application\Port\Inbound\FacilityProvisioningPort;
-use Import\Application\Port\Outbound\CsvRowStreamerPort;
-use Import\Application\Port\Outbound\Internal\{ImportExecutionPort, ImportJobRepositoryPort};
-use Import\Application\Service\{EquipmentRowFactory, FacilityRowFactory, MemberRowFactory};
-use Import\Application\Service\ImportPermissions;
-use Import\Application\Support\DryRunProjection;
+use Import\Application\Contract\{ImportRowInput, ImportRowValidationException, ImportSessionContext};
+use Import\Application\Port\Outbound\{CsvRowStreamerPort, ImportRowSessionPort};
+use Import\Application\Port\Outbound\Internal\{ImportExecutionPort, ImportJobRepositoryPort, ImportKindRegistryPort};
 use Import\Domain\Event\{ImportJobCompletedEvent, ImportJobFailedEvent};
-use Import\Domain\Exception\ImportRowValidationException;
 use Import\Domain\Model\ImportJob\ImportJob;
-use Import\Domain\ValueObject\{ImportJobId, ImportKind, ImportRowError};
+use Import\Domain\ValueObject\{ImportJobId, ImportRowError};
 use InvalidArgumentException;
-use LogicException;
-use Organization\Application\Contract\Provisioning\{ProvisionMemberInvitationRequest, ProvisionOutcome as MemberProvisionOutcome};
-use Organization\Application\Port\Inbound\{MemberInvitationProvisioningPort, OrganizationAuthorizationPort};
+use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Message\{CommandHandler, VoidResult};
 use Shared\Application\Port\Outbound\{ClockPort, EventDispatcherPort, FileStoragePort};
 use Shared\Application\Port\Outbound\{LoggerPort, UuidGeneratorPort};
@@ -29,28 +20,9 @@ use Throwable;
 /**
  * UseCase ProcessImportJobHandler.
  *
- * The async worker side of a bulk CSV import: claims the job, streams its
- * uploaded CSV row by row and provisions Equipment or Facility resources —
- * or member invitations (`kind=member`) — through the existing Create/Invite
- * use cases (quota included), recording a
- * per-row report. A row failure (validation or quota) is non-fatal — the
- * batch still reaches `completed` with a partial success. Only an
- * unreadable/malformed file fails the whole job.
- *
- * A **dry-run** job (`ImportJob::isDryRun()`) runs this exact same pipeline
- * — parsing, per-row validation, parent-by-code resolution, quota
- * projection — but persists nothing through the provisioning ports: the
- * `ProvisionEquipmentRequest`/`ProvisionFacilityRequest` sent for each row
- * carries `dryRun: true`, which routes `CreateEquipmentHandler`/
- * `CreateFacilityHandler` past their transactional save into a
- * validate-and-project-the-quota-only path (see those handlers). Every row —
- * not only failures — is reported: a would-be success is recorded via
- * `ImportJob::recordRowSuccess()`'s optional `$report` argument as a
- * `would_create` entry, reusing the same `errorReport` field a real run uses
- * for failures only. `DryRunProjection` carries the running "would-create"
- * counts and (facility-only) pending codes a dry-run batch needs across
- * rows — a real run needs neither, since the database itself already
- * carries that state row by row.
+ * Claims the retained job, parses rows and applies owner-contributed row outcomes.
+ * Leases, row transactions, receipts and reports remain owned by Import; each
+ * contributor owns a fresh execution session and simulation reconstruction.
  *
  * @category UseCase
  * @version 1.0.0
@@ -68,12 +40,7 @@ final readonly class ProcessImportJobHandler implements CommandHandler
    * @param ImportExecutionPort $execution exclusive leases and atomic row work units
    * @param FileStoragePort $fileStorage the file storage port
    * @param CsvRowStreamerPort $csvStreamer the CSV row streamer port
-   * @param EquipmentRowFactory $equipmentRowFactory builds a provisioning request from an equipment CSV row
-   * @param FacilityRowFactory $facilityRowFactory builds a provisioning request from a facility CSV row
-   * @param MemberRowFactory $memberRowFactory builds an invitation provisioning request from a member CSV row
-   * @param EquipmentProvisioningPort $equipmentProvisioning the cross-module equipment provisioning port
-   * @param FacilityProvisioningPort $facilityProvisioning the cross-module facility provisioning port
-   * @param MemberInvitationProvisioningPort $memberInvitationProvisioning the cross-module member invitation provisioning port
+   * @param ImportKindRegistryPort $kinds registered owner contributions
    * @param EventDispatcherPort $eventDispatcher the event dispatcher port
    * @param ClockPort $clock the clock port
    * @param LoggerPort $logger the logger
@@ -82,12 +49,7 @@ final readonly class ProcessImportJobHandler implements CommandHandler
     private ImportExecutionPort $execution,
     private FileStoragePort $fileStorage,
     private CsvRowStreamerPort $csvStreamer,
-    private EquipmentRowFactory $equipmentRowFactory,
-    private FacilityRowFactory $facilityRowFactory,
-    private MemberRowFactory $memberRowFactory,
-    private EquipmentProvisioningPort $equipmentProvisioning,
-    private FacilityProvisioningPort $facilityProvisioning,
-    private MemberInvitationProvisioningPort $memberInvitationProvisioning,
+    private ImportKindRegistryPort $kinds,
     private EventDispatcherPort $eventDispatcher,
     private ClockPort $clock,
     private LoggerPort $logger,
@@ -128,7 +90,8 @@ final readonly class ProcessImportJobHandler implements CommandHandler
       return;
     }
     $actor = $command->requestedBy ?? $existing->createdBy();
-    if (!$this->authorization->resolveAccess($actor, $existing->organizationId(), ImportPermissions::write($existing->kind()))->isGranted()) {
+    $processor = $this->kinds->find($existing->kind()->value);
+    if (null === $processor || !$this->authorization->resolveAccess($actor, $existing->organizationId(), $processor->descriptor()->writePermission)->isGranted()) {
       // A stale queued command must not change the job after its actor loses
       // access. Another authorized member can explicitly resume the same job.
       $this->logger->warning('Import processing skipped after access was removed.', ['import_job_id' => $command->importJobId]);
@@ -215,7 +178,12 @@ final readonly class ProcessImportJobHandler implements CommandHandler
   private function processRows(ImportJob $job, string $owner, string $contents, string $actor): void
   {
     $resumeFrom = $job->processedRows();
-    $projection = new DryRunProjection();
+    $session = $this->kinds->get($job->kind()->value)->startSession(new ImportSessionContext(
+      (string) $job->id(),
+      $job->organizationId(),
+      $actor,
+      $job->isDryRun(),
+    ));
     $wouldCreate = [];
     foreach ($this->repository->confirmedSimulationRows($job->id()) as $rowNumber) {
       $wouldCreate[$rowNumber] = true;
@@ -229,7 +197,7 @@ final readonly class ProcessImportJobHandler implements CommandHandler
     foreach ($this->csvStreamer->rows($contents) as $rowNumber => $row) {
       if ($rowNumber <= $resumeFrom) {
         if ($job->isDryRun() && isset($wouldCreate[$rowNumber])) {
-          $this->restoreConfirmedSimulationRow($job, $rowNumber, $row, $projection);
+          $session->restoreConfirmedSimulationRow(new ImportRowInput($rowNumber, $row));
         }
 
         continue;
@@ -237,321 +205,51 @@ final readonly class ProcessImportJobHandler implements CommandHandler
       $this->execution->run(
         $job->id(),
         $owner,
-        fn (ImportJob $current): ?string => $this->processRow($current, $rowNumber, $row, $projection, $actor),
+        fn (ImportJob $current): ?string => $this->processRow($current, new ImportRowInput($rowNumber, $row), $session),
         $rowNumber,
       );
     }
   }
 
   /**
-   * Method restoreConfirmedSimulationRow
+   * Method processRow
    *
-   * Rebuilds quota offsets and the typed hierarchy from a previously confirmed successful simulation row.
-   * Member simulations carry no equipment or facility projection.
+   * Applies a contributor result inside the same transaction as the row receipt.
+   * Technical exceptions propagate; structural rejections remain confirmed outcomes.
    *
    * @access private
    *
-   * @param ImportJob $job the retained simulation and its resource kind
-   * @param int $rowNumber the original one-based CSV data row
-   * @param array<string, string> $row the confirmed source row
-   * @param DryRunProjection $projection the running projection reconstructed before new row work
+   * @param ImportJob $job currently locked aggregate
+   * @param ImportRowInput $input original decoded source row
+   * @param ImportRowSessionPort $session isolated owner processor
    *
-   * @return void no return value
+   * @return ?string created resource identity for the durable row receipt
    */
-  private function restoreConfirmedSimulationRow(ImportJob $job, int $rowNumber, array $row, DryRunProjection $projection): void
-  {
-    if (ImportKind::EQUIPMENT === $job->kind()) {
-      $projection->recordEquipmentWouldCreate();
-    } elseif (ImportKind::FACILITY === $job->kind()) {
-      $request = $this->facilitySimulationRequest($job, $rowNumber, $row, $projection);
-      $result = $this->facilityProvisioning->restoreSimulation($request);
-      $projection->recordFacilityWouldCreate($request->code, FacilityProvisionOutcome::CREATED === $result->outcome ? $result->projectedNode : null);
-    }
-  }
-
-  /**
-   * Method processRow.
-   *
-   * @since 1.0.0
-   *
-   * @param ImportJob $job the import job aggregate
-   * @param int $rowNumber the 1-based data row number
-   * @param array<string, string> $row the associative CSV data row
-   * @param DryRunProjection $projection the running dry-run projection state
-   */
-  private function processRow(ImportJob $job, int $rowNumber, array $row, DryRunProjection $projection, string $actor): ?string
+  private function processRow(ImportJob $job, ImportRowInput $input, ImportRowSessionPort $session): ?string
   {
     try {
-      return match ($job->kind()) {
-        ImportKind::EQUIPMENT => $this->processEquipmentRow($job, $rowNumber, $row, $projection),
-        ImportKind::FACILITY => $this->processFacilityRow($job, $rowNumber, $row, $projection),
-        ImportKind::MEMBER => $this->processMemberRow($job, $rowNumber, $row, $actor),
-      };
+      $outcome = $session->processRow($input);
     } catch (ImportRowValidationException $exception) {
-      $job->recordRowError(new ImportRowError(
-        rowNumber: $rowNumber,
-        code: $exception->errorCode,
-        message: $exception->getMessage(),
-        column: $exception->column,
-      ));
+      $job->recordRowError(new ImportRowError($input->rowNumber, $exception->errorCode, $exception->getMessage(), $exception->column));
 
       return null;
     }
-  }
-
-  /**
-   * Method processEquipmentRow.
-   *
-   * @since 1.0.0
-   *
-   * @param ImportJob $job the import job aggregate
-   * @param int $rowNumber the 1-based data row number
-   * @param array<string, string> $row the associative CSV data row
-   * @param DryRunProjection $projection the running dry-run projection state
-   */
-  private function processEquipmentRow(ImportJob $job, int $rowNumber, array $row, DryRunProjection $projection): ?string
-  {
-    $request = $this->equipmentRowFactory->map($job->organizationId(), $row);
-
-    if ($job->isDryRun()) {
-      $request = new ProvisionEquipmentRequest(
-        organizationId: $request->organizationId,
-        type: $request->type,
-        subType: $request->subType,
-        brand: $request->brand,
-        model: $request->model,
-        serialNumber: $request->serialNumber,
-        locationLabel: $request->locationLabel,
-        facilityCode: $request->facilityCode,
-        dryRun: true,
-        quotaProjectionOffset: $projection->equipmentCount(),
-      );
-    }
-
-    $result = $this->equipmentProvisioning->provision($request);
-
-    match ($result->outcome) {
-      EquipmentProvisionOutcome::CREATED => $this->recordEquipmentSuccess($job, $rowNumber, $projection),
-      EquipmentProvisionOutcome::QUOTA_EXCEEDED => $job->recordRowError(new ImportRowError(
-        rowNumber: $rowNumber,
-        code: 'quota_exceeded',
-        message: $result->message ?? 'The plan quota for equipment has been reached.',
-      )),
-      EquipmentProvisionOutcome::INVALID => $job->recordRowError(new ImportRowError(
-        rowNumber: $rowNumber,
-        code: 'invalid',
-        message: $result->message ?? 'Invalid equipment row.',
-      )),
-    };
-
-    return $job->isDryRun() ? null : $result->resourceId;
-  }
-
-  /**
-   * Method recordEquipmentSuccess.
-   *
-   * @since 1.0.0
-   *
-   * @param ImportJob $job the import job aggregate
-   * @param int $rowNumber the 1-based data row number
-   * @param DryRunProjection $projection the running dry-run projection state
-   */
-  private function recordEquipmentSuccess(ImportJob $job, int $rowNumber, DryRunProjection $projection): void
-  {
-    if (!$job->isDryRun()) {
-      $job->recordRowSuccess();
-
-      return;
-    }
-
-    $projection->recordEquipmentWouldCreate();
-    $job->recordRowSuccess(new ImportRowError(
-      rowNumber: $rowNumber,
-      code: 'would_create',
-      message: 'Would create this equipment item.',
-    ));
-  }
-
-  /**
-   * Method processFacilityRow.
-   *
-   * @since 1.0.0
-   *
-   * @param ImportJob $job the import job aggregate
-   * @param int $rowNumber the 1-based data row number
-   * @param array<string, string> $row the associative CSV data row
-   * @param DryRunProjection $projection the running dry-run projection state
-   */
-  private function processFacilityRow(ImportJob $job, int $rowNumber, array $row, DryRunProjection $projection): ?string
-  {
-    $request = $job->isDryRun()
-      ? $this->facilitySimulationRequest($job, $rowNumber, $row, $projection)
-      : $this->facilityRowFactory->map($job->organizationId(), $row);
-
-    $result = $this->facilityProvisioning->provision($request);
-
-    match ($result->outcome) {
-      FacilityProvisionOutcome::CREATED => $this->recordFacilitySuccess($job, $rowNumber, $request->code, $projection, $result),
-      FacilityProvisionOutcome::QUOTA_EXCEEDED => $job->recordRowError(new ImportRowError(
-        rowNumber: $rowNumber,
-        code: 'quota_exceeded',
-        message: $result->message ?? 'The plan quota for facilities has been reached.',
-      )),
-      FacilityProvisionOutcome::INVALID => $job->recordRowError(new ImportRowError(
-        rowNumber: $rowNumber,
-        code: 'invalid',
-        message: $result->message ?? 'Invalid facility row.',
-      )),
-    };
-
-    return $job->isDryRun() ? null : $result->resourceId;
-  }
-
-  /**
-   * Method facilitySimulationRequest.
-   *
-   * Shares the same stable identity and preceding graph during initial execution and resumption.
-   *
-   * @param array<string, string> $row the original CSV row
-   */
-  private function facilitySimulationRequest(ImportJob $job, int $rowNumber, array $row, DryRunProjection $projection): ProvisionFacilityRequest
-  {
-    $request = $this->facilityRowFactory->map($job->organizationId(), $row);
-
-    return new ProvisionFacilityRequest(
-      organizationId: $request->organizationId,
-      type: $request->type,
-      name: $request->name,
-      code: $request->code,
-      address: $request->address,
-      latitude: $request->latitude,
-      longitude: $request->longitude,
-      parentCode: $request->parentCode,
-      dryRun: true,
-      quotaProjectionOffset: $projection->facilityCount(),
-      resourceId: DryRunProjection::simulatedFacilityId((string) $job->id(), $rowNumber),
-      pendingCodeIds: $projection->facilityPendingCodeIds(),
-      projectedHierarchy: $projection->facilityHierarchy(),
+    $report = null === $outcome->code ? null : new ImportRowError(
+      $input->rowNumber,
+      $outcome->code,
+      $outcome->message ?? '',
+      $outcome->column,
     );
-  }
-
-  /**
-   * Method recordFacilitySuccess.
-   *
-   * @since 1.0.0
-   *
-   * @param ImportJob $job the import job aggregate
-   * @param int $rowNumber the 1-based data row number
-   * @param ?string $code the row's own facility code, when it has one
-   * @param DryRunProjection $projection the running dry-run projection state
-   * @param ProvisionFacilityResult $result the validated creation or simulation result
-   */
-  private function recordFacilitySuccess(ImportJob $job, int $rowNumber, ?string $code, DryRunProjection $projection, ProvisionFacilityResult $result): void
-  {
-    if (!$job->isDryRun()) {
-      $job->recordRowSuccess();
-
-      return;
+    if ($outcome->successful) {
+      if ($job->isDryRun()) {
+        $report = new ImportRowError($input->rowNumber, 'would_create', $outcome->message ?? 'Would create this resource.');
+      }
+      $job->recordRowSuccess($report);
+    } else {
+      $job->recordRowError($report ?? throw new InvalidArgumentException('A rejected import row requires a report.'));
     }
 
-    if (null === $result->projectedNode) {
-      throw new LogicException('A successful facility simulation must return its hierarchy node.');
-    }
-    $projection->recordFacilityWouldCreate($code, $result->projectedNode);
-    $job->recordRowSuccess(new ImportRowError(
-      rowNumber: $rowNumber,
-      code: 'would_create',
-      message: 'Would create this facility.',
-    ));
-  }
-
-  /**
-   * Method processMemberRow.
-   *
-   * Provisions one member invitation through the Organization module's
-   * inbound provisioning port. No dry-run projection state is threaded: the
-   * member dry run validates the email and role names only (no quota
-   * projection — see `MemberInvitationProvisioningService`), so unlike the
-   * equipment/facility kinds there is no running offset to carry.
-   *
-   * @since 1.1.0
-   *
-   * @param ImportJob $job the import job aggregate
-   * @param int $rowNumber the 1-based data row number
-   * @param array<string, string> $row the associative CSV data row
-   */
-  private function processMemberRow(ImportJob $job, int $rowNumber, array $row, string $actor): ?string
-  {
-    $request = $this->memberRowFactory->map($job->organizationId(), $actor, $row);
-
-    if ($job->isDryRun()) {
-      $request = new ProvisionMemberInvitationRequest(
-        organizationId: $request->organizationId,
-        email: $request->email,
-        invitedByUserId: $request->invitedByUserId,
-        roleNames: $request->roleNames,
-        dryRun: true,
-      );
-    }
-
-    $result = $this->memberInvitationProvisioning->provision($request);
-
-    match ($result->outcome) {
-      MemberProvisionOutcome::CREATED => $this->recordMemberSuccess($job, $rowNumber),
-      MemberProvisionOutcome::QUOTA_EXCEEDED => $job->recordRowError(new ImportRowError(
-        rowNumber: $rowNumber,
-        code: 'quota_exceeded',
-        message: $result->message ?? 'The plan quota for members has been reached.',
-      )),
-      MemberProvisionOutcome::ALREADY_MEMBER => $job->recordRowError(new ImportRowError(
-        rowNumber: $rowNumber,
-        code: 'already_member',
-        message: $result->message ?? 'User is already an active member of this organization.',
-        column: 'email',
-      )),
-      MemberProvisionOutcome::ALREADY_INVITED => $job->recordRowError(new ImportRowError(
-        rowNumber: $rowNumber,
-        code: 'already_invited',
-        message: $result->message ?? 'A pending invitation already exists for this email.',
-        column: 'email',
-      )),
-      MemberProvisionOutcome::UNKNOWN_ROLE => $job->recordRowError(new ImportRowError(
-        rowNumber: $rowNumber,
-        code: 'unknown_role',
-        message: $result->message ?? 'Unknown organization role name.',
-        column: 'roles',
-      )),
-      MemberProvisionOutcome::INVALID => $job->recordRowError(new ImportRowError(
-        rowNumber: $rowNumber,
-        code: 'invalid',
-        message: $result->message ?? 'Invalid member row.',
-      )),
-    };
-
-    return $job->isDryRun() ? null : $result->resourceId;
-  }
-
-  /**
-   * Method recordMemberSuccess.
-   *
-   * @since 1.1.0
-   *
-   * @param ImportJob $job the import job aggregate
-   * @param int $rowNumber the 1-based data row number
-   */
-  private function recordMemberSuccess(ImportJob $job, int $rowNumber): void
-  {
-    if (!$job->isDryRun()) {
-      $job->recordRowSuccess();
-
-      return;
-    }
-
-    $job->recordRowSuccess(new ImportRowError(
-      rowNumber: $rowNumber,
-      code: 'would_create',
-      message: 'Would invite this member.',
-    ));
+    return $job->isDryRun() ? null : $outcome->resourceId;
   }
 
   /**

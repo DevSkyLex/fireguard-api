@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace Tests\Unit\Onboarding\Domain\ValueObject;
 
 use Onboarding\Domain\ValueObject\OrganizationOnboardingStep;
-use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
+use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
+
+use function array_map;
+use function str_repeat;
 
 /**
  * Test OrganizationOnboardingStepTest.
@@ -18,24 +21,9 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(OrganizationOnboardingStep::class)]
 final class OrganizationOnboardingStepTest extends TestCase
 {
-  // #region Providers
-  /**
-   * @return iterable<string, array{string, bool}>
-   */
-  public static function requiredStepProvider(): iterable
-  {
-    yield 'create organization' => [OrganizationOnboardingStep::CREATE_ORGANIZATION, true];
-    yield 'create first facility' => [OrganizationOnboardingStep::CREATE_FIRST_FACILITY, true];
-    yield 'create first equipment' => [OrganizationOnboardingStep::CREATE_FIRST_EQUIPMENT, true];
-    yield 'select plan' => [OrganizationOnboardingStep::SELECT_PLAN, false];
-    yield 'invite members' => [OrganizationOnboardingStep::INVITE_MEMBERS, false];
-    yield 'unknown step' => ['not_a_step', false];
-  }
-  // #endregion
-
   // #region Methods
   #[Test]
-  public function testAllReturnsEveryStepInOrder(): void
+  public function testExistingContributionsPreserveEveryStepInOrder(): void
   {
     self::assertSame([
       'create_organization',
@@ -43,29 +31,34 @@ final class OrganizationOnboardingStepTest extends TestCase
       'invite_members',
       'create_first_facility',
       'create_first_equipment',
-    ], OrganizationOnboardingStep::all());
+    ], \Tests\Helper\Onboarding\RegisteredOrganizationOnboardingSteps::keys());
   }
 
   #[Test]
-  #[DataProvider('requiredStepProvider')]
-  public function testIsRequired(string $step, bool $expected): void
+  public function testExistingContributionRequiredFlagsArePreserved(): void
   {
-    self::assertSame($expected, OrganizationOnboardingStep::isRequired($step));
+    self::assertSame([true, false, false, true, true], array_map(
+      static fn ($definition): bool => $definition->required,
+      \Tests\Helper\Onboarding\RegisteredOrganizationOnboardingSteps::definitions(),
+    ));
   }
 
   #[Test]
   public function testIsValidAcceptsEveryKnownStep(): void
   {
-    foreach (OrganizationOnboardingStep::all() as $step) {
+    foreach (\Tests\Helper\Onboarding\RegisteredOrganizationOnboardingSteps::keys() as $step) {
       self::assertTrue(OrganizationOnboardingStep::isValid($step));
     }
   }
 
   #[Test]
-  public function testIsValidRejectsAnUnknownStep(): void
+  public function testKeySyntaxAllowsHistoricalAndNewOwnerKeys(): void
   {
-    self::assertFalse(OrganizationOnboardingStep::isValid('not_a_step'));
+    self::assertTrue(OrganizationOnboardingStep::isValid('configure_fake_feature'));
+    self::assertFalse(OrganizationOnboardingStep::isValid('invalid step'));
     self::assertFalse(OrganizationOnboardingStep::isValid(''));
+    self::assertTrue(OrganizationOnboardingStep::isValid(str_repeat('a', 64)));
+    self::assertFalse(OrganizationOnboardingStep::isValid(str_repeat('a', 65)));
   }
 
   #[Test]

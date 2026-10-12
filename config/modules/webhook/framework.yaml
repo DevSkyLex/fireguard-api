@@ -1,0 +1,20 @@
+framework:
+    messenger:
+        transports:
+            webhook:
+                dsn: 'doctrine://main?queue_name=webhook&auto_setup=false'
+                options:
+                    redeliver_timeout: 120
+                retry_strategy:
+                    max_retries: 5
+                    delay: 1000
+                    multiplier: 3
+                    max_delay: 3600000
+                    jitter: 0.5
+                failure_transport: main_failed
+
+when@test:
+    framework:
+        messenger:
+            transports:
+                webhook: 'in-memory://'

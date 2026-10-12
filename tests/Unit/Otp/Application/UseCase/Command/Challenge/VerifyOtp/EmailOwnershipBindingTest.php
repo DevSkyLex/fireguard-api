@@ -38,8 +38,9 @@ final class EmailOwnershipBindingTest extends TestCase
     $otp = $this->challenge();
     $repository = $this->createMock(OtpRepositoryPort::class);
     $repository->method('findByChallengeToken')->willReturn($otp);
+    $repository->method('findForVerification')->willReturn($otp);
     $repository->expects(self::never())->method('save');
-    $handler = new VerifyOtpHandler($repository, $this->createStub(TotpEnrollmentRepositoryPort::class), $this->createStub(TotpServicePort::class));
+    $handler = new VerifyOtpHandler($repository, $this->createStub(TotpEnrollmentRepositoryPort::class), $this->createStub(TotpServicePort::class), new \App\Tests\Support\Shared\ImmediateTransactionManager());
     $this->expectException(OtpNotFoundException::class);
     $handler(new VerifyOtpCommand(code: $otp->code()->plain(), challengeToken: $otp->challengeToken()->value, expectedUserId: $userId, expectedPurpose: $purpose, expectedRecipient: $recipient));
   }

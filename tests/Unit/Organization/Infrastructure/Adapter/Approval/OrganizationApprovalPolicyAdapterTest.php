@@ -33,6 +33,25 @@ final class OrganizationApprovalPolicyAdapterTest extends TestCase
   private const string ORGANIZATION_ID = '550e8400-e29b-41d4-a716-446655441810';
 
   #[Test]
+  public function testResolvesAnAdditionalContributorsPolicyWithoutAnEngineCase(): void
+  {
+    $organization = $this->organizationWith(new OrganizationApprovalSettings(actionRules: [
+      'invoice.release' => ['enabled' => true, 'minApproverRole' => 'member', 'minSeverity' => null],
+    ]));
+    $repository = $this->createStub(OrganizationRepositoryPort::class);
+    $repository->method('findById')->willReturn($organization);
+    $catalog = $this->createStub(\Approval\Application\Port\Outbound\ApprovalActionCatalogPort::class);
+    $catalog->method('descriptors')->willReturn([
+      new \Approval\Application\Contract\Action\ApprovalActionDescriptor('invoice.release', 'Invoice release', 'high'),
+    ]);
+
+    $policy = new OrganizationApprovalPolicyAdapter($repository, $catalog)->policyFor(self::ORGANIZATION_ID);
+    self::assertTrue($policy->isEnabledFor('invoice.release'));
+    self::assertSame('member', $policy->minApproverRoleFor('invoice.release'));
+    self::assertSame('high', $policy->minSeverityFor('invoice.release'));
+  }
+
+  #[Test]
   public function testAMalformedOrganizationIdYieldsTheDisabledPolicy(): void
   {
     $policy = $this->adapter(null)->policyFor('not-a-uuid');
@@ -99,7 +118,10 @@ final class OrganizationApprovalPolicyAdapterTest extends TestCase
     $repository = $this->createStub(OrganizationRepositoryPort::class);
     $repository->method('findById')->willReturn($organization);
 
-    return new OrganizationApprovalPolicyAdapter($repository);
+    return new OrganizationApprovalPolicyAdapter(
+      $repository,
+      catalog: \Tests\Support\Catalogs\BuiltInCapabilityCatalogs::approval(),
+    );
   }
 
   /**

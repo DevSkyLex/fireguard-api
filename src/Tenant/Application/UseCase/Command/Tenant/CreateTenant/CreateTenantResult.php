@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tenant\Application\UseCase\Command\Tenant\CreateTenant;
 
+use DateTimeImmutable;
 use Shared\Application\Message\ResultMessage;
 
 /**
@@ -26,6 +27,7 @@ final readonly class CreateTenantResult implements ResultMessage
    */
   public function __construct(
     public string $tenantId,
+    public DateTimeImmutable $createdAt = new DateTimeImmutable(),
   ) {
   }
   // #endregion

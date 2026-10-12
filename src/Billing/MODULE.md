@@ -45,8 +45,11 @@ Persisted in the dedicated **main** database.
 | POST   | `/api/billing/webhook`                                       | Receive and reconcile Stripe webhook events (public; signature verified)                                                                                                       | `StripeWebhookController`     | public                        |
 
 `checkout`/`portal` return a URL the client redirects the browser to. The actual
-plan change is applied by the webhook, never by these endpoints. Return URLs are
-built server-side from `APP_FRONTEND_URL` (clients cannot inject redirects) and
+plan change is applied by the webhook, never by these endpoints. `BillingReturnUrlPort`
+builds return URLs server-side from the shared product frontend URL (`APP_FRONTEND_URL`)
+and `product.billing_settings_path` (clients cannot inject redirects). The configured
+route must be relative and contain exactly one `{organizationId}` path placeholder;
+identifiers and Checkout markers are encoded as data. The default URLs
 point at `…/organizations/{id}/settings?tab=subscription`, with
 `&checkout=success|cancel` after Checkout. Successful returns also carry
 `checkoutPlan` and `checkoutInterval`, used only to compare the expected state
@@ -185,6 +188,12 @@ the domain and application layers.
 
 ## Configuration
 
+Shared owns public product configuration in `config/packages/product.yaml`. Billing consumes
+its trusted frontend URL through `ProductConfigPort` and its settings route through the
+`BillingReturnUrlAdapter` binding in `config/modules/billing.yaml`. Invalid frontend bases,
+absolute return routes, fragments and malformed organization placeholders fail configuration
+before payment sessions can be created.
+
 - Service wiring: `config/modules/billing.yaml` (handlers tagged
   `messenger.message_handler`, ports aliased, cross-module adapters bound).
 - Parameters & price catalog: `config/packages/billing.yaml` — exposes
@@ -247,6 +256,29 @@ In development the `stripe-cli` compose service forwards webhooks to
 - Independent PostgreSQL connections verify organization lock exclusion, durable
   deduplication, rollback/retry and refreshing an already-managed projection.
 - The Billing module is phpstan-clean at `level: max`.
+
+### HTTP retries and uncertain external outcomes
+
+Checkout, portal, cancellation and resumption use the current HTTP execution's
+purpose-separated Stripe key. Hosted URLs use the encrypted five-minute replay
+window. Before contacting Stripe, the handler marks the external effect; an
+uncertain response or subsequent local rollback leaves the HTTP receipt blocked.
+
+`ExternalBillingReconciliationAdapter` contributes to
+`shared.external_idempotency_reconciliation`. After the failed owning SQL
+transaction has ended, it records an independent main consumer receipt and
+`ExternalBillingReconciliationRequested` in the main outbox. Delivery has its own
+durable receipt and reuses the signed-webhook current-state reconciliation rules.
+It reads Stripe subscriptions and verifies their scope; it never repeats the
+checkout, portal, customer creation or cancellation request. A missing customer
+mapping remains in the existing retry/failure workflow until a signed webhook or
+operator resolution establishes the mapping. The original HTTP receipt remains
+blocked rather than inventing an unavailable hosted URL.
+
+The native PostgreSQL reconciliation test verifies failed enqueue rollback,
+retry, one outbox request across owner changes and refusal to enqueue inside an
+unfinished owning transaction. SDK-boundary tests verify identical provider keys
+on repeated outgoing calls.
 
 ## Error Codes
 

@@ -25,9 +25,9 @@ final readonly class UserAuthenticationService implements UserAuthenticationPort
   /**
    * {@inheritDoc}
    */
-  public function authenticate(string $identifier, string $plainPassword): UserAuthentication
+  public function authenticate(string $identifier, string $plainPassword, bool $requireEmailVerification = true): UserAuthentication
   {
-    $result = ($this->authenticate)(new AuthenticateUserQuery(username: $identifier, password: $plainPassword));
+    $result = ($this->authenticate)(new AuthenticateUserQuery(username: $identifier, password: $plainPassword, requireEmailVerification: $requireEmailVerification));
 
     return new UserAuthentication($result->authenticated, $result->userId, $result->email);
   }

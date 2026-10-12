@@ -1,0 +1,13 @@
+api_platform:
+  mapping:
+    paths:
+      - '%kernel.project_dir%/src/Equipment/Presentation/Api/Resource'
+  exception_to_status:
+    Equipment\Application\Contract\FloorPlan\FloorPlanAttachmentNotFoundException: 404
+    Equipment\Domain\Exception\CanonicalEquipmentValidationException: 422
+    Equipment\Domain\Exception\EquipmentRevisionMismatchException: 412
+    Equipment\Domain\Exception\AttachmentNotFoundException: 404
+    Equipment\Domain\Exception\EquipmentAlreadyDecommissionedException: 409
+    Equipment\Domain\Exception\EquipmentNotFoundException: 404
+    Equipment\Domain\Exception\EquipmentSerialNumberAlreadyExistsException: 409
+    Equipment\Domain\Exception\TagNotFoundException: 404

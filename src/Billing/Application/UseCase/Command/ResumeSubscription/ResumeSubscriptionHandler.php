@@ -8,6 +8,7 @@ use Billing\Application\Port\Outbound\BillingReconciliationPort;
 use Billing\Application\Port\Outbound\Internal\{StripeGatewayPort, SubscriptionRepositoryPort};
 use Billing\Domain\Exception\NoActiveSubscriptionException;
 use Shared\Application\Message\{CommandHandler, VoidResult};
+use Shared\Application\Port\Outbound\Idempotency\HttpIdempotencyExecutionPort;
 
 /**
  * UseCase ResumeSubscriptionHandler.
@@ -34,11 +35,13 @@ final readonly class ResumeSubscriptionHandler implements CommandHandler
    * @param SubscriptionRepositoryPort $subscriptions the subscription repository
    * @param StripeGatewayPort $stripe the Stripe gateway
    * @param BillingReconciliationPort $reconciliation the transaction manager
+   * @param ?HttpIdempotencyExecutionPort $httpExecution the current execution and stable external identity
    */
   public function __construct(
     private SubscriptionRepositoryPort $subscriptions,
     private StripeGatewayPort $stripe,
     private BillingReconciliationPort $reconciliation,
+    private ?HttpIdempotencyExecutionPort $httpExecution = null,
   ) {
   }
   // #endregion
@@ -84,7 +87,8 @@ final readonly class ResumeSubscriptionHandler implements CommandHandler
       throw NoActiveSubscriptionException::forOrganization($command->organizationId);
     }
 
-    $this->stripe->resumeCancellation($stripeSubscriptionId);
+    $this->httpExecution?->externalEffectStarted('stripe.resume');
+    $this->stripe->resumeCancellation($stripeSubscriptionId, $this->httpExecution?->providerKey('stripe.resume'));
 
     $subscription->resumeCancellation();
 

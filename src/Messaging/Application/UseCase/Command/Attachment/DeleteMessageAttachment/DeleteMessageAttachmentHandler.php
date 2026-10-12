@@ -10,6 +10,7 @@ use Messaging\Domain\Exception\{MessagingAccessDeniedException, MessagingAttachm
 use Messaging\Domain\ValueObject\MessagingAttachmentId;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\{FileCleanupPort, RootTransactionManagerPort};
+use Shared\Application\Port\Outbound\Idempotency\HttpIdempotencyExecutionPort;
 use Shared\Domain\Exception\InvalidValueException;
 
 use function preg_match;
@@ -50,6 +51,7 @@ final readonly class DeleteMessageAttachmentHandler implements CommandHandler
     private MessagingAccessPolicy $accessPolicy,
     private FileCleanupPort $cleanup,
     private RootTransactionManagerPort $transactions,
+    private ?HttpIdempotencyExecutionPort $idempotency = null,
   ) {
   }
   // #endregion
@@ -62,7 +64,12 @@ final readonly class DeleteMessageAttachmentHandler implements CommandHandler
    */
   public function __invoke(DeleteMessageAttachmentCommand $command): DeleteMessageAttachmentResult
   {
-    return $this->transactions->transactional(fn () => $this->delete($command));
+    return $this->transactions->transactional(function () use ($command): DeleteMessageAttachmentResult {
+      $result = $this->delete($command);
+      $this->idempotency?->captureResult($result);
+
+      return $result;
+    });
   }
 
   /**

@@ -10,6 +10,7 @@ use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
 use Organization\Application\Contract\Exception\OrganizationNotFoundException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
+use Organization\Application\UseCase\Command\Organization\ListOrganizationInvitations\ListOrganizationInvitationsHandler;
 use Organization\Application\UseCase\Query\Organization\ListOrganizationInvitations\{GetOrganizationInvitationResult, ListOrganizationInvitationsQuery};
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationInvitationOutput;
 use Organization\Presentation\Api\Provider\Organization\ListOrganizationInvitationsProvider;
@@ -18,7 +19,7 @@ use PHPUnit\Framework\MockObject\{MockObject, Stub};
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Application\Contract\Pagination\PaginatedResult;
-use Shared\Application\Port\Inbound\QueryBusPort;
+use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use User\Application\Contract\User\UserView;
@@ -42,10 +43,9 @@ final class ListOrganizationInvitationsProviderTest extends TestCase
     $queryBus->expects(self::never())->method('ask');
 
     $provider = new ListOrganizationInvitationsProvider(
-      queryBus: $queryBus,
+      commandBus: $this->primaryBus($queryBus),
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
-      users: \Tests\Support\Factory\UserDirectoryTestFactory::fromQueries($queryBus),
     );
 
     $output = $provider->provide(new GetCollection(), []);
@@ -70,10 +70,9 @@ final class ListOrganizationInvitationsProviderTest extends TestCase
       ->willReturn(false);
 
     $provider = new ListOrganizationInvitationsProvider(
-      queryBus: $this->createStub(QueryBusPort::class),
+      commandBus: $this->primaryBus($this->createStub(QueryBusPort::class)),
       authorization: $authorization,
       security: $security,
-      users: \Tests\Support\Factory\UserDirectoryTestFactory::fromQueries($this->createStub(QueryBusPort::class)),
     );
 
     $this->expectException(AccessDeniedHttpException::class);
@@ -130,10 +129,9 @@ final class ListOrganizationInvitationsProviderTest extends TestCase
     );
 
     $provider = new ListOrganizationInvitationsProvider(
-      queryBus: $queryBus,
+      commandBus: $this->primaryBus($queryBus),
       authorization: $authorization,
       security: $security,
-      users: \Tests\Support\Factory\UserDirectoryTestFactory::fromQueries($queryBus),
     );
 
     $output = $provider->provide(new GetCollection(), ['organizationId' => '550e8400-e29b-41d4-a716-446655441951']);
@@ -158,10 +156,9 @@ final class ListOrganizationInvitationsProviderTest extends TestCase
       ->willReturn(null);
 
     $provider = new ListOrganizationInvitationsProvider(
-      queryBus: $this->createStub(QueryBusPort::class),
+      commandBus: $this->primaryBus($this->createStub(QueryBusPort::class)),
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
-      users: \Tests\Support\Factory\UserDirectoryTestFactory::fromQueries($this->createStub(QueryBusPort::class)),
     );
 
     $this->expectException(AccessDeniedHttpException::class);
@@ -192,10 +189,9 @@ final class ListOrganizationInvitationsProviderTest extends TestCase
       ->willThrowException(OrganizationNotFoundException::withId($organizationId));
 
     $provider = new ListOrganizationInvitationsProvider(
-      queryBus: $queryBus,
+      commandBus: $this->primaryBus($queryBus),
       authorization: $authorization,
       security: $security,
-      users: \Tests\Support\Factory\UserDirectoryTestFactory::fromQueries($queryBus),
     );
 
     $this->expectException(OrganizationNotFoundException::class);
@@ -259,10 +255,9 @@ final class ListOrganizationInvitationsProviderTest extends TestCase
       );
 
     $provider = new ListOrganizationInvitationsProvider(
-      queryBus: $queryBus,
+      commandBus: $this->primaryBus($queryBus),
       authorization: $authorization,
       security: $security,
-      users: \Tests\Support\Factory\UserDirectoryTestFactory::fromQueries($queryBus),
     );
 
     $output = $provider->provide(
@@ -315,10 +310,9 @@ final class ListOrganizationInvitationsProviderTest extends TestCase
     );
 
     $provider = new ListOrganizationInvitationsProvider(
-      queryBus: $queryBus,
+      commandBus: $this->primaryBus($queryBus),
       authorization: $authorization,
       security: $security,
-      users: \Tests\Support\Factory\UserDirectoryTestFactory::fromQueries($queryBus),
     );
 
     $output = $provider->provide(new GetCollection(), ['organizationId' => $organizationId]);
@@ -364,5 +358,16 @@ final class ListOrganizationInvitationsProviderTest extends TestCase
       scopes: [],
       isActive: true,
     );
+  }
+
+  private function primaryBus(QueryBusPort $queries): CommandBusPort
+  {
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn(true);
+    $handler = new ListOrganizationInvitationsHandler($queries, $authorization, \Tests\Support\Factory\UserDirectoryTestFactory::fromQueries($queries));
+    $commands = $this->createStub(CommandBusPort::class);
+    $commands->method('dispatch')->willReturnCallback($handler(...));
+
+    return $commands;
   }
 }

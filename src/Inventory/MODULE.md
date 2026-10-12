@@ -55,6 +55,10 @@ CUMP allocates total balance value proportionally with one final half-up roundin
 
 ## Configuration
 
+HTTP mutations require `Idempotency-Key` and reserve their explicitly owned main transaction before effects. The owner gate reads current Inventory scope through scalar SQL, verifies the current quantity/management grants and asks Intervention's published fresh capability to recheck execution participation. Original result identifiers and organization scope remain signed receipt facts. The first response's financial visibility is retained through `InventoryHttpResponseVisibilityPort`: a receipt that exposed valuation requires current `organization.maintenance_cost.read` before decoding, while a quantity-only receipt keeps its original representation after a later grant. Ordinary reads use their existing visibility decision. The existing `clientOperationId` receipts continue to protect native physical declarations.
+
+The owning operation contribution and replay authorization adapters are tagged for Shared's HTTP driver. Their database connection is explicitly main; the visibility port resolves to the same request-local owner gate. Unknown mutations have no inferred result schema.
+
 `config/modules/inventory.yaml` wires every service and explicitly uses the main connection for the SQL repository and the main entity manager for its transaction manager. Pure row mapping and collection predicates do not open connections; advisory fences use the repository's existing main transaction. Doctrine maps `Inventory\\Infrastructure\\Persistence\\Doctrine\\Record` only under main. Routes register the Inventory API Resource directory. DATABASE_STORAGE_TIMEZONE controls persisted wall-clock timestamps; reads and writes convert through that zone.
 
 Within `Infrastructure/Persistence/Doctrine`, `Query` owns the pure collection predicates, `Lock` owns transaction-scoped advisory fences, and `Mapper` restores persisted values. The repository constructs its lock collaborator with the same explicitly wired main connection. Query and lock collaborators are outside service discovery and never receive a separate default connection.
@@ -62,6 +66,16 @@ Within `Infrastructure/Persistence/Doctrine`, `Query` owns the pure collection p
 Migration `Version20261006111000` adds the scoped reference catalog, balances, immutable movement ledger, consumption declarations and operation receipts. Balances have an organization/warehouse/part unique key and a nonnegative database constraint. No auth/main joins are used.
 
 ## Testing
+
+`GET /api/organizations/{organizationId}/inventory-consumptions` accepts an optional
+UUID `clientOperationId` filter. It follows the exact durable receipt owned by that
+organization to its current consumption declaration, with identical list/count
+predicates and the existing `organization.inventory.read` authorization. Similar
+part, warehouse, quantity or occurrence values never establish execution identity.
+Offline clients use this read to restore their local receipt after an authenticated
+`idempotency_replay_expired` confirmation, then durably acknowledge the queued
+intent without issuing another stock mutation. Unknown receipts and failed reads
+leave that intent pending. No raw receipt or financial snapshot is published.
 
 Retention coverage checks abandoned parents and prepared tasks with both confirmed
 and received_pending declarations. Rejected DELETE preserves balances, details,

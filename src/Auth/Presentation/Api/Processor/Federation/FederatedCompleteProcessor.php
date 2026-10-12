@@ -6,8 +6,9 @@ namespace Auth\Presentation\Api\Processor\Federation;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Application\Contract\Federation\{FederatedLoginContext, FederatedProvider};
+use Auth\Application\Contract\Federation\{FederatedLoginContext, ProviderId};
 use Auth\Application\Contract\User\AuthenticatedUser;
+use Auth\Application\Port\Outbound\JwtTokenServicePort;
 use Auth\Application\UseCase\Command\Federation\CompleteFederation\CompleteFederationCommand;
 use Auth\Presentation\Api\Dto\Input\Federation\FederatedCompleteInput;
 use Auth\Presentation\Api\Dto\Output\Auth\LoginOutput;
@@ -72,6 +73,7 @@ final readonly class FederatedCompleteProcessor implements ProcessorInterface
     private TrustedDeviceCookieService $trustedDeviceCookieService,
     #[Autowire(service: 'limiter.federated_complete')]
     private RateLimiterFactory $rateLimiter,
+    private ?JwtTokenServicePort $tokens = null,
   ) {
   }
 
@@ -121,6 +123,10 @@ final readonly class FederatedCompleteProcessor implements ProcessorInterface
       if (null === $completion->connections) {
         throw new BadRequestHttpException('federated_auth_failed');
       }
+      if (null !== $request && null !== $browserBinding && null !== $completion->connections->browserProofExpiresAt) {
+        $request->attributes->remove('_federated_flow_clear_cookie');
+        $request->attributes->set('_federated_flow_cookie', $this->flowCookieService->createReplayCookie($browserBinding, $completion->connections->browserProofExpiresAt));
+      }
 
       return FederatedConnectionsOutput::fromContract($completion->connections);
     }
@@ -141,6 +147,10 @@ final readonly class FederatedCompleteProcessor implements ProcessorInterface
     $login = $completion->login;
     if (null === $login) {
       throw new BadRequestHttpException('federated_auth_failed');
+    }
+    if (null !== $request && null !== $browserBinding && null !== $login->browserProofExpiresAt) {
+      $request->attributes->remove('_federated_flow_clear_cookie');
+      $request->attributes->set('_federated_flow_cookie', $this->flowCookieService->createReplayCookie($browserBinding, $login->browserProofExpiresAt));
     }
 
     $output = new LoginOutput();
@@ -166,6 +176,7 @@ final readonly class FederatedCompleteProcessor implements ProcessorInterface
       $request->attributes->set('_refresh_token_cookie', $this->cookieService->createCookie(
         refreshToken: $result->refreshToken,
         rememberMe: false,
+        absoluteExpiresAt: $this->tokens?->decodeRefreshToken($result->refreshToken)['expires_at'] ?? null,
       ));
     }
 
@@ -181,14 +192,14 @@ final readonly class FederatedCompleteProcessor implements ProcessorInterface
    *
    * @param array<string, mixed> $uriVariables API Platform route variables
    *
-   * @return FederatedProvider selected provider
+   * @return ProviderId selected provider
    *
    * @throws BadRequestHttpException when the route provider is unknown
    */
-  private function provider(array $uriVariables): FederatedProvider
+  private function provider(array $uriVariables): ProviderId
   {
     $value = $uriVariables['provider'] ?? null;
-    $provider = is_string($value) ? FederatedProvider::tryFrom($value) : null;
+    $provider = is_string($value) ? ProviderId::tryFrom($value) : null;
     if (null === $provider) {
       throw new BadRequestHttpException('unknown_provider');
     }

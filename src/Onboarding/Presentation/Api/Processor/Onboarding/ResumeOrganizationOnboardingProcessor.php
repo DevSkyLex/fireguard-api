@@ -7,9 +7,10 @@ namespace Onboarding\Presentation\Api\Processor\Onboarding;
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use Auth\Application\Contract\User\AuthenticatedUser;
-use Onboarding\Application\Port\Inbound\Internal\OrganizationOnboardingServicePort;
+use Onboarding\Application\UseCase\Command\Flow\ResumeOrganizationOnboarding\{ResumeOrganizationOnboardingCommand, ResumeOrganizationOnboardingResult};
 use Onboarding\Presentation\Api\Dto\Output\Onboarding\OrganizationOnboardingOutput;
 use Onboarding\Presentation\Api\Mapper\Onboarding\OrganizationOnboardingOutputAssembler;
+use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
@@ -35,13 +36,13 @@ final readonly class ResumeOrganizationOnboardingProcessor implements ProcessorI
    *
    * @access public
    *
-   * @param OrganizationOnboardingServicePort $flowService service port for organization onboarding state transitions
+   * @param CommandBusPort $commandBus owns the durable onboarding transition and result
    * @param Security $security security context used to identify the authenticated user
    *
    * @return void
    */
   public function __construct(
-    private OrganizationOnboardingServicePort $flowService,
+    private CommandBusPort $commandBus,
     private Security $security,
   ) {
   }
@@ -70,9 +71,10 @@ final readonly class ResumeOrganizationOnboardingProcessor implements ProcessorI
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
-    return OrganizationOnboardingOutputAssembler::fromState(
-      $this->flowService->resume($user->getId()),
-    );
+    /** @var ResumeOrganizationOnboardingResult $result */
+    $result = $this->commandBus->dispatch(new ResumeOrganizationOnboardingCommand($user->getId()));
+
+    return OrganizationOnboardingOutputAssembler::fromState($result->state);
   }
   // #endregion
 }

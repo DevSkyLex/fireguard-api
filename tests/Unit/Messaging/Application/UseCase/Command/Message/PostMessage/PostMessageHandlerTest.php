@@ -23,8 +23,10 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
+use Shared\Application\Port\Outbound\Idempotency\HttpIdempotencyExecutionPort;
 use Shared\Application\Port\Outbound\{LoggerPort, RootTransactionManagerPort};
 use Shared\Application\Port\Outbound\UuidGeneratorPort;
+use Tests\Support\Idempotency\RootMediaCaptureHarness;
 
 use function sprintf;
 
@@ -236,7 +238,7 @@ final class PostMessageHandlerTest extends TestCase
     $conversations = $this->createStub(MessagingConversationRepositoryPort::class);
     $conversations->method('findAggregateById')->willReturn($this->conversation());
 
-    $registry = new MessagingSubjectResolverRegistry([$this->notFoundEquipmentResolver()]);
+    $registry = new MessagingSubjectResolverRegistry([$this->facilityResolver(), $this->notFoundEquipmentResolver()]);
 
     $members = $this->createStub(MessagingMemberDirectoryPort::class);
     $members->method('resolveActiveMemberId')->willReturn(self::AUTHOR_MEMBER_ID);
@@ -437,6 +439,37 @@ final class PostMessageHandlerTest extends TestCase
     $handler->__invoke(new PostMessageCommand(self::USER_ID, self::CONVERSATION_ID, 'Hello', clientId: $clientId));
   }
 
+  #[Test]
+  public function itCapturesTheTypedMessageAfterRecipientLookupAndBeforePublication(): void
+  {
+    $execution = new RootMediaCaptureHarness();
+    $conversations = $this->createStub(MessagingConversationRepositoryPort::class);
+    $conversations->method('findAggregateById')->willReturn($this->conversation(visibility: ConversationVisibility::PARTICIPANTS));
+    $view = $this->messageView('Captured message', []);
+    $messages = $this->createStub(MessagingMessageRepositoryPort::class);
+    $messages->method('append')->willReturnCallback(static function () use ($execution, $view) {
+      $execution->events[] = 'append';
+
+      return $view;
+    });
+    $members = $this->createStub(MessagingMemberDirectoryPort::class);
+    $members->method('resolveActiveMemberId')->willReturn(self::AUTHOR_MEMBER_ID);
+    $participants = $this->createStub(MessagingParticipantRepositoryPort::class);
+    $participants->method('isParticipant')->willReturn(true);
+    $participants->method('listMemberIds')->willReturnCallback(static function () use ($execution): array {
+      $execution->events[] = 'recipients';
+
+      return [];
+    });
+    $realtime = $this->createStub(MessagingRealtimePublisherPort::class);
+    $realtime->method('publishMessage')->willReturnCallback(static function () use ($execution): void { $execution->events[] = 'publish'; });
+    $result = $this->handler($conversations, $messages, $realtime, $this->createStub(NotificationPort::class), $members, participants: $participants, transactions: $execution, idempotency: $execution)(new PostMessageCommand(self::USER_ID, self::CONVERSATION_ID, 'Captured message'));
+
+    self::assertSame(['begin', 'claim', 'append', 'recipients', 'capture', 'commit', 'publish'], $execution->events);
+    self::assertSame($result, $execution->committedSnapshot);
+    self::assertSame(self::AUTHOR_MEMBER_ID, $result->currentMemberId);
+  }
+
   private function handler(
     MessagingConversationRepositoryPort $conversations,
     MessagingMessageRepositoryPort $messages,
@@ -447,6 +480,8 @@ final class PostMessageHandlerTest extends TestCase
     ?MessagingLinkRepositoryPort $links = null,
     ?MessagingSubjectResolverRegistry $registry = null,
     ?LoggerPort $logger = null,
+    ?RootTransactionManagerPort $transactions = null,
+    ?HttpIdempotencyExecutionPort $idempotency = null,
   ): PostMessageHandler {
     $registry ??= new MessagingSubjectResolverRegistry([$this->facilityResolver()]);
 
@@ -476,7 +511,8 @@ final class PostMessageHandlerTest extends TestCase
       new UrlExtractor(),
       $uuidFactory,
       $logger ?? $this->createStub(LoggerPort::class),
-      $this->transactions(),
+      $transactions ?? $this->transactions(),
+      $idempotency,
     );
   }
 
@@ -491,7 +527,7 @@ final class PostMessageHandlerTest extends TestCase
   private function facilityResolver(): MessagingSubjectResolverPort
   {
     $resolver = $this->createStub(MessagingSubjectResolverPort::class);
-    $resolver->method('supports')->willReturnCallback(static fn (\Messaging\Application\Contract\Subject\MessagingSubjectType $type): bool => \Messaging\Application\Contract\Subject\MessagingSubjectType::FACILITY === $type);
+    $resolver->method('descriptor')->willReturn(new \Messaging\Application\Contract\Subject\MessagingSubjectDescriptor('facility', 'Facility', 'facilities', 'organization.facilities.read'));
     $resolver->method('resolve')->willReturn(new MessagingSubjectResolution(true, 'Site nord', 'organization.facilities.read'));
 
     return $resolver;
@@ -500,7 +536,7 @@ final class PostMessageHandlerTest extends TestCase
   private function notFoundEquipmentResolver(): MessagingSubjectResolverPort
   {
     $resolver = $this->createStub(MessagingSubjectResolverPort::class);
-    $resolver->method('supports')->willReturnCallback(static fn (\Messaging\Application\Contract\Subject\MessagingSubjectType $type): bool => \Messaging\Application\Contract\Subject\MessagingSubjectType::FACILITY === $type || \Messaging\Application\Contract\Subject\MessagingSubjectType::EQUIPMENT === $type);
+    $resolver->method('descriptor')->willReturn(new \Messaging\Application\Contract\Subject\MessagingSubjectDescriptor('equipment', 'Equipment', 'equipment', 'organization.equipment.read'));
     $resolver->method('resolve')->willReturnCallback(static fn (string $organizationId, string $subjectId): MessagingSubjectResolution => new MessagingSubjectResolution('facility-1' === $subjectId, 'Site nord', 'organization.facilities.read'));
 
     return $resolver;
@@ -513,7 +549,7 @@ final class PostMessageHandlerTest extends TestCase
     return Conversation::reconstitute(
       ConversationId::fromString(self::CONVERSATION_ID),
       self::ORG_ID,
-      MessagingSubjectType::FACILITY,
+      MessagingSubjectType::from('facility'),
       'facility-1',
       new RestoredConversationActivity(
         $visibility,

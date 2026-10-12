@@ -12,6 +12,7 @@ use Messaging\Domain\ValueObject\{ConversationVisibility, MessagingAttachmentId,
 use Shared\Application\Contract\Transaction\CommitOutcomeUnknownException;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\{FileCleanupPort, FileStoragePort, LoggerPort, RootTransactionManagerPort};
+use Shared\Application\Port\Outbound\Idempotency\HttpIdempotencyExecutionPort;
 use Shared\Application\Port\Outbound\UuidGeneratorPort;
 use Shared\Domain\Attachment\{AttachmentConstraints, StoragePathScheme};
 use Shared\Domain\Exception\InvalidValueException;
@@ -66,6 +67,7 @@ final readonly class AddMessageAttachmentHandler implements CommandHandler
     private RootTransactionManagerPort $transactions,
     private FileCleanupPort $cleanup,
     private LoggerPort $logger,
+    private ?HttpIdempotencyExecutionPort $idempotency = null,
   ) {
   }
   // #endregion
@@ -83,12 +85,15 @@ final readonly class AddMessageAttachmentHandler implements CommandHandler
 
     try {
       return $this->transactions->transactional(function () use ($command, $attempt): AddMessageAttachmentResult {
-        return $this->attachments->withMessageLock(
+        $result = $this->attachments->withMessageLock(
           $command->messageId,
           function () use ($command, $attempt): AddMessageAttachmentResult {
             return $this->upload($command, $attempt);
           },
         );
+        $this->idempotency?->captureResult($result);
+
+        return $result;
       });
     } catch (Throwable $exception) {
       $writtenPath = $attempt->storagePath();

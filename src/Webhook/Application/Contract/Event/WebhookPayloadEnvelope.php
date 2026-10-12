@@ -9,7 +9,7 @@ namespace Webhook\Application\Contract\Event;
  *
  * The stable public JSON envelope every webhook delivery carries — never
  * the raw internal domain event object. `data` is built by a dedicated,
- * per-event-type payload builder ({@see WebhookEventCatalog::buildPayload()})
+ * per-event-type payload builder ({@see WebhookEventProjection})
  * that reads the typed domain event and emits only public, PII-free
  * fields, which is what keeps this contract stable against internal
  * refactors.

@@ -52,9 +52,9 @@ final readonly class PostgresOrganizationQuotaLockAdapter implements Organizatio
    * @since 1.0.0
    *
    * @param string $organizationId the organization identifier
-   * @param OrganizationQuotaResource $resource the capped resource being guarded
+   * @param OrganizationQuotaResource|string $resource the capped resource being guarded
    */
-  public function acquire(string $organizationId, OrganizationQuotaResource $resource): void
+  public function acquire(string $organizationId, OrganizationQuotaResource|string $resource): void
   {
     $connection = $this->entityManager->getConnection();
 
@@ -66,7 +66,7 @@ final readonly class PostgresOrganizationQuotaLockAdapter implements Organizatio
       'SELECT pg_advisory_xact_lock(hashtext(:organizationId), hashtext(:resource))',
       [
         'organizationId' => $organizationId,
-        'resource' => $resource->value,
+        'resource' => $resource instanceof OrganizationQuotaResource ? $resource->value : $resource,
       ],
     );
   }

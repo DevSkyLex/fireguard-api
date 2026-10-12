@@ -1,0 +1,11 @@
+doctrine:
+  orm:
+    entity_managers:
+      auth:
+        mappings:
+          Audit:
+            is_bundle: false
+            type: attribute
+            dir: '%kernel.project_dir%/src/Audit/Infrastructure/Persistence/Doctrine/Record'
+            prefix: 'Audit\Infrastructure\Persistence\Doctrine\Record'
+            alias: Audit

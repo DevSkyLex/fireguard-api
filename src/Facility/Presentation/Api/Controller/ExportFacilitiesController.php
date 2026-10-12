@@ -5,19 +5,18 @@ declare(strict_types=1);
 namespace Facility\Presentation\Api\Controller;
 
 use Auth\Application\Contract\User\AuthenticatedUser;
-use DateTimeImmutable;
-use Facility\Application\UseCase\Query\ExportFacilities\{ExportFacilitiesQuery, ExportFacilitiesResult};
-use Facility\Presentation\Api\Service\{FacilityCsvWriter, FacilityExportCriteriaFactory};
+use Facility\Application\UseCase\Command\Export\GenerateFacilitiesExport\{GenerateFacilitiesExportCommand, GenerateFacilitiesExportResult};
+use Facility\Presentation\Api\Service\FacilityExportCriteriaFactory;
 use Facility\Presentation\Api\Trait\FacilityExportExceptionMapperTrait;
-use Shared\Application\Port\Inbound\QueryBusPort;
+use LogicException;
+use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, StreamedResponse};
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
 use Throwable;
 
-use function fclose;
-use function fopen;
+use function base64_decode;
 use function is_string;
 use function sprintf;
 
@@ -51,16 +50,14 @@ final class ExportFacilitiesController extends AbstractController
    *
    * @since 1.0.0
    *
-   * @param QueryBusPort $queryBus the query bus
+   * @param CommandBusPort $commands generates the artifact inside its owning transaction
    * @param Security $security the security service
    * @param FacilityExportCriteriaFactory $criteriaFactory the request-to-filters factory
-   * @param FacilityCsvWriter $csvWriter the CSV row writer
    */
   public function __construct(
-    private readonly QueryBusPort $queryBus,
+    private readonly CommandBusPort $commands,
     private readonly Security $security,
     private readonly FacilityExportCriteriaFactory $criteriaFactory,
-    private readonly FacilityCsvWriter $csvWriter,
   ) {
   }
   // #endregion
@@ -90,8 +87,8 @@ final class ExportFacilitiesController extends AbstractController
     $filters = $this->criteriaFactory->fromRequest($request);
 
     try {
-      /** @var ExportFacilitiesResult $result */
-      $result = $this->queryBus->ask(new ExportFacilitiesQuery(
+      /** @var GenerateFacilitiesExportResult $result */
+      $result = $this->commands->dispatch(new GenerateFacilitiesExportCommand(
         userId: $user->getId(),
         organizationId: $organizationId,
         filters: $filters,
@@ -102,21 +99,18 @@ final class ExportFacilitiesController extends AbstractController
       throw $this->mapExportException($exception);
     }
 
-    $fileName = sprintf('facilities-export-%s.csv', new DateTimeImmutable()->format('Ymd-His'));
-
-    $response = new StreamedResponse(function () use ($result): void {
-      $handle = fopen('php://output', 'wb');
-      if (false === $handle) {
-        return;
-      }
-
-      $this->csvWriter->write($result->rows, $handle);
-      fclose($handle);
+    $contents = base64_decode($result->contentsBase64, true);
+    if (false === $contents) {
+      throw new LogicException('Saved CSV artifact is invalid.');
+    }
+    $response = new StreamedResponse(static function () use ($contents): void {
+      echo $contents;
     });
-
-    $response->headers->set('Content-Type', 'text/csv; charset=utf-8');
-    $response->headers->set('Content-Disposition', sprintf('attachment; filename="%s"', $fileName));
-    $response->headers->set('X-Accel-Buffering', 'no');
+    $response->headers->set('Content-Type', $result->contentType);
+    $response->headers->set('Content-Disposition', sprintf('attachment; filename="%s"', $result->fileName));
+    foreach ($result->headers as $name => $value) {
+      $response->headers->set($name, $value);
+    }
 
     return $response;
   }

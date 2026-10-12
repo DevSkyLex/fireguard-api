@@ -11,8 +11,8 @@ use function sprintf;
 /**
  * Exception UnsupportedOnboardingStepException.
  *
- * Raised when a caller names a step that is not in
- * `OrganizationOnboardingStep`. Replaces the `InvalidArgumentException` the
+ * Raised when a caller names a step with no registered owner contribution.
+ * Replaces the `InvalidArgumentException` the
  * flow service used to throw: the status is now declared once in
  * `api_platform.exception_to_status` instead of being decided by whichever
  * processor happened to catch it.

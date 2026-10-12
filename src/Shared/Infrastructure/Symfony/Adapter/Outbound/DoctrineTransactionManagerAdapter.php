@@ -8,6 +8,8 @@ use Doctrine\DBAL\Exception as DoctrineDBALException;
 use Doctrine\ORM\EntityManagerInterface;
 use Shared\Application\Port\Outbound\TransactionManagerPort;
 use Shared\Infrastructure\Exception\TransactionExecutionException;
+use Shared\Infrastructure\Idempotency\HttpIdempotencyExecutionContext;
+use Shared\Infrastructure\Messaging\Outbox\RootTransactionManagerAdapter;
 use Shared\Infrastructure\Persistence\DatabaseFailureTranslator;
 use Throwable;
 
@@ -31,9 +33,13 @@ final readonly class DoctrineTransactionManagerAdapter implements TransactionMan
    * @since 1.0.0
    *
    * @param EntityManagerInterface $entityManager the entity manager implementation
+   * @param HttpIdempotencyExecutionContext|null $idempotency the authorized HTTP transaction hooks
+   * @param string $database the explicitly declared owning database for those hooks
    */
   public function __construct(
     private readonly EntityManagerInterface $entityManager,
+    private ?HttpIdempotencyExecutionContext $idempotency = null,
+    private string $database = '',
   ) {
   }
   // #endregion
@@ -57,6 +63,18 @@ final readonly class DoctrineTransactionManagerAdapter implements TransactionMan
    */
   public function transactional(callable $operation): mixed
   {
+    if ($this->idempotency?->activeFor($this->database) ?? false) {
+      $connection = $this->entityManager->getConnection();
+      if (!$connection->isTransactionActive()) {
+        return new RootTransactionManagerAdapter($connection, $this->entityManager, $this->idempotency, $this->database)->transactional(function () use ($operation): mixed {
+          $result = $operation();
+          $this->entityManager->flush();
+
+          return $result;
+        });
+      }
+    }
+
     try {
       return $this->entityManager->wrapInTransaction(
         static function () use ($operation) {

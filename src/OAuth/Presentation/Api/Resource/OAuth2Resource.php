@@ -241,6 +241,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         'json' => [self::CONTENT_TYPE_JSON],
         'form' => [self::FORM_URLENCODED_MEDIA_TYPE],
       ],
+      outputFormats: ['json' => [self::CONTENT_TYPE_JSON], 'jsonld' => [self::CONTENT_TYPE_JSON_LD]],
       processor: IssueTokenProcessor::class,
       normalizationContext: ['groups' => [OAuthSerializationGroup::TOKEN_READ]],
       denormalizationContext: ['groups' => [OAuthSerializationGroup::TOKEN_WRITE]],
@@ -305,6 +306,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         'json' => [self::CONTENT_TYPE_JSON],
         'form' => [self::FORM_URLENCODED_MEDIA_TYPE],
       ],
+      outputFormats: ['json' => [self::CONTENT_TYPE_JSON], 'jsonld' => [self::CONTENT_TYPE_JSON_LD]],
       processor: RevokeTokenProcessor::class,
       security: "is_granted('ROLE_USER')",
       openapi: new Operation(
@@ -345,6 +347,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         'json' => [self::CONTENT_TYPE_JSON],
         'form' => [self::FORM_URLENCODED_MEDIA_TYPE],
       ],
+      outputFormats: ['json' => [self::CONTENT_TYPE_JSON], 'jsonld' => [self::CONTENT_TYPE_JSON_LD]],
       processor: IntrospectTokenProcessor::class,
       security: "is_granted('ROLE_USER')",
       normalizationContext: ['groups' => [OAuthSerializationGroup::TOKEN_READ]],

@@ -5,12 +5,18 @@ declare(strict_types=1);
 namespace Tests\Functional\Api;
 
 use Auth\Infrastructure\Security\User\SecurityUser;
+use DAMA\DoctrineTestBundle\PHPUnit\SkipDatabaseRollback;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Intervention\Infrastructure\Persistence\Doctrine\Record\InterventionRecord;
+use LogicException;
 use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationMemberRecord, OrganizationMemberRoleRecord, OrganizationRecord, OrganizationRoleRecord};
 use PHPUnit\Framework\Attributes\Test;
+use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Tests\Support\Auth\InteractiveTokenFactory;
+use Tests\Support\Database\RootCommitDatabaseIsolationTrait;
+use User\Infrastructure\Persistence\Doctrine\Record\UserRecord;
 
 use function http_build_query;
 
@@ -35,8 +41,11 @@ use function http_build_query;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
+#[SkipDatabaseRollback]
 final class InterventionExportApiTest extends WebTestCase
 {
+  use RootCommitDatabaseIsolationTrait;
+
   private const string ORGANIZATION_ID = '650e8400-e29b-41d4-a716-449002000001';
 
   private const string ADMIN_USER_ID = '650e8400-e29b-41d4-a716-449002000002';
@@ -56,10 +65,11 @@ final class InterventionExportApiTest extends WebTestCase
   public function testExportReturns200WithCsvContentTypeAndAttachmentDisposition(): void
   {
     $client = static::createClient();
+    $client->disableReboot();
     $this->seedOrganizationWithFullAccessAdmin();
     $this->seedIntervention(id: '650e8400-e29b-41d4-a716-449002000101', status: 'draft', number: 401, name: 'Exportable Intervention');
 
-    $client->loginUser($this->securityUser(self::ADMIN_USER_ID), 'api');
+    $this->authenticateExport($client, $this->securityUser(self::ADMIN_USER_ID));
     $client->request('GET', '/api/interventions/export?' . http_build_query([
       'organization' => '/api/organizations/' . self::ORGANIZATION_ID,
     ]));
@@ -74,9 +84,10 @@ final class InterventionExportApiTest extends WebTestCase
   public function testExportWithAnUnknownStatusFilterReturns400(): void
   {
     $client = static::createClient();
+    $client->disableReboot();
     $this->seedOrganizationWithFullAccessAdmin();
 
-    $client->loginUser($this->securityUser(self::ADMIN_USER_ID), 'api');
+    $this->authenticateExport($client, $this->securityUser(self::ADMIN_USER_ID));
     $client->request('GET', '/api/interventions/export?' . http_build_query([
       'organization' => '/api/organizations/' . self::ORGANIZATION_ID,
       'status' => 'not_a_real_status',
@@ -89,6 +100,7 @@ final class InterventionExportApiTest extends WebTestCase
   public function testExportRequiresAuthentication(): void
   {
     $client = static::createClient();
+    $client->disableReboot();
     $this->seedOrganizationWithFullAccessAdmin();
 
     $client->request('GET', '/api/interventions/export?' . http_build_query([
@@ -102,6 +114,7 @@ final class InterventionExportApiTest extends WebTestCase
   public function testExportReturns403ForAMemberWithoutTheInterventionsReadPermission(): void
   {
     $client = static::createClient();
+    $client->disableReboot();
     $entityManager = $this->entityManager();
     $now = new DateTimeImmutable('2026-06-01T00:00:00+00:00');
 
@@ -116,7 +129,7 @@ final class InterventionExportApiTest extends WebTestCase
     $this->assignRole($entityManager, $unentitledMember, $unentitledRole, $now);
     $entityManager->flush();
 
-    $client->loginUser($this->securityUser($unentitledUserId), 'api');
+    $this->authenticateExport($client, $this->securityUser($unentitledUserId));
     $client->request('GET', '/api/interventions/export?' . http_build_query([
       'organization' => '/api/organizations/' . self::ORGANIZATION_ID,
     ]));
@@ -132,6 +145,7 @@ final class InterventionExportApiTest extends WebTestCase
   public function testExportReturns404ForAMemberOfAnotherOrganization(): void
   {
     $client = static::createClient();
+    $client->disableReboot();
     $entityManager = $this->entityManager();
     $now = new DateTimeImmutable('2026-06-01T00:00:00+00:00');
 
@@ -144,7 +158,7 @@ final class InterventionExportApiTest extends WebTestCase
     $this->assignRole($entityManager, $outsiderMember, $outsiderRole, $now);
     $entityManager->flush();
 
-    $client->loginUser($this->securityUser($outsiderUserId), 'api');
+    $this->authenticateExport($client, $this->securityUser($outsiderUserId));
     $client->request('GET', '/api/interventions/export?' . http_build_query([
       'organization' => '/api/organizations/' . self::ORGANIZATION_ID,
     ]));
@@ -303,5 +317,28 @@ final class InterventionExportApiTest extends WebTestCase
       password: 'hashed-password',
       roles: ['ROLE_USER'],
     );
+  }
+
+  private function authenticateExport(KernelBrowser $client, SecurityUser $identity): void
+  {
+    $auth = self::getContainer()->get('doctrine.orm.auth_entity_manager');
+    self::assertInstanceOf(EntityManagerInterface::class, $auth);
+    $user = new UserRecord();
+    $user->id = $identity->getId();
+    $user->username = 'export-' . $identity->getId();
+    $user->email = $identity->getUserIdentifier();
+    $user->firstName = 'Export';
+    $user->lastName = 'Contract';
+    $user->status = 'active';
+    $user->emailVerified = true;
+    $user->emailOwnershipVerifiedAt = new DateTimeImmutable();
+    $user->createdAt = new DateTimeImmutable();
+    $auth->persist($user);
+    $auth->flush();
+    $actorId = $user->id;
+    if ('' === $actorId) {
+      throw new LogicException('An export fixture account must have an identifier.');
+    }
+    $client->setServerParameter('HTTP_AUTHORIZATION', 'Bearer ' . InteractiveTokenFactory::issue(self::getContainer(), $actorId, $user->email));
   }
 }

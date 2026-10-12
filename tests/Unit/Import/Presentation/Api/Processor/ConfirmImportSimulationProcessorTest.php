@@ -19,7 +19,7 @@ final class ConfirmImportSimulationProcessorTest extends TestCase
 {
   public function testOnlyActorAndSimulationIdentifierReachTheCommand(): void
   {
-    $job = ImportJob::create(ImportJobId::fromString('bd000000-0000-4000-8000-000000000192'), 'org', ImportKind::FACILITY, 'retained.csv', 'facilities.csv', 'actor');
+    $job = ImportJob::create(ImportJobId::fromString('bd000000-0000-4000-8000-000000000192'), 'org', ImportKind::from('facility'), 'retained.csv', 'facilities.csv', 'actor');
     $bus = $this->createMock(CommandBusPort::class);
     $bus->expects(self::once())->method('dispatch')->with(self::callback(static fn (ConfirmImportSimulationCommand $c): bool => 'actor' === $c->userId && 'simulation' === $c->simulationId))->willReturn(GetImportJobResult::fromDomain($job));
     $actor = $this->createStub(CurrentActorPort::class);

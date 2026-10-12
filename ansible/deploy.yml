@@ -476,6 +476,32 @@
           No application service has been stopped.
       when: not fireguard_effective_proxies_valid
 
+    - name: Validate effective HTTP idempotency key configuration
+      block:
+        - name: Inspect effective idempotency configuration privately
+          ansible.builtin.set_fact:
+            fireguard_effective_idempotency_valid: >-
+              {{ (fireguard_resolved_compose.stdout | from_json).services.app.environment
+                 | fireguard_http_idempotency_valid }}
+          no_log: true
+      rescue:
+        - name: Stop on an unresolved effective idempotency configuration
+          ansible.builtin.fail:
+            msg: >-
+              HTTP_IDEMPOTENCY_HMAC_KEY, HTTP_IDEMPOTENCY_ENCRYPTION_KEYS and
+              HTTP_IDEMPOTENCY_ENCRYPTION_ACTIVE_VERSION could not be validated.
+              No application service has been stopped.
+
+    - name: Require valid effective HTTP idempotency keys
+      ansible.builtin.fail:
+        msg: >-
+          HTTP_IDEMPOTENCY_HMAC_KEY must encode at least 32 bytes in strict base64.
+          HTTP_IDEMPOTENCY_ENCRYPTION_KEYS must be a nonempty JSON keyring of
+          strict base64 AES-256-GCM keys of exactly 32 bytes, with valid version names.
+          HTTP_IDEMPOTENCY_ENCRYPTION_ACTIVE_VERSION must select an available key.
+          No application service has been stopped.
+      when: not fireguard_effective_idempotency_valid
+
     # Install before either legacy-project shutdown or application shutdown.
     # Historical playbooks only copy known files, so rollback leaves this helper
     # and its crons available to inspect the older Compose configuration.
@@ -507,6 +533,12 @@
         minute: "47"
         hour: "3"
         job: "{{ (fireguard_app_dir + '/fireguard-maintenance.sh') | quote }} auth-retention"
+
+    - name: Install expired HTTP replay payload cleanup
+      ansible.builtin.cron:
+        name: "Fireguard {{ fireguard_deployment_environment }} HTTP replay retention"
+        minute: "*"
+        job: "{{ (fireguard_app_dir + '/fireguard-maintenance.sh') | quote }} http-idempotency-retention"
 
     - name: Install consumer queue and scheduled sweep observation
       ansible.builtin.cron:

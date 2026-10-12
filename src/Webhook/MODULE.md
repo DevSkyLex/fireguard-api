@@ -63,13 +63,14 @@ a `HandledStamp`, which an async-routed dispatch never produces (see
 `Import\Infrastructure\Adapter\Messenger\MessengerImportJobQueueAdapter`'s
 docblock for the precedent this avoids replicating).
 
-## Curated event allowlist
+## Contributed public event catalog
 
-`Application\Contract\Event\WebhookEventCatalog` holds the exact internal
-dispatcher event names (`<module>.<snake_case_class>`, per
-`Shared\Infrastructure\EventDispatcher\SymfonyEventDispatcherAdapter`),
-cross-checked against the subscribers in `Audit\Infrastructure\EventSubscriber\`,
-which already subscribe to every one of them:
+Owner modules contribute `WebhookEventSourcePort` metadata and curated payload
+mappings through `webhook.event_source`. Each source subscribes to its own
+dispatcher event names (`<module>.<snake_case_class>`) and publishes only its
+selected fields through `WebhookEventPublisherPort`. Webhook has no central
+business-event switch. The installed FireGuard contributions preserve this
+public contract:
 
 | Public type (`WebhookEventType`)           | Internal dispatched event name                                                   |
 | ------------------------------------------ | -------------------------------------------------------------------------------- |
@@ -91,8 +92,18 @@ which already subscribe to every one of them:
 
 Excluded by policy: every auth/oauth/otp/session event (security-internal),
 per-message Messaging events (volume/PII), and Audit's own events. Renaming
-a source domain event requires updating both `WebhookEventCatalog` and
-`WebhookEventSubscriber` — do not rename without checking both.
+a source domain event requires updating its owner's source mapping and any
+other consumers. New sources must explicitly review public payload fields;
+installing a domain module does not automatically expose all of its events.
+
+`WebhookEventType` is an open validated string representation within the
+existing 64-character delivery column. Legacy constants preserve exact wire
+literals. The catalog rejects duplicate public keys and source event names
+when constructed. `webhook.ping` remains reserved and non-subscribable.
+Subscription writes reject unregistered keys; owner adapters publish only their registered projections. Historical
+subscription/delivery hydration and queued delivery processing do not depend on
+the producer still being installed; an unrelated subscription update preserves
+stored selections when `eventTypes` is omitted.
 
 ## Flows
 
@@ -109,16 +120,18 @@ config:
 sequenceDiagram
   participant Src as Source handler (e.g. RecordNonConformity)
   participant Disp as EventDispatcherPort
-  participant Sub as WebhookEventSubscriber
+  participant Sub as Owner WebhookEventSourceAdapter
+  participant Publisher as WebhookEventPublisherPort
   participant Bus as MessageBusInterface (webhook transport)
   Src->>Disp: dispatch(NonConformityRecordedEvent)
-  Disp->>Sub: onNonConformityRecorded(event)
+  Disp->>Sub: onEvent(event, eventName)
   Note over Sub: Durable delivery failures propagate for retry.<br/>Legacy synchronous delivery remains best-effort
-  Sub->>Bus: dispatch(DispatchWebhookEventCommand)
+  Sub->>Publisher: publish(curated projection)
+  Publisher->>Bus: dispatch(DispatchWebhookEventCommand)
 ```
 
-`WebhookEventSubscriber` subscribes to curated event names with one typed handler
-per event and dispatches directly onto the raw Symfony message bus. Durable source
+Owner source adapters validate the event name/class pairing and map public fields.
+The publisher dispatches directly onto the raw Symfony message bus. Durable source
 events reuse their outbox identity and propagate enqueue failures to Messenger;
 legacy synchronous calls log failures without invalidating their source request.
 `CommandBusPort` expects a `HandledStamp` an async-routed dispatch never produces.
@@ -229,7 +242,7 @@ trusting it.
 }
 ```
 
-`data` is built by a dedicated block inline in `WebhookEventSubscriber`
+`data` is selected by the source owner's `WebhookEventSourceAdapter`
 (one per curated event, following the Audit subscribers' inline metadata
 blocks) that reads the TYPED domain event and emits only stable, PII-free
 public fields — no emails, no IP addresses, no internal identifiers beyond
@@ -326,11 +339,12 @@ the existing `OrganizationQuotaLockPort`/409 pattern, gating pro/max plans.
   `Import\Domain\Model\ImportJob\ImportJob`'s state-machine style),
   `WebhookDeliveryStatus`, `WebhookSubscriptionId`/`WebhookDeliveryId`,
   `WebhookUrlPolicy` (SSRF policy), domain events, exceptions.
-- **Application** (`src/Webhook/Application`): `WebhookEventCatalog` /
-  `WebhookEventType` / `WebhookPayloadEnvelope` (Contract), outbound ports,
+- **Application** (`src/Webhook/Application`): installed event catalog /
+  `WebhookEventType` / `WebhookEventDescriptor` / `WebhookEventProjection` /
+  `WebhookPayloadEnvelope` (Contract), inbound publisher and outbound ports,
   use cases (subscription CRUD + rotate-secret + ping, delivery
   dispatch/deliver/redeliver, subscription/delivery queries).
-- **Infrastructure** (`src/Webhook/Infrastructure`): `WebhookEventSubscriber`,
+- **Infrastructure** (`src/Webhook/Infrastructure`): `WebhookEventPublisherAdapter`,
   `MessengerWebhookDeliveryQueueAdapter`, `SymfonyHttpWebhookClientAdapter`,
   `OpensslWebhookSecretCipherAdapter`, Doctrine Record/Mapper/Repository
   (main entity manager).
@@ -348,6 +362,8 @@ the existing `OrganizationQuotaLockPort`/409 pattern, gating pro/max plans.
 | `WebhookDeliveryQueuePort`          | `MessengerWebhookDeliveryQueueAdapter` |
 | `WebhookSecretCipherPort`           | `OpensslWebhookSecretCipherAdapter`    |
 | `WebhookHttpClientPort`             | `SymfonyHttpWebhookClientAdapter`      |
+| `WebhookEventCatalogPort`           | `WebhookEventCatalogRegistry`          |
+| `WebhookEventPublisherPort`         | `WebhookEventPublisherAdapter`         |
 
 Cross-module: every command/query handler self-enforces
 `organization.webhooks.{read,manage}` via
@@ -382,6 +398,12 @@ or the `organization.*` owner wildcard.
 ## Configuration
 
 - Service wiring: `config/modules/webhook.yaml`.
+- Event sources are registered by their owner modules under `webhook.event_source`;
+  their Symfony subscriptions are owner-local. The catalog receives that tagged
+  iterator and the publisher receives the raw Messenger bus. FireGuard contribution
+  priorities preserve the existing Equipment, Inspection, Intervention, Maintenance,
+  Facility catalog order. The HTTP validator and application handlers consult the
+  same installed catalog.
 - Doctrine mapping (main entity manager): `config/packages/doctrine.yaml`.
 - Messenger: `config/packages/messenger.yaml` — a dedicated `webhook`
   transport on **main**, `doctrine://main?queue_name=webhook&auto_setup=false`,

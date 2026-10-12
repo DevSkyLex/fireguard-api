@@ -43,7 +43,7 @@ final class UpdateOrganizationLegalProfileHandlerTest extends TestCase
         && self::ORGANIZATION_ID === $event->organizationId
         && ['legal'] === $event->changedFields,
     ));
-    $handler = new UpdateOrganizationSettingsHandler($repository, $transaction, $dispatcher, equipmentTypeCatalog: $this->equipmentTypes());
+    $handler = new UpdateOrganizationSettingsHandler($repository, $transaction, $dispatcher, equipmentTypeCatalog: $this->equipmentTypes(), settingsPolicies: \Tests\Support\OrganizationCatalogTestFactory::settingsPolicies());
 
     $handler(new UpdateOrganizationSettingsCommand(
       organizationId: self::ORGANIZATION_ID,
@@ -103,7 +103,7 @@ final class UpdateOrganizationLegalProfileHandlerTest extends TestCase
       $events[] = $event;
       $saved = false;
     });
-    $handler = new UpdateOrganizationSettingsHandler($repository, $transaction, $dispatcher, equipmentTypeCatalog: $this->equipmentTypes());
+    $handler = new UpdateOrganizationSettingsHandler($repository, $transaction, $dispatcher, equipmentTypeCatalog: $this->equipmentTypes(), settingsPolicies: \Tests\Support\OrganizationCatalogTestFactory::settingsPolicies());
 
     $command = new UpdateOrganizationSettingsCommand(
       organizationId: self::ORGANIZATION_ID,
@@ -145,7 +145,7 @@ final class UpdateOrganizationLegalProfileHandlerTest extends TestCase
     $transaction->expects(self::never())->method('transactional');
     $dispatcher = $this->createMock(EventDispatcherPort::class);
     $dispatcher->expects(self::never())->method('dispatch');
-    $handler = new UpdateOrganizationSettingsHandler($repository, $transaction, $dispatcher, equipmentTypeCatalog: $this->equipmentTypes());
+    $handler = new UpdateOrganizationSettingsHandler($repository, $transaction, $dispatcher, equipmentTypeCatalog: $this->equipmentTypes(), settingsPolicies: \Tests\Support\OrganizationCatalogTestFactory::settingsPolicies());
 
     $this->expectException(InvalidValueException::class);
     $handler($command);

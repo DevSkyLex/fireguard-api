@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Auth\Application\UseCase\Query\Federation\ListFederatedProviders;
 
-use Auth\Application\Contract\Federation\FederatedProvider;
+use Auth\Application\Contract\Federation\FederatedProviderDescriptor;
 use Shared\Application\Message\ResultMessage;
 
 /**
@@ -18,7 +18,7 @@ use Shared\Application\Message\ResultMessage;
 final readonly class ListFederatedProvidersResult implements ResultMessage
 {
   /**
-   * @param list<FederatedProvider> $providers enabled provider identities
+   * @param list<FederatedProviderDescriptor> $providers enabled provider identities
    */
   public function __construct(public array $providers)
   {

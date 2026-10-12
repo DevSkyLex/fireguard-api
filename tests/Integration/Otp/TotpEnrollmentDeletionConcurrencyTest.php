@@ -184,7 +184,7 @@ final class TotpEnrollmentDeletionConcurrencyTest extends KernelTestCase
       return new TotpSecret('BBBBBBBBBBBBBBBB');
     });
     $service->method('getProvisioningUri')->willReturn('otpauth://totp/test');
-    $setup = new SetupTotpHandler($service, $this->setupRepository, new AccountStatusAdapter($this->setupManager));
+    $setup = new SetupTotpHandler($service, $this->setupRepository, new AccountStatusAdapter($this->setupManager), rootTransaction: new \Shared\Infrastructure\Messaging\Outbox\RootTransactionManagerAdapter($this->setupConnection, $this->setupManager), securityRevision: $this->createStub(\User\Application\Port\Inbound\UserSecurityRevisionPort::class));
     $setup->__invoke(new SetupTotpCommand($this->userId, 'test@example.test'));
     self::assertNotNull($this->setupRepository->findByUserId($this->userId));
 
@@ -212,7 +212,7 @@ final class TotpEnrollmentDeletionConcurrencyTest extends KernelTestCase
     $service = $this->createMock(TotpServicePort::class);
     $service->expects(self::never())->method('generateSecret');
     $service->method('getProvisioningUri')->willReturn('otpauth://totp/test');
-    $setup = new SetupTotpHandler($service, $this->setupRepository, new AccountStatusAdapter($this->setupManager));
+    $setup = new SetupTotpHandler($service, $this->setupRepository, new AccountStatusAdapter($this->setupManager), rootTransaction: new \Shared\Infrastructure\Messaging\Outbox\RootTransactionManagerAdapter($this->setupConnection, $this->setupManager), securityRevision: $this->createStub(\User\Application\Port\Inbound\UserSecurityRevisionPort::class));
 
     try {
       $setup->__invoke($command);
@@ -237,7 +237,7 @@ final class TotpEnrollmentDeletionConcurrencyTest extends KernelTestCase
     $this->setupConnection->executeStatement("SET lock_timeout = '150ms'");
     $service = $this->createMock(TotpServicePort::class);
     $service->expects(self::never())->method('generateSecret');
-    $setup = new SetupTotpHandler($service, $this->setupRepository, new AccountStatusAdapter($this->setupManager));
+    $setup = new SetupTotpHandler($service, $this->setupRepository, new AccountStatusAdapter($this->setupManager), rootTransaction: new \Shared\Infrastructure\Messaging\Outbox\RootTransactionManagerAdapter($this->setupConnection, $this->setupManager), securityRevision: $this->createStub(\User\Application\Port\Inbound\UserSecurityRevisionPort::class));
     $repository = new TotpEnrollmentRepository($this->deletionManager, new TotpEnrollmentMapper(new OpensslTotpSecretCipherAdapter([], '')));
     $purge = $this->createMock(TotpEnrollmentPurgePort::class);
     $purge->method('withUserLock')->willReturnCallback(static fn (string $userId, callable $operation): mixed => $repository->withUserLock($userId, $operation));
@@ -280,7 +280,7 @@ final class TotpEnrollmentDeletionConcurrencyTest extends KernelTestCase
     $service = $this->createStub(TotpServicePort::class);
     $service->method('generateSecret')->willReturn(new TotpSecret('BBBBBBBBBBBBBBBB'));
     $service->method('getProvisioningUri')->willReturn('otpauth://totp/test');
-    $setup = new SetupTotpHandler($service, $this->setupRepository, new AccountStatusAdapter($this->setupManager));
+    $setup = new SetupTotpHandler($service, $this->setupRepository, new AccountStatusAdapter($this->setupManager), rootTransaction: new \Shared\Infrastructure\Messaging\Outbox\RootTransactionManagerAdapter($this->setupConnection, $this->setupManager), securityRevision: $this->createStub(\User\Application\Port\Inbound\UserSecurityRevisionPort::class));
     $setup->__invoke(new SetupTotpCommand($this->userId, 'test@example.test'));
     $repository = new TotpEnrollmentRepository($this->deletionManager, new TotpEnrollmentMapper(new OpensslTotpSecretCipherAdapter([], '')));
     $purge = $this->createMock(TotpEnrollmentPurgePort::class);

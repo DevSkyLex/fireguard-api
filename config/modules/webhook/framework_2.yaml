@@ -1,0 +1,5 @@
+framework:
+    messenger:
+        routing:
+            'Webhook\Application\UseCase\Command\Delivery\DispatchWebhookEvent\DispatchWebhookEventCommand': webhook
+            'Webhook\Application\UseCase\Command\Delivery\DeliverWebhook\DeliverWebhookCommand': webhook

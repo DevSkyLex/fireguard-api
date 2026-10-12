@@ -4,76 +4,71 @@ declare(strict_types=1);
 
 namespace Messaging\Domain\ValueObject;
 
-use function array_column;
+use Shared\Domain\Exception\InvalidValueException;
+
+use function preg_match;
 
 /**
- * Enum MessagingSubjectType.
+ * ValueObject MessagingSubjectType.
  *
- * The core-entity type a conversation is bound to in v1: every conversation
- * is attached one-to-one to a subject (`organizationId`, `subjectType`,
- * `subjectId`), validated cross-module through the
- * `messaging.subject_resolver` tagged-iterator seam. `CHANNEL` (v2) and
- * `DIRECT` (L2.4) are the two cases with no resolver-backed subject:
- * `visibility` is always `PARTICIPANTS` (see {@see ConversationVisibility})
- * and readership is an explicit `messaging_participants` row, not a
- * subject-derived permission. They differ in what `subjectId` holds:
- * `CHANNEL` leaves it `null`, while `DIRECT` sets it to a deterministic,
- * intentionally opaque pair key (see
- * {@see \Messaging\Domain\Service\DirectConversationKey}) so the existing
- * `UNIQUE (organization_id, subject_type, subject_id)` index gives
- * pair-uniqueness between two members for free — a `getOrCreate()` on
- * either member's side, in either order, resolves to the SAME conversation.
+ * Preserves a subject key without requiring its contributor to be loaded.
+ * Registration and access checks belong to the application catalog; channel
+ * and direct remain reserved participant conversation kinds.
  *
  * @category ValueObject
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-enum MessagingSubjectType: string
+final readonly class MessagingSubjectType
 {
+  // #region Constants
   /**
-   * Case FACILITY
+   * Constant CHANNEL.
    */
-  case FACILITY = 'facility';
+  public const string CHANNEL = 'channel';
 
   /**
-   * Case EQUIPMENT
+   * Constant DIRECT.
    */
-  case EQUIPMENT = 'equipment';
+  public const string DIRECT = 'direct';
+  // #endregion
 
+  // #region Constructor
   /**
-   * Case INTERVENTION
+   * Constructor.
+   *
+   * @access private
+   *
+   * @param string $value the unchanged persisted subject key
    */
-  case INTERVENTION = 'intervention';
-
-  /**
-   * Case NON_CONFORMITY
-   */
-  case NON_CONFORMITY = 'non_conformity';
-
-  /**
-   * Case CHANNEL
-   */
-  case CHANNEL = 'channel';
-
-  /**
-   * Case DIRECT
-   */
-  case DIRECT = 'direct';
+  private function __construct(public string $value)
+  {
+  }
+  // #endregion
 
   // #region Methods
   /**
-   * Method values.
+   * Method from.
    *
-   * Returns every supported subject type value.
+   * Validates the representation within the existing varchar(32) column.
+   * It never normalizes or checks whether an owner contributor is registered.
    *
-   * @since 1.0.0
+   * @access public
    *
-   * @return list<string> the subject type values
+   * @param string $value the wire or persisted subject key
+   *
+   * @return self the subject key
+   *
+   * @throws InvalidValueException when the key is malformed
    */
-  public static function values(): array
+  public static function from(string $value): self
   {
-    return array_column(self::cases(), 'value');
+    if (1 !== preg_match('/\A[a-z][a-z0-9_]{0,31}\z/D', $value)) {
+      throw InvalidValueException::because('A messaging subject type must contain 1 to 32 lowercase letters, digits or underscores and start with a letter.');
+    }
+
+    return new self($value);
   }
   // #endregion
 }

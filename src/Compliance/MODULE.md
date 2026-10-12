@@ -357,10 +357,10 @@ counts by severity, rendered into one deterministic text block.
 (`Organization\Domain\Catalog\OrganizationPermissionCatalog`, plus the
 `complianceReadDependencies()` helper mirroring `dashboardReadDependencies()`).
 Only `organization.compliance.read` is included in the `member` system
-role's canonical permission set (`OrganizationSystemRoleCatalog::permissionsFor()`);
+role's canonical permission set (`OrganizationSystemRoleCatalogPort::permissionsFor()`);
 `organization.compliance.export` remains admin/manager-only. Canonical
 system-role permissions are merged in at **read time**
-(`OrganizationSystemRoleCatalog::mergePermissions()`), so existing
+(`OrganizationSystemRoleCatalogPort::mergePermissions()`), so existing
 organizations' `member` roles pick up the new read permission automatically —
 no backfill migration is needed. Run
 `app:authz:sync-permissions --update-roles` after deploy.
@@ -518,3 +518,13 @@ branding contract when generating a live register or creating an archive. Snapsh
 downloads return the original stored PDF bytes without resolving current branding:
 old archives remain unchanged, and new archives retain their creation-time address
 even after the organization profile is updated. No address is backfilled.
+
+## Live export receipts
+
+Live organization/facility PDF exports and snapshot creation contribute explicit main command
+schemas and current replay gates. The PDF is captured before commit as a base64 scalar so
+non-UTF-8 renderer bytes survive the result codec; the controller decodes the original bytes
+and retains the original filename. Receipt authorization rechecks current membership,
+`organization.compliance.export`, fresh plan entitlement and requested facility ownership
+before opening the cached document. Replay does not regenerate a live register or emit new
+export provenance.

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Organization\Application\UseCase\Command\Plan\UpdatePlan;
 
+use Organization\Application\Port\Inbound\OrganizationQuotaCatalogPort;
 use Organization\Application\Port\Outbound\Internal\PlanRepositoryPort;
 use Organization\Domain\Exception\PlanNotFoundException;
 use Organization\Domain\Model\Plan\Plan;
@@ -35,6 +36,7 @@ final readonly class UpdatePlanHandler implements CommandHandler
   public function __construct(
     private PlanRepositoryPort $planRepository,
     private TransactionManagerPort $transactionManager,
+    private OrganizationQuotaCatalogPort $quotaCatalog,
   ) {
   }
   // #endregion
@@ -67,7 +69,7 @@ final readonly class UpdatePlanHandler implements CommandHandler
     }
 
     if (null !== $command->limits) {
-      $plan->changeLimits($command->limits);
+      $plan->changeLimits($this->quotaCatalog->normalizeLimits($command->limits));
     }
 
     if (null !== $command->isActive) {

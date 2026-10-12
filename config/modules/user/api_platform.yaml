@@ -1,0 +1,7 @@
+api_platform:
+  mapping:
+    paths:
+      - '%kernel.project_dir%/src/User/Presentation/Api/Resource'
+  exception_to_status:
+    User\Domain\Exception\EmailOwnershipUnavailableException: 403
+    User\Domain\Exception\UserNotFoundException: 404

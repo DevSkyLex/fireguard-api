@@ -108,11 +108,15 @@ final readonly class OrganizationComplianceSettings
    * @param array<array-key, mixed> $nonConformitySlaDays the customized SLA days per severity (validated)
    * @param array<array-key, mixed> $inspectionPeriodicityDefaults the customized periodicities per equipment type (validated)
    * @param int $reminderWindowDays the reminder window in days
+   * @param array<string, int> $defaultSlaDays effective owner-contributed SLA defaults
+   * @param array<string, string> $defaultPeriodicities effective owner-contributed periodicities
    */
   public function __construct(
     array $nonConformitySlaDays = [],
     array $inspectionPeriodicityDefaults = [],
     int $reminderWindowDays = OrganizationComplianceDefaults::REMINDER_WINDOW_DAYS,
+    public array $defaultSlaDays = [],
+    public array $defaultPeriodicities = [],
   ) {
     $this->nonConformitySlaDays = self::validateSlaDays($nonConformitySlaDays);
     $this->inspectionPeriodicityDefaults = self::validatePeriodicities($inspectionPeriodicityDefaults);
@@ -132,7 +136,7 @@ final readonly class OrganizationComplianceSettings
    */
   public function effectiveNonConformitySlaDays(): array
   {
-    return [...OrganizationComplianceDefaults::NON_CONFORMITY_SLA_DAYS, ...$this->nonConformitySlaDays];
+    return [...$this->defaultSlaDays, ...$this->nonConformitySlaDays];
   }
 
   /**
@@ -147,7 +151,7 @@ final readonly class OrganizationComplianceSettings
    */
   public function effectiveInspectionPeriodicities(): array
   {
-    $effective = [...OrganizationComplianceDefaults::INSPECTION_PERIODICITIES, ...$this->inspectionPeriodicityDefaults];
+    $effective = [...$this->defaultPeriodicities, ...$this->inspectionPeriodicityDefaults];
     ksort($effective);
 
     return $effective;
@@ -183,7 +187,7 @@ final readonly class OrganizationComplianceSettings
   public function periodicityFor(string $equipmentType): ?string
   {
     return $this->inspectionPeriodicityDefaults[$equipmentType]
-      ?? OrganizationComplianceDefaults::INSPECTION_PERIODICITIES[$equipmentType]
+      ?? $this->defaultPeriodicities[$equipmentType]
       ?? null;
   }
 
@@ -228,6 +232,8 @@ final readonly class OrganizationComplianceSettings
       nonConformitySlaDays: $slaDays,
       inspectionPeriodicityDefaults: $periodicities,
       reminderWindowDays: $reminderWindow,
+      defaultSlaDays: $this->defaultSlaDays,
+      defaultPeriodicities: $this->defaultPeriodicities,
     );
   }
 
@@ -261,10 +267,11 @@ final readonly class OrganizationComplianceSettings
    * @since 1.0.0
    *
    * @param array<array-key, mixed> $data the settings data
+   * @param array<string, mixed> $defaults owner-contributed effective defaults
    *
    * @return self the settings instance
    */
-  public static function fromArray(array $data): self
+  public static function fromArray(array $data, array $defaults = []): self
   {
     $slaDays = $data['non_conformity_sla_days'] ?? [];
     $periodicities = $data['inspection_periodicity_defaults'] ?? [];
@@ -274,6 +281,8 @@ final readonly class OrganizationComplianceSettings
       nonConformitySlaDays: is_array($slaDays) ? $slaDays : [],
       inspectionPeriodicityDefaults: is_array($periodicities) ? $periodicities : [],
       reminderWindowDays: is_int($reminderWindow) ? $reminderWindow : OrganizationComplianceDefaults::REMINDER_WINDOW_DAYS,
+      defaultSlaDays: self::validateSlaDays(is_array($defaults['non_conformity_sla_days'] ?? null) ? $defaults['non_conformity_sla_days'] : []),
+      defaultPeriodicities: self::validatePeriodicities(is_array($defaults['inspection_periodicity_defaults'] ?? null) ? $defaults['inspection_periodicity_defaults'] : []),
     );
   }
 

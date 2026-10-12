@@ -1,0 +1,5 @@
+framework:
+    messenger:
+        routing:
+            'Intervention\Application\UseCase\Command\Publication\ExecutePublication\ExecutePublicationCommand': main_outbox
+            'Intervention\Application\UseCase\Command\Sweep\MaterializeDueRecurrences\MaterializeDueRecurrencesCommand': async

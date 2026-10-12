@@ -6,18 +6,23 @@ namespace Tests\Unit\Maintenance\Presentation\Api\Controller;
 
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Maintenance\Application\Contract\Export\MaintenanceScheduleExportRow;
+use Maintenance\Application\Port\Outbound\Export\MaintenanceScheduleCsvRendererPort;
+use Maintenance\Application\UseCase\Command\Export\PrepareMaintenanceScheduleExport\{PrepareMaintenanceScheduleExportCommand, PrepareMaintenanceScheduleExportResult};
 use Maintenance\Application\UseCase\Command\Export\PrepareMaintenanceScheduleExport\PrepareMaintenanceScheduleExportHandler;
 use Maintenance\Application\UseCase\Query\ExportMaintenanceSchedules\ExportMaintenanceSchedulesResult;
 use Maintenance\Domain\Event\Export\MaintenanceSchedulesExportedEvent;
 use Maintenance\Domain\Exception\{MaintenanceAccessDeniedException, MaintenanceExportTooLargeException, MaintenanceNotFoundException};
+use Maintenance\Infrastructure\Adapter\Export\MaintenanceScheduleCsvRendererAdapter;
+use Maintenance\Infrastructure\Adapter\Idempotency\MaintenanceHttpIdempotencyOperationContributionAdapter;
 use Maintenance\Presentation\Api\Controller\ExportMaintenanceSchedulesController;
-use Maintenance\Presentation\Api\Service\{MaintenanceScheduleCsvWriter, MaintenanceScheduleExportCriteriaFactory};
+use Maintenance\Presentation\Api\Service\MaintenanceScheduleExportCriteriaFactory;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Shared\Application\Port\Outbound\EventDispatcherPort;
+use Shared\Infrastructure\Idempotency\HttpIdempotencyResultCodec;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, StreamedResponse};
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException, UnprocessableEntityHttpException};
@@ -44,6 +49,47 @@ final class ExportMaintenanceSchedulesControllerTest extends TestCase
   private const string USER_ID = '550e8400-e29b-41d4-a716-446655507101';
 
   private const string ORGANIZATION_ID = '550e8400-e29b-41d4-a716-446655507102';
+
+  #[Test]
+  public function originalCsvBytesAndFilenameSurviveReceiptReplayWithoutANewExport(): void
+  {
+    $queries = $this->createStub(QueryBusPort::class);
+    $queries->method('ask')->willReturn(new ExportMaintenanceSchedulesResult([], 0));
+    $events = $this->createMock(EventDispatcherPort::class);
+    $events->expects(self::once())->method('dispatch');
+    $bytes = "original,\"quoted field\"\n\xff\x80\n";
+    $renderer = $this->createMock(MaintenanceScheduleCsvRendererPort::class);
+    $renderer->expects(self::once())->method('render')->willReturn($bytes);
+    $result = new PrepareMaintenanceScheduleExportHandler($queries, $events, $renderer)->__invoke(new PrepareMaintenanceScheduleExportCommand(self::USER_ID, self::ORGANIZATION_ID));
+    $operation = MaintenanceHttpIdempotencyOperationContributionAdapter::definitions()[0];
+    $codec = new HttpIdempotencyResultCodec();
+    $restored = $codec->decode($codec->encode($result, $operation), $operation);
+    self::assertInstanceOf(PrepareMaintenanceScheduleExportResult::class, $restored);
+    self::assertSame($bytes, $restored->contents());
+    self::assertSame($result->fileName, $restored->fileName);
+    $commands = $this->createMock(CommandBusPort::class);
+    $commands->expects(self::once())->method('dispatch')->willReturn($restored);
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn(new SecurityUser(self::USER_ID, 'export@example.com', 'hash', ['ROLE_USER'], [], true));
+    $response = new ExportMaintenanceSchedulesController($commands, $security, new MaintenanceScheduleExportCriteriaFactory())->__invoke(new Request(['organization' => self::ORGANIZATION_ID]));
+    ob_start();
+    $response->sendContent();
+    self::assertSame($bytes, ob_get_clean());
+    self::assertSame('attachment; filename="' . $result->fileName . '"', $response->headers->get('Content-Disposition'));
+  }
+
+  #[Test]
+  public function failedCsvCaptureCannotPublishExportProvenance(): void
+  {
+    $queries = $this->createStub(QueryBusPort::class);
+    $queries->method('ask')->willReturn(new ExportMaintenanceSchedulesResult([], 0));
+    $events = $this->createMock(EventDispatcherPort::class);
+    $events->expects(self::never())->method('dispatch');
+    $renderer = $this->createStub(MaintenanceScheduleCsvRendererPort::class);
+    $renderer->method('render')->willThrowException(new RuntimeException('CSV capture failed.'));
+    $this->expectException(RuntimeException::class);
+    new PrepareMaintenanceScheduleExportHandler($queries, $events, $renderer)->__invoke(new PrepareMaintenanceScheduleExportCommand(self::USER_ID, self::ORGANIZATION_ID));
+  }
 
   #[Test]
   public function testItStreamsTheMatchingSchedulesAsCsv(): void
@@ -139,10 +185,9 @@ final class ExportMaintenanceSchedulesControllerTest extends TestCase
     $queryBus->expects(self::never())->method('ask');
 
     $controller = new ExportMaintenanceSchedulesController(
-      commandBus: $this->exportBus(new PrepareMaintenanceScheduleExportHandler($queryBus, $this->createStub(EventDispatcherPort::class))),
+      commandBus: $this->exportBus(new PrepareMaintenanceScheduleExportHandler($queryBus, $this->createStub(EventDispatcherPort::class), new MaintenanceScheduleCsvRendererAdapter())),
       security: $security,
       criteriaFactory: new MaintenanceScheduleExportCriteriaFactory(),
-      csvWriter: new MaintenanceScheduleCsvWriter(),
     );
 
     $this->expectException(AccessDeniedHttpException::class);
@@ -215,10 +260,9 @@ final class ExportMaintenanceSchedulesControllerTest extends TestCase
     ));
 
     return new ExportMaintenanceSchedulesController(
-      commandBus: $this->exportBus(new PrepareMaintenanceScheduleExportHandler($queryBus, $eventDispatcher)),
+      commandBus: $this->exportBus(new PrepareMaintenanceScheduleExportHandler($queryBus, $eventDispatcher, new MaintenanceScheduleCsvRendererAdapter())),
       security: $security,
       criteriaFactory: new MaintenanceScheduleExportCriteriaFactory(),
-      csvWriter: new MaintenanceScheduleCsvWriter(),
     );
   }
 

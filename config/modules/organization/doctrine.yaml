@@ -1,0 +1,11 @@
+doctrine:
+  orm:
+    entity_managers:
+      main:
+        mappings:
+          Organization:
+            is_bundle: false
+            type: attribute
+            dir: '%kernel.project_dir%/src/Organization/Infrastructure/Persistence/Doctrine/Record'
+            prefix: 'Organization\Infrastructure\Persistence\Doctrine\Record'
+            alias: Organization

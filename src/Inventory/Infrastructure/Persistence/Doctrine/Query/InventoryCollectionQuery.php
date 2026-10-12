@@ -70,6 +70,10 @@ final readonly class InventoryCollectionQuery
         $params[$key] = $filters[$key];
       }
     }
+    if ('consumptions' === $type && isset($filters['clientOperationId'])) {
+      $where .= ' AND EXISTS (SELECT 1 FROM inventory_operation_receipts operation_receipt WHERE operation_receipt.organization_id = inventory_declarations.organization_id AND operation_receipt.client_operation_id = :clientOperationId AND operation_receipt.response::jsonb #>> \'{declaration,id}\' = inventory_declarations.id)';
+      $params['clientOperationId'] = $filters['clientOperationId'];
+    }
 
     return [$where, $params];
   }

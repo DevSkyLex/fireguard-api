@@ -1,0 +1,11 @@
+doctrine:
+  orm:
+    entity_managers:
+      main:
+        mappings:
+          Import:
+            is_bundle: false
+            type: attribute
+            dir: '%kernel.project_dir%/src/Import/Infrastructure/Persistence/Doctrine/Record'
+            prefix: 'Import\Infrastructure\Persistence\Doctrine\Record'
+            alias: Import

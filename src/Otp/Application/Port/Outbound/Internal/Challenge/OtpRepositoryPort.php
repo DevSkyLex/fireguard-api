@@ -75,6 +75,21 @@ interface OtpRepositoryPort
   public function findByChallengeToken(ChallengeToken $token): ?Otp;
 
   /**
+   * Method findForVerification
+   *
+   * Selects the bound owner and purpose before taking a challenge write lock inside the auth transaction.
+   *
+   * @access public
+   *
+   * @param ChallengeToken $token submitted challenge token
+   * @param string $userId expected account
+   * @param OtpPurpose $purpose expected challenge purpose
+   *
+   * @return ?Otp freshly locked bound challenge, or null
+   */
+  public function findForVerification(ChallengeToken $token, string $userId, OtpPurpose $purpose): ?Otp;
+
+  /**
    * Method revokeAllForUser.
    *
    * Revokes all pending OTPs for a user and purpose.

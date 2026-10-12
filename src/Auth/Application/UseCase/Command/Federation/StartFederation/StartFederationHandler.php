@@ -27,6 +27,6 @@ final readonly class StartFederationHandler implements CommandHandler
       ? $this->flows->startLogin($command->provider, $command->returnUrl, $command->browserBinding)
       : $this->flows->startLink($command->provider, $command->userId, $command->browserBinding);
 
-    return new StartFederationResult($url);
+    return new StartFederationResult($url, $command->browserBindingExpiresAt);
   }
 }

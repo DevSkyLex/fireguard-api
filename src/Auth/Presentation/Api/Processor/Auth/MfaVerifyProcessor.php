@@ -6,11 +6,13 @@ namespace Auth\Presentation\Api\Processor\Auth;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Application\UseCase\Command\Mfa\MfaVerify\{MfaVerifyCommand, MfaVerifyHandler};
+use Auth\Application\Port\Outbound\JwtTokenServicePort;
+use Auth\Application\UseCase\Command\Mfa\MfaVerify\{MfaVerifyCommand, MfaVerifyHandler, MfaVerifyResult};
 use Auth\Domain\Exception\Session\AuthorizationException;
 use Auth\Presentation\Api\Dto\Input\Auth\MfaVerifyInput;
 use Auth\Presentation\Api\Dto\Output\Auth\LoginOutput;
 use Auth\Presentation\Api\Service\RefreshTokenCookieService;
+use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\{BadRequestHttpException, TooManyRequestsHttpException, UnauthorizedHttpException};
@@ -20,6 +22,7 @@ use function ctype_digit;
 use function hash;
 use function implode;
 use function max;
+use function preg_match;
 use function sprintf;
 use function strlen;
 use function substr;
@@ -58,6 +61,8 @@ final readonly class MfaVerifyProcessor implements ProcessorInterface
     private readonly int $otpCodeLength = 6,
     #[Autowire(service: 'limiter.mfa_verify')]
     private readonly ?RateLimiterFactory $rateLimiter = null,
+    private readonly ?CommandBusPort $commandBus = null,
+    private readonly ?JwtTokenServicePort $tokens = null,
   ) {
   }
 
@@ -85,7 +90,12 @@ final readonly class MfaVerifyProcessor implements ProcessorInterface
 
     $this->enforceRateLimit($data->preAuthToken, $ipAddress);
 
-    if (!$this->isValidOtpCode($data->code)) {
+    $validFormat = match ($data->method) {
+      'otp' => $this->isValidOtpCode($data->code),
+      'recovery_code' => 1 === preg_match('/\A(?:[a-fA-F0-9]{32}|[a-fA-F0-9]{4}(?:-[a-fA-F0-9]{4}){7})\z/', $data->code),
+      default => false,
+    };
+    if (!$validFormat) {
       throw new BadRequestHttpException('Invalid code format.');
     }
 
@@ -95,10 +105,12 @@ final readonly class MfaVerifyProcessor implements ProcessorInterface
       code: $data->code,
       ipAddress: $ipAddress,
       userAgent: \Auth\Presentation\Api\Http\OperationParameterReader::headers($operation, $request)->get('User-Agent'),
+      method: $data->method,
     );
 
     try {
-      $result = $this->handler->__invoke($command);
+      /** @var MfaVerifyResult $result */
+      $result = null === $this->commandBus ? $this->handler->__invoke($command) : $this->commandBus->dispatch($command);
     } catch (AuthorizationException $exception) {
       throw new UnauthorizedHttpException(
         challenge: 'Bearer',
@@ -124,6 +136,7 @@ final readonly class MfaVerifyProcessor implements ProcessorInterface
       $cookie = $this->cookieService->createCookie(
         refreshToken: $result->refreshToken,
         rememberMe: $result->rememberMe,
+        absoluteExpiresAt: $this->tokens?->decodeRefreshToken($result->refreshToken)['expires_at'] ?? null,
       );
 
       $request?->attributes->set(

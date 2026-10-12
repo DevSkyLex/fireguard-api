@@ -9,10 +9,11 @@ use ApiPlatform\State\ProcessorInterface;
 use Auth\Application\Contract\User\AuthenticatedUser;
 use InvalidArgumentException;
 use LogicException;
-use Onboarding\Application\Port\Inbound\Internal\OrganizationOnboardingServicePort;
+use Onboarding\Application\UseCase\Command\Flow\SkipOrganizationOnboardingStep\{SkipOrganizationOnboardingStepCommand, SkipOrganizationOnboardingStepResult};
 use Onboarding\Presentation\Api\Dto\Output\Onboarding\OrganizationOnboardingOutput;
 use Onboarding\Presentation\Api\Mapper\Onboarding\OrganizationOnboardingOutputAssembler;
 use Shared\Application\Contract\Exception\{MessengerExceptionUnwrapperTrait, MessengerRuntimeException};
+use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{
   AccessDeniedHttpException,
@@ -48,13 +49,13 @@ final readonly class SkipOrganizationOnboardingStepProcessor implements Processo
    *
    * @access public
    *
-   * @param OrganizationOnboardingServicePort $flowService service port for organization onboarding state transitions
+   * @param CommandBusPort $commandBus owns the durable onboarding transition and result
    * @param Security $security security context used to identify the authenticated user
    *
    * @return void
    */
   public function __construct(
-    private OrganizationOnboardingServicePort $flowService,
+    private CommandBusPort $commandBus,
     private Security $security,
   ) {
   }
@@ -89,17 +90,22 @@ final readonly class SkipOrganizationOnboardingStepProcessor implements Processo
     }
 
     try {
-      return OrganizationOnboardingOutputAssembler::fromState(
-        $this->flowService->skipStep(
-          userId: $user->getId(),
-          stepKey: $stepKey,
-        ),
-      );
+      /** @var SkipOrganizationOnboardingStepResult $result */
+      $result = $this->commandBus->dispatch(new SkipOrganizationOnboardingStepCommand(
+        userId: $user->getId(),
+        stepKey: $stepKey,
+      ));
+
+      return OrganizationOnboardingOutputAssembler::fromState($result->state);
     } catch (InvalidArgumentException $exception) {
       throw new BadRequestHttpException($exception->getMessage(), $exception);
     } catch (LogicException $exception) {
       throw new ConflictHttpException($exception->getMessage(), $exception);
     } catch (MessengerRuntimeException $exception) {
+      $invalidArgument = $this->findException($exception, InvalidArgumentException::class);
+      if ($invalidArgument instanceof InvalidArgumentException) {
+        throw new BadRequestHttpException($invalidArgument->getMessage(), $exception);
+      }
       $logic = $this->findException($exception, LogicException::class);
       if ($logic instanceof LogicException) {
         throw new ConflictHttpException($logic->getMessage(), $exception);

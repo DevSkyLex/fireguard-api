@@ -40,6 +40,18 @@ final class ApprovalGateTest extends TestCase
   private const string GENERATED_ID = '018f0b68-6758-7a12-8a1d-3f0d97f64b04';
 
   #[Test]
+  public function testRejectsUnregisteredActionsBeforeReadingPolicyOrWriting(): void
+  {
+    $policy = $this->createMock(ApprovalPolicyPort::class);
+    $policy->expects(self::never())->method('policyFor');
+    $requests = $this->createMock(ApprovalRequestRepositoryPort::class);
+    $requests->expects(self::never())->method('reservePending');
+
+    $this->expectException(\Approval\Domain\Exception\ApprovalActionExecutorNotFoundException::class);
+    $this->gate($policy, $requests)->evaluate(new ApprovalGateRequest('org', 'unknown.action', 'subject', 'user'));
+  }
+
+  #[Test]
   public function testEvaluateReturnsApplyNowWhenActionTypeDisabled(): void
   {
     $policy = $this->createStub(ApprovalPolicyPort::class);
@@ -310,6 +322,7 @@ final class ApprovalGateTest extends TestCase
       eventDispatcher: $eventDispatcher,
       clock: $clock,
       uuidFactory: $uuidGenerator,
+      catalog: \Tests\Support\Catalogs\BuiltInCapabilityCatalogs::approval(),
     );
   }
 

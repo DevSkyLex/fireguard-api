@@ -1,3 +1,9 @@
+imports:
+  - { resource: 'billing/stripe.yaml' }
+  - { resource: 'billing/billing.yaml' }
+  - { resource: 'billing/doctrine.yaml' }
+  - { resource: 'billing/api_platform.yaml' }
+
 services:
   _defaults:
     autowire: true
@@ -11,7 +17,8 @@ services:
     class: Shared\Infrastructure\Symfony\Adapter\Outbound\DoctrineTransactionManagerAdapter
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
-
+      $database: main
+      $idempotency: '@Shared\Infrastructure\Idempotency\HttpIdempotencyExecutionContext'
   # Persistence
   Billing\Infrastructure\Persistence\Doctrine\Repository\SubscriptionRepository:
     arguments:
@@ -61,12 +68,10 @@ services:
   # Command handlers
   Billing\Application\UseCase\Command\StartCheckout\StartCheckoutHandler:
     arguments:
-      $frontendUrl: '%billing.frontend_url%'
     tags: ['messenger.message_handler']
 
   Billing\Application\UseCase\Command\StartPortal\StartPortalHandler:
     arguments:
-      $frontendUrl: '%billing.frontend_url%'
     tags: ['messenger.message_handler']
 
   Billing\Application\UseCase\Command\HandleStripeWebhook\HandleStripeWebhookHandler:
@@ -90,6 +95,30 @@ services:
 
   Billing\Application\UseCase\Query\GetOrganizationPaymentMethod\GetOrganizationPaymentMethodHandler:
     tags: ['messenger.message_handler']
+
+  Billing\Application\Port\Outbound\BillingReturnUrlPort: '@Billing\Infrastructure\Adapter\Product\BillingReturnUrlAdapter'
+  Billing\Infrastructure\Adapter\Product\BillingReturnUrlAdapter:
+    arguments:
+      $settingsPath: '%product.billing_settings_path%'
+
+  Billing\Infrastructure\Adapter\Idempotency\ExternalBillingReconciliationAdapter:
+    arguments:
+      $connection: '@doctrine.dbal.main_connection'
+      $receipts: '@Shared\Infrastructure\Messaging\Outbox\DoctrineIdempotentConsumerAdapter'
+      $events: '@Shared\Infrastructure\Messaging\Outbox\TransactionalEventDispatcher'
+  Billing\Infrastructure\EventSubscriber\ExternalBillingReconciliationSubscriber:
+    arguments:
+      $receipts: '@Shared\Infrastructure\Messaging\Outbox\DoctrineIdempotentConsumerAdapter'
+      $reconciliation: '@Billing\Application\UseCase\Command\HandleStripeWebhook\HandleStripeWebhookHandler'
+
+  Billing\Infrastructure\Adapter\Idempotency\BillingHttpIdempotencyOperationContributionAdapter:
+    tags: [http.idempotency_operation]
+
+  Billing\Infrastructure\Adapter\Idempotency\BillingHttpIdempotencyReplayAuthorizationAdapter:
+    tags: [http.idempotency_replay_authorization]
+
+  Billing\Infrastructure\Adapter\Idempotency\BillingHttpIdempotencyResponseProjectionAdapter:
+    tags: [shared.http_idempotency_response_projection]
 
 # The hermetic test suite never sets STRIPE_SECRET_KEY (see .env.test), and
 # the real StripeClient rejects an empty key at construction time — so any

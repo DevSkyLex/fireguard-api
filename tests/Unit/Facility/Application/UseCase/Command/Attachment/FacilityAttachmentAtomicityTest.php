@@ -17,6 +17,8 @@ use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Application\Contract\Transaction\{CommitOutcomeUnknownException, TransactionAlreadyActiveException};
 use Shared\Application\Port\Outbound\{FileCleanupPort, FileStoragePort, RootTransactionManagerPort, UuidGeneratorPort};
+use Shared\Application\Port\Outbound\Idempotency\HttpIdempotencyExecutionPort;
+use Tests\Support\Idempotency\RootMediaCaptureHarness;
 use Throwable;
 
 /** Regression tests for upload ownership, replay and final-commit failure semantics. */
@@ -157,7 +159,46 @@ final class FacilityAttachmentAtomicityTest extends TestCase
     yield 'missing permission' => [OrganizationAccessDecision::MISSING_PERMISSION, FacilityAccessDeniedException::class, 'Missing organization.facilities.write permission.'];
   }
 
-  private function handler(RootTransactionManagerPort $transactions, FileStoragePort $storage, FacilityAttachmentRepositoryPort $attachments, ?FileCleanupPort $cleanup = null, ?OrganizationAuthorizationPort $authorization = null): AddFacilityAttachmentHandler
+  #[Test]
+  public function captureUsesTheOwnerResultBeforeTheAttachmentCommit(): void
+  {
+    $execution = new RootMediaCaptureHarness();
+    $storage = $this->createStub(FileStoragePort::class);
+    $storage->method('write')->willReturnCallback(static function () use ($execution): void { $execution->events[] = 'write'; });
+    $attachments = $this->createStub(FacilityAttachmentRepositoryPort::class);
+    $attachments->method('saveIfAbsent')->willReturnCallback(static function () use ($execution): bool {
+      $execution->events[] = 'save';
+
+      return true;
+    });
+    $result = $this->handler($execution, $storage, $attachments, idempotency: $execution)($this->command());
+
+    self::assertSame(['begin', 'claim', 'write', 'save', 'capture', 'commit'], $execution->events);
+    self::assertSame($result, $execution->committedSnapshot);
+    self::assertSame(self::ATTACHMENT, $result->attachmentId);
+    self::assertSame('new.pdf', $result->fileName);
+  }
+
+  #[Test]
+  public function snapshotFailureCannotCommitAnAttachmentOrRetainItsAttemptBlob(): void
+  {
+    $execution = new RootMediaCaptureHarness();
+    $failure = new RuntimeException('snapshot rejected');
+    $execution->captureFailure = $failure;
+    $storage = $this->createMock(FileStoragePort::class);
+    $storage->expects(self::once())->method('delete')->with($this->path());
+
+    try {
+      $this->handler($execution, $storage, $this->attachments(), idempotency: $execution)($this->command());
+      self::fail('A capture failure must abort the owning transaction.');
+    } catch (Throwable $actual) {
+      self::assertSame($failure, $actual);
+    }
+    self::assertNull($execution->committedSnapshot);
+    self::assertSame(['begin', 'claim', 'capture', 'rollback'], $execution->events);
+  }
+
+  private function handler(RootTransactionManagerPort $transactions, FileStoragePort $storage, FacilityAttachmentRepositoryPort $attachments, ?FileCleanupPort $cleanup = null, ?OrganizationAuthorizationPort $authorization = null, ?HttpIdempotencyExecutionPort $idempotency = null): AddFacilityAttachmentHandler
   {
     $facilities = $this->createStub(FacilityRepositoryPort::class);
     $facilities->method('findById')->willReturn(Facility::create(
@@ -169,7 +210,7 @@ final class FacilityAttachmentAtomicityTest extends TestCase
     $ids = $this->createStub(UuidGeneratorPort::class);
     $ids->method('generate')->willReturn(self::ATTEMPT);
 
-    return new AddFacilityAttachmentHandler($facilities, $attachments, $storage, $ids, $transactions, $cleanup ?? $this->createStub(FileCleanupPort::class), $authorization ?? $this->createStub(OrganizationAuthorizationPort::class));
+    return new AddFacilityAttachmentHandler($facilities, $attachments, $storage, $ids, $transactions, $cleanup ?? $this->createStub(FileCleanupPort::class), $authorization ?? $this->createStub(OrganizationAuthorizationPort::class), $idempotency);
   }
 
   private function transactions(): RootTransactionManagerPort

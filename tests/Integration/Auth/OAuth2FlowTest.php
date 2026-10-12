@@ -5,8 +5,12 @@ declare(strict_types=1);
 namespace Tests\Integration\Auth;
 
 use Auth\Infrastructure\Security\User\SecurityUser;
+use DAMA\DoctrineTestBundle\PHPUnit\SkipDatabaseRollback;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Response;
+use Tests\Support\Auth\InteractiveTokenFactory;
+use Tests\Support\Database\RootCommitDatabaseIsolationTrait;
 
 use function json_decode;
 use function json_encode;
@@ -19,8 +23,11 @@ use function json_encode;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
+#[SkipDatabaseRollback]
 final class OAuth2FlowTest extends WebTestCase
 {
+  use RootCommitDatabaseIsolationTrait;
+
   // #region Properties
   /**
    * Property client.
@@ -172,20 +179,38 @@ final class OAuth2FlowTest extends WebTestCase
    */
   public function testRevocationEndpointAcceptsToken(): void
   {
-    $this->loginAsApiUser();
-    $this->client?->request(
+    $client = $this->client;
+    self::assertNotNull($client);
+    $client->disableReboot();
+    $actor = InteractiveTokenFactory::issue(static::getContainer(), 'a1b2c3d4-e5f6-4890-8bcd-ef1234567890', 'admin@fireguard.example');
+    $clientId = 'f6a7b8c9-d0e1-4345-8012-678901234567';
+    $client->request(
+      method: 'POST',
+      uri: '/api/oauth2/token',
+      server: ['CONTENT_TYPE' => 'application/ld+json', 'HTTP_ACCEPT' => 'application/json', 'HTTP_IDEMPOTENCY_KEY' => 'oauth-flow-native-token'],
+      content: json_encode(['grant_type' => 'client_credentials', 'client_id' => $clientId, 'client_secret' => 'api_secret_789', 'scope' => 'READ']) ?: '',
+    );
+    self::assertResponseStatusCodeSame(Response::HTTP_OK);
+    $issued = json_decode($client->getResponse()->getContent() ?: '', true);
+    self::assertIsArray($issued);
+    self::assertIsString($issued['access_token'] ?? null);
+    $manager = static::getContainer()->get('doctrine.orm.auth_entity_manager');
+    self::assertInstanceOf(EntityManagerInterface::class, $manager);
+    $tokenId = $manager->getConnection()->fetchOne('SELECT identifier FROM access_tokens WHERE client_identifier = ?', [$clientId]);
+    self::assertIsString($tokenId);
+    self::assertFalse($manager->getConnection()->fetchOne('SELECT is_revoked FROM access_tokens WHERE identifier = ?', [$tokenId]));
+    $client->request(
       method: 'POST',
       uri: '/api/oauth2/token/revoke',
-      server: ['CONTENT_TYPE' => 'application/ld+json', 'HTTP_ACCEPT' => 'application/ld+json'],
+      server: ['CONTENT_TYPE' => 'application/ld+json', 'HTTP_ACCEPT' => 'application/json', 'HTTP_AUTHORIZATION' => 'Bearer ' . $actor, 'HTTP_IDEMPOTENCY_KEY' => 'oauth-flow-native-revocation'],
       content: json_encode([
-        'token' => 'some-token-to-revoke',
+        'token' => $issued['access_token'],
+        'token_type_hint' => 'access_token',
       ]) ?: '',
     );
 
-    $response = $this->client?->getResponse();
-    $this->assertNotNull($response);
-    // Revocation should succeed even for non-existent tokens (RFC 7009)
-    $this->assertContains($response->getStatusCode(), [Response::HTTP_OK, Response::HTTP_NO_CONTENT, Response::HTTP_BAD_REQUEST]);
+    self::assertResponseStatusCodeSame(Response::HTTP_OK);
+    self::assertTrue($manager->getConnection()->fetchOne('SELECT is_revoked FROM access_tokens WHERE identifier = ?', [$tokenId]));
   }
 
   /**

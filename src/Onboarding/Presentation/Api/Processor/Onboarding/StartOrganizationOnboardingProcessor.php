@@ -7,10 +7,11 @@ namespace Onboarding\Presentation\Api\Processor\Onboarding;
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use Auth\Application\Contract\User\AuthenticatedUser;
-use Onboarding\Application\Port\Inbound\Internal\OrganizationOnboardingServicePort;
+use Onboarding\Application\UseCase\Command\Flow\StartOrganizationOnboarding\{StartOrganizationOnboardingCommand, StartOrganizationOnboardingResult};
 use Onboarding\Presentation\Api\Dto\Input\Onboarding\StartOrganizationOnboardingInput;
 use Onboarding\Presentation\Api\Dto\Output\Onboarding\OrganizationOnboardingOutput;
 use Onboarding\Presentation\Api\Mapper\Onboarding\OrganizationOnboardingOutputAssembler;
+use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
@@ -34,13 +35,13 @@ final readonly class StartOrganizationOnboardingProcessor implements ProcessorIn
    *
    * @access public
    *
-   * @param OrganizationOnboardingServicePort $flowService service port for organization onboarding state transitions
+   * @param CommandBusPort $commandBus owns the durable onboarding transition and result
    * @param Security $security security context used to identify the authenticated user
    *
    * @return void
    */
   public function __construct(
-    private OrganizationOnboardingServicePort $flowService,
+    private CommandBusPort $commandBus,
     private Security $security,
   ) {
   }
@@ -72,13 +73,14 @@ final readonly class StartOrganizationOnboardingProcessor implements ProcessorIn
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
-    return OrganizationOnboardingOutputAssembler::fromState(
-      $this->flowService->start(
-        userId: $user->getId(),
-        reset: $data->reset,
-        intent: $data->intent,
-      ),
-    );
+    /** @var StartOrganizationOnboardingResult $result */
+    $result = $this->commandBus->dispatch(new StartOrganizationOnboardingCommand(
+      userId: $user->getId(),
+      reset: $data->reset,
+      intent: $data->intent,
+    ));
+
+    return OrganizationOnboardingOutputAssembler::fromState($result->state);
   }
   // #endregion
 }

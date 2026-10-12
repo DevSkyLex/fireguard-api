@@ -9,6 +9,7 @@ use Auth\Domain\Exception\Federation\{FederatedAuthException, FederatedConflictE
 use Otp\Application\Contract\Challenge\{ChallengeInfo, OtpChannel, OtpPurpose};
 use Otp\Application\Port\Inbound\Challenge\OtpChallengePort;
 use User\Application\Port\Inbound\FederatedUserPort;
+use User\Application\Port\Outbound\PasswordPolicyPort;
 
 /**
  * Service InitialPasswordService.
@@ -33,12 +34,14 @@ final readonly class InitialPasswordService implements PasswordSetupPort
    *
    * @param FederatedUserPort $users user capability used to inspect and configure the account password
    * @param OtpChallengePort $otpChallenge OTP capability used to verify ownership before password setup
+   * @param PasswordPolicyPort $passwordPolicy project credential requirements
    *
    * @return void
    */
   public function __construct(
     private FederatedUserPort $users,
     private OtpChallengePort $otpChallenge,
+    private PasswordPolicyPort $passwordPolicy,
   ) {
   }
   // #endregion
@@ -81,6 +84,8 @@ final readonly class InitialPasswordService implements PasswordSetupPort
    */
   public function confirm(string $userId, string $token, string $code, string $password): array
   {
+    $this->passwordPolicy->assertAcceptable($password);
+
     $verification = $this->otpChallenge->verifyFor(
       challengeToken: $token,
       code: $code,

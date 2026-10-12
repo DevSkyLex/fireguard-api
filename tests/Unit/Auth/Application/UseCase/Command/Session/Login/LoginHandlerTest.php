@@ -13,6 +13,7 @@ use Auth\Application\UseCase\Command\Mfa\MfaChallenge\{MfaChallengeCommand, MfaC
 use Auth\Application\UseCase\Command\Session\Login\{LoginCommand, LoginHandler, LoginResult};
 use Auth\Domain\Event\Session\{LoginFailedEvent, UserLoggedInEvent};
 use Auth\Domain\Event\Token\TokenIssuedEvent;
+use Auth\Infrastructure\Adapter\Policy\ConfiguredAuthenticationPolicyAdapter;
 use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
@@ -613,7 +614,7 @@ final class LoginHandlerTest extends TestCase
         trustedDeviceCheck: $trustedDeviceCheck,
         totpEnrollmentCheck: $totpEnrollmentCheck,
         users: $users ?? $this->createStub(FederatedUserPort::class),
-        mfaEnabled: $mfaEnabled,
+        authenticationPolicy: new ConfiguredAuthenticationPolicyAdapter(mfaRequired: $mfaEnabled),
       ),
       logger: $logger ?? $this->createStub(LoggerPort::class),
     );

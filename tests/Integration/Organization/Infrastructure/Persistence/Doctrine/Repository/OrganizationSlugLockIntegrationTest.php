@@ -34,7 +34,7 @@ final class OrganizationSlugLockIntegrationTest extends KernelTestCase
       $writer->beginTransaction();
       $writerManager = $this->createStub(EntityManagerInterface::class);
       $writerManager->method('getConnection')->willReturn($writer);
-      new OrganizationRepository($writerManager)->lockSlugNamespace();
+      new OrganizationRepository($writerManager, \Tests\Support\OrganizationCatalogTestFactory::settingsPolicies())->lockSlugNamespace();
       $competitor->beginTransaction();
       self::assertFalse((bool) $competitor->fetchOne("SELECT pg_try_advisory_xact_lock(hashtextextended('organization.slug', 0))"));
       $writer->commit();

@@ -57,5 +57,24 @@ final class PermissionMapperTest extends TestCase
     self::assertSame($permission->description(), $record->description);
     self::assertEquals($createdAt, $record->createdAt);
   }
+
+  #[Test]
+  public function testRemovedContributorDoesNotPreventHistoricalRecordRoundTrip(): void
+  {
+    $record = new PermissionRecord();
+    $record->id = '123e4567-e89b-12d3-a456-426614174000';
+    $record->name = 'removed.read';
+    $record->description = 'Historical permission';
+    $record->createdAt = new DateTimeImmutable('2024-01-01 00:00:00');
+    $mapper = new PermissionMapper();
+    $domain = $mapper->toDomain($record);
+    $restored = $mapper->toRecord($domain);
+
+    self::assertSame('removed.read', $domain->name()->value);
+    self::assertSame($record->id, $restored->id);
+    self::assertSame($record->name, $restored->name);
+    self::assertSame($record->description, $restored->description);
+    self::assertSame($record->createdAt, $restored->createdAt);
+  }
   // #endregion
 }

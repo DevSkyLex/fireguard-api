@@ -7,8 +7,7 @@ namespace Organization\Presentation\Api\Provider\Organization;
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
 use Auth\Application\Contract\User\AuthenticatedUser;
-use Organization\Application\Contract\Authorization\OrganizationPermissionCatalog;
-use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
+use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationPermissionCatalogPort};
 use Organization\Application\UseCase\Query\Organization\GetOrganizationRole\{GetOrganizationRoleQuery, GetOrganizationRoleResult};
 use Organization\Domain\Exception\OrganizationRoleNotFoundException;
 use Organization\Presentation\Api\Dto\Output\Organization\{OrganizationPermissionOutput, OrganizationRoleOutput};
@@ -47,6 +46,7 @@ final readonly class GetOrganizationRoleProvider implements ProviderInterface
     private QueryBusPort $queryBus,
     private OrganizationAuthorizationPort $authorization,
     private Security $security,
+    private OrganizationPermissionCatalogPort $permissionCatalog,
   ) {
   }
   // #endregion
@@ -93,10 +93,10 @@ final readonly class GetOrganizationRoleProvider implements ProviderInterface
     $output->organizationId = $result->organizationId;
     $output->name = $result->name;
     $output->permissions = array_map(
-      static function (string $name): OrganizationPermissionOutput {
+      function (string $name): OrganizationPermissionOutput {
         $perm = new OrganizationPermissionOutput();
         $perm->name = $name;
-        $perm->description = OrganizationPermissionCatalog::descriptionFor($name);
+        $perm->description = $this->permissionCatalog->descriptionFor($name);
 
         return $perm;
       },

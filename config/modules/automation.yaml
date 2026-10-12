@@ -1,3 +1,8 @@
+imports:
+  - { resource: 'automation/doctrine.yaml' }
+  - { resource: 'automation/api_platform.yaml' }
+  - { resource: 'automation/framework.yaml' }
+
 services:
   _defaults:
     autowire: true
@@ -48,3 +53,19 @@ services:
     arguments:
       $transactions: '@Shared\Infrastructure\Messaging\Outbox\DbalTransactionManagerAdapter'
     tags: ['messenger.message_handler']
+
+  Automation\Infrastructure\Adapter\Event\IntegrationEventConverterAdapter: ~
+
+  Automation\Infrastructure\Adapter\Audit\AuditRecordEventAdapter: ~
+
+  Automation\Infrastructure\Adapter\OrganizationCatalog\AutomationSettingsPolicyContributionAdapter:
+    tags: [organization.settings_policy_contribution]
+
+  Automation\Infrastructure\Adapter\Idempotency\AutomationHttpIdempotencyOperationContributionAdapter:
+    tags: [http.idempotency_operation]
+
+  Automation\Infrastructure\Adapter\Idempotency\AutomationHttpIdempotencyReplayAuthorizationAdapter:
+    arguments:
+      $connection: '@doctrine.dbal.main_connection'
+      $policy: '@Organization\Infrastructure\Adapter\Idempotency\FreshOrganizationAutomationPolicyAdapter'
+    tags: [http.idempotency_replay_authorization]

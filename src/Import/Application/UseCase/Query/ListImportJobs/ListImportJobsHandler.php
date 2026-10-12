@@ -4,15 +4,12 @@ declare(strict_types=1);
 
 namespace Import\Application\UseCase\Query\ListImportJobs;
 
-use Import\Application\Port\Outbound\Internal\ImportJobRepositoryPort;
-use Import\Application\Service\ImportPermissions;
+use Import\Application\Port\Outbound\Internal\{ImportJobRepositoryPort, ImportKindRegistryPort};
 use Import\Application\UseCase\Query\GetImportJob\GetImportJobResult;
 use Import\Domain\Exception\{ImportAccessDeniedException, ImportJobNotFoundException};
 use Import\Domain\ValueObject\ImportKind;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Message\QueryHandler;
-use Shared\Domain\Exception\InvalidValueException;
-use ValueError;
 
 use function array_map;
 use function max;
@@ -49,6 +46,7 @@ final readonly class ListImportJobsHandler implements QueryHandler
   public function __construct(
     private ImportJobRepositoryPort $repository,
     private OrganizationAuthorizationPort $authorization,
+    private ImportKindRegistryPort $kinds,
   ) {
   }
   // #endregion
@@ -93,11 +91,7 @@ final readonly class ListImportJobsHandler implements QueryHandler
    */
   private function resolveKind(string $kind): ImportKind
   {
-    try {
-      return ImportKind::from($kind);
-    } catch (ValueError $exception) {
-      throw InvalidValueException::because($exception->getMessage(), $exception);
-    }
+    return ImportKind::from($this->kinds->get($kind)->descriptor()->key);
   }
 
   /**
@@ -114,7 +108,7 @@ final readonly class ListImportJobsHandler implements QueryHandler
   private function readableKinds(string $userId, string $organizationId, ?ImportKind $kind): array
   {
     if (null !== $kind) {
-      $permission = ImportPermissions::read($kind);
+      $permission = $this->kinds->get($kind->value)->descriptor()->readPermission;
 
       $decision = $this->authorization->resolveAccess($userId, $organizationId, $permission);
       if ($decision->isOutsideScope()) {
@@ -136,13 +130,13 @@ final readonly class ListImportJobsHandler implements QueryHandler
     }
 
     $kinds = [];
-    foreach (ImportKind::cases() as $candidate) {
-      if ($this->authorization->hasPermission($userId, $organizationId, ImportPermissions::read($candidate))) {
-        $kinds[] = $candidate;
+    foreach ($this->kinds->descriptors() as $descriptor) {
+      if ($this->authorization->hasPermission($userId, $organizationId, $descriptor->readPermission)) {
+        $kinds[] = ImportKind::from($descriptor->key);
       }
     }
     if ([] === $kinds) {
-      throw ImportAccessDeniedException::missingPermission('organization.equipment.read');
+      throw ImportAccessDeniedException::missingPermission('import.read');
     }
 
     return $kinds;

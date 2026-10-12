@@ -68,6 +68,14 @@ class UserRecord
   public ?string $password = null;
 
   /**
+   * Property securityRevision
+   *
+   * Durable credential/security epoch; login activity and ordinary profile changes leave it unchanged.
+   */
+  #[ORM\Column(name: 'security_revision', type: 'integer', options: ['default' => 1])]
+  public int $securityRevision = 1;
+
+  /**
    * Property firstName.
    *
    * The first name.

@@ -6,7 +6,6 @@ namespace Tests\Unit\Audit\Infrastructure\EventSubscriber;
 
 use Audit\Application\Contract\Event\AuditEventsExportedEvent;
 use Audit\Application\UseCase\Command\RecordAuditEvent\{RecordAuditEventCommand, RecordAuditEventResult};
-use Audit\Infrastructure\EventSubscriber\{AbstractAuditEventSubscriber, ExportAuditEventSubscriber, GovernanceAuditEventSubscriber, InterventionAuditEventSubscriber, OperationsAuditEventSubscriber, OrganizationAccessAuditEventSubscriber, OrganizationLifecycleAuditEventSubscriber, ResourceAuditEventSubscriber, SecurityAuditEventSubscriber};
 use Audit\Infrastructure\Service\AuditPiiSanitizer;
 use Auth\Application\Contract\Event\Session\{LoginFailedEvent, UserLoggedInEvent};
 use Auth\Infrastructure\Security\User\SecurityUser;
@@ -20,7 +19,7 @@ use Organization\Application\Contract\Event\Role\OrganizationRoleCreatedEvent;
 use Organization\Application\Contract\Event\Security\OrganizationLastAdminLockoutPreventedEvent;
 use Organization\Application\Contract\Event\Team\{TeamCreatedEvent, TeamMemberAddedEvent};
 use Otp\Application\Contract\Event\Totp\{TotpEnrollmentConfirmedEvent, TotpEnrollmentDisabledEvent};
-use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
@@ -38,15 +37,6 @@ use function ksort;
  *
  * @category Event Subscriber Tests
  */
-#[CoversClass(className: AbstractAuditEventSubscriber::class)]
-#[CoversClass(className: SecurityAuditEventSubscriber::class)]
-#[CoversClass(className: OrganizationLifecycleAuditEventSubscriber::class)]
-#[CoversClass(className: OrganizationAccessAuditEventSubscriber::class)]
-#[CoversClass(className: ResourceAuditEventSubscriber::class)]
-#[CoversClass(className: InterventionAuditEventSubscriber::class)]
-#[CoversClass(className: OperationsAuditEventSubscriber::class)]
-#[CoversClass(className: GovernanceAuditEventSubscriber::class)]
-#[CoversClass(className: ExportAuditEventSubscriber::class)]
 final class AuditEventSubscriberTest extends TestCase
 {
   // #region Tests
@@ -64,8 +54,11 @@ final class AuditEventSubscriberTest extends TestCase
       'oauth.token_refresh_failed_event' => 'onOAuthTokenRefreshFailed',
       'oauth.token_revoked_event' => 'onOAuthTokenRevoked',
       'oauth.consent_granted_event' => 'onConsentGranted',
+      'oauth.client_lifecycle_changed_event' => 'onClientLifecycleChanged',
       'otp.totp_enrollment_confirmed_event' => 'onTotpEnrollmentConfirmed',
       'otp.totp_enrollment_disabled_event' => 'onTotpEnrollmentDisabled',
+      'otp.recovery_codes_generated_event' => 'onRecoveryCodesGenerated',
+      'otp.recovery_code_consumed_event' => 'onRecoveryCodeConsumed',
       'user.user_email_change_requested_event' => 'onUserEmailChangeRequested',
       'user.user_email_change_confirmed_event' => 'onUserEmailChangeConfirmed',
       'user.user_email_change_cancelled_event' => 'onUserEmailChangeCancelled',
@@ -161,7 +154,7 @@ final class AuditEventSubscriberTest extends TestCase
       'equipment.equipment_labels_exported_event' => 'onEquipmentLabelsExported',
     ];
     $actual = AuditSubscriberSet::subscribedEvents();
-    self::assertCount(105, $actual);
+    self::assertCount(108, $actual);
     ksort($expected);
     ksort($actual);
     self::assertSame($expected, $actual);
@@ -200,7 +193,7 @@ final class AuditEventSubscriberTest extends TestCase
     $logger->expects(self::never())
       ->method('error');
 
-    $subscriber = new SecurityAuditEventSubscriber(
+    $subscriber = AuditSubscriberSet::family(
       commandBus: $commandBus,
       sanitizer: $sanitizer,
       requestStack: $requestStack,
@@ -210,7 +203,7 @@ final class AuditEventSubscriberTest extends TestCase
       eventConsumer: new \App\Tests\Support\Shared\ImmediateIdempotentConsumer(),
     );
 
-    $subscriber->onUserLoggedIn(new UserLoggedInEvent(
+    $subscriber->deliver('onUserLoggedIn', new UserLoggedInEvent(
       userId: 'user-123',
       email: 'user@example.com',
       ipAddress: null,
@@ -218,7 +211,7 @@ final class AuditEventSubscriberTest extends TestCase
   }
 
   #[Test]
-  public function testDispatchAuditEventLogsWhenDispatchFails(): void
+  public function testAuditConsumerFailurePropagatesForRetry(): void
   {
     /** @var CommandBusPort&MockObject $commandBus */
     $commandBus = $this->createMock(CommandBusPort::class);
@@ -227,17 +220,9 @@ final class AuditEventSubscriberTest extends TestCase
       ->willThrowException(new RuntimeException('boom'));
 
     $logger = $this->createMock(LoggerInterface::class);
-    $logger->expects(self::once())
-      ->method('error')
-      ->with(
-        'Failed to record audit event',
-        self::callback(fn (array $context): bool => (
-          ($context['error'] ?? null) === 'boom'
-          && ($context['action'] ?? null) === 'auth.login_failed'
-        )),
-      );
+    $logger->expects(self::never())->method('error');
 
-    $subscriber = new SecurityAuditEventSubscriber(
+    $subscriber = AuditSubscriberSet::family(
       commandBus: $commandBus,
       sanitizer: new AuditPiiSanitizer(includePii: false, piiSalt: 'salt-for-tests'),
       requestStack: new RequestStack(),
@@ -247,7 +232,9 @@ final class AuditEventSubscriberTest extends TestCase
       eventConsumer: new \App\Tests\Support\Shared\ImmediateIdempotentConsumer(),
     );
 
-    $subscriber->onLoginFailed(new LoginFailedEvent(
+    $this->expectException(RuntimeException::class);
+    $this->expectExceptionMessage('boom');
+    $subscriber->deliver('onLoginFailed', new LoginFailedEvent(
       email: 'user@example.com',
       ipAddress: '127.0.0.1',
       reason: 'invalid_password',
@@ -266,7 +253,7 @@ final class AuditEventSubscriberTest extends TestCase
         && 'user-123' === $command->actorId))
       ->willReturn(new RecordAuditEventResult(eventId: 'event-124'));
 
-    $subscriber = new SecurityAuditEventSubscriber(
+    $subscriber = AuditSubscriberSet::family(
       commandBus: $commandBus,
       sanitizer: new AuditPiiSanitizer(includePii: false, piiSalt: 'salt-for-tests'),
       requestStack: new RequestStack(),
@@ -276,7 +263,7 @@ final class AuditEventSubscriberTest extends TestCase
       eventConsumer: new \App\Tests\Support\Shared\ImmediateIdempotentConsumer(),
     );
 
-    $subscriber->onTotpEnrollmentConfirmed(new TotpEnrollmentConfirmedEvent(userId: 'user-123'));
+    $subscriber->deliver('onTotpEnrollmentConfirmed', new TotpEnrollmentConfirmedEvent(userId: 'user-123'));
   }
 
   #[Test]
@@ -291,7 +278,7 @@ final class AuditEventSubscriberTest extends TestCase
         && 'user-123' === $command->actorId))
       ->willReturn(new RecordAuditEventResult(eventId: 'event-125'));
 
-    $subscriber = new SecurityAuditEventSubscriber(
+    $subscriber = AuditSubscriberSet::family(
       commandBus: $commandBus,
       sanitizer: new AuditPiiSanitizer(includePii: false, piiSalt: 'salt-for-tests'),
       requestStack: new RequestStack(),
@@ -301,7 +288,7 @@ final class AuditEventSubscriberTest extends TestCase
       eventConsumer: new \App\Tests\Support\Shared\ImmediateIdempotentConsumer(),
     );
 
-    $subscriber->onTotpEnrollmentDisabled(new TotpEnrollmentDisabledEvent(userId: 'user-123'));
+    $subscriber->deliver('onTotpEnrollmentDisabled', new TotpEnrollmentDisabledEvent(userId: 'user-123'));
   }
 
   #[Test]
@@ -324,7 +311,7 @@ final class AuditEventSubscriberTest extends TestCase
         ] === $command->metadata))
       ->willReturn(new RecordAuditEventResult(eventId: 'event-126'));
 
-    $subscriber = new OrganizationAccessAuditEventSubscriber(
+    $subscriber = AuditSubscriberSet::family(
       commandBus: $commandBus,
       sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: 'salt-for-tests'),
       requestStack: new RequestStack(),
@@ -338,7 +325,7 @@ final class AuditEventSubscriberTest extends TestCase
       eventConsumer: new \App\Tests\Support\Shared\ImmediateIdempotentConsumer(),
     );
 
-    $subscriber->onOrganizationRoleCreated(new OrganizationRoleCreatedEvent(
+    $subscriber->deliver('onOrganizationRoleCreated', new OrganizationRoleCreatedEvent(
       organizationId: 'org-1',
       roleId: 'role-1',
       roleName: 'Managers',
@@ -365,7 +352,7 @@ final class AuditEventSubscriberTest extends TestCase
         ] === $command->metadata))
       ->willReturn(new RecordAuditEventResult(eventId: 'event-127'));
 
-    $subscriber = new OrganizationAccessAuditEventSubscriber(
+    $subscriber = AuditSubscriberSet::family(
       commandBus: $commandBus,
       sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: 'salt-for-tests'),
       requestStack: new RequestStack(),
@@ -375,7 +362,7 @@ final class AuditEventSubscriberTest extends TestCase
       eventConsumer: new \App\Tests\Support\Shared\ImmediateIdempotentConsumer(),
     );
 
-    $subscriber->onOrganizationMemberRemoved(new OrganizationMemberRemovedEvent(
+    $subscriber->deliver('onOrganizationMemberRemoved', new OrganizationMemberRemovedEvent(
       organizationId: 'org-1',
       memberId: 'member-1',
       userId: 'user-9',
@@ -403,7 +390,7 @@ final class AuditEventSubscriberTest extends TestCase
         ] === $command->metadata))
       ->willReturn(new RecordAuditEventResult(eventId: 'event-128'));
 
-    $subscriber = new OrganizationAccessAuditEventSubscriber(
+    $subscriber = AuditSubscriberSet::family(
       commandBus: $commandBus,
       sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: 'salt-for-tests'),
       requestStack: new RequestStack(),
@@ -417,7 +404,7 @@ final class AuditEventSubscriberTest extends TestCase
       eventConsumer: new \App\Tests\Support\Shared\ImmediateIdempotentConsumer(),
     );
 
-    $subscriber->onOrganizationInvitationSent(new OrganizationInvitationSentEvent(
+    $subscriber->deliver('onOrganizationInvitationSent', new OrganizationInvitationSentEvent(
       organizationId: 'org-1',
       invitationId: 'inv-1',
       invitedEmail: 'invitee@example.com',
@@ -445,7 +432,7 @@ final class AuditEventSubscriberTest extends TestCase
         ] === $command->metadata))
       ->willReturn(new RecordAuditEventResult(eventId: 'event-129'));
 
-    $subscriber = new OrganizationAccessAuditEventSubscriber(
+    $subscriber = AuditSubscriberSet::family(
       commandBus: $commandBus,
       sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: 'salt-for-tests'),
       requestStack: new RequestStack(),
@@ -455,7 +442,7 @@ final class AuditEventSubscriberTest extends TestCase
       eventConsumer: new \App\Tests\Support\Shared\ImmediateIdempotentConsumer(),
     );
 
-    $subscriber->onOrganizationLastAdminLockoutPrevented(new OrganizationLastAdminLockoutPreventedEvent(
+    $subscriber->deliver('onOrganizationLastAdminLockoutPrevented', new OrganizationLastAdminLockoutPreventedEvent(
       organizationId: 'org-1',
       attemptedAction: 'remove_member',
       memberId: 'member-1',
@@ -478,7 +465,7 @@ final class AuditEventSubscriberTest extends TestCase
         ] === $command->metadata))
       ->willReturn(new RecordAuditEventResult(eventId: 'event-130'));
 
-    $subscriber = new OrganizationAccessAuditEventSubscriber(
+    $subscriber = AuditSubscriberSet::family(
       commandBus: $commandBus,
       sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: 'salt-for-tests'),
       requestStack: new RequestStack(),
@@ -488,7 +475,7 @@ final class AuditEventSubscriberTest extends TestCase
       eventConsumer: new \App\Tests\Support\Shared\ImmediateIdempotentConsumer(),
     );
 
-    $subscriber->onTeamCreated(new TeamCreatedEvent(
+    $subscriber->deliver('onTeamCreated', new TeamCreatedEvent(
       organizationId: 'org-1',
       teamId: 'team-1',
       name: 'Field crew A',
@@ -512,7 +499,7 @@ final class AuditEventSubscriberTest extends TestCase
         ] === $command->metadata))
       ->willReturn(new RecordAuditEventResult(eventId: 'event-131'));
 
-    $subscriber = new OrganizationAccessAuditEventSubscriber(
+    $subscriber = AuditSubscriberSet::family(
       commandBus: $commandBus,
       sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: 'salt-for-tests'),
       requestStack: new RequestStack(),
@@ -522,7 +509,7 @@ final class AuditEventSubscriberTest extends TestCase
       eventConsumer: new \App\Tests\Support\Shared\ImmediateIdempotentConsumer(),
     );
 
-    $subscriber->onTeamMemberAdded(new TeamMemberAddedEvent(
+    $subscriber->deliver('onTeamMemberAdded', new TeamMemberAddedEvent(
       organizationId: 'org-1',
       teamId: 'team-1',
       memberId: 'member-1',
@@ -551,7 +538,7 @@ final class AuditEventSubscriberTest extends TestCase
         ] === $command->metadata))
       ->willReturn(new RecordAuditEventResult(eventId: 'event-201'));
 
-    $subscriber = new OperationsAuditEventSubscriber(
+    $subscriber = AuditSubscriberSet::family(
       commandBus: $commandBus,
       sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: 'salt-for-tests'),
       requestStack: new RequestStack(),
@@ -561,7 +548,7 @@ final class AuditEventSubscriberTest extends TestCase
       eventConsumer: new \App\Tests\Support\Shared\ImmediateIdempotentConsumer(),
     );
 
-    $subscriber->onCalendarEventCreated(new CalendarEventCreatedEvent(
+    $subscriber->deliver('onCalendarEventCreated', new CalendarEventCreatedEvent(
       organizationId: 'org-1',
       eventId: 'event-1',
       title: 'Fire drill',
@@ -589,7 +576,7 @@ final class AuditEventSubscriberTest extends TestCase
         ] === $command->metadata))
       ->willReturn(new RecordAuditEventResult(eventId: 'event-202'));
 
-    $subscriber = new OperationsAuditEventSubscriber(
+    $subscriber = AuditSubscriberSet::family(
       commandBus: $commandBus,
       sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: 'salt-for-tests'),
       requestStack: new RequestStack(),
@@ -599,7 +586,7 @@ final class AuditEventSubscriberTest extends TestCase
       eventConsumer: new \App\Tests\Support\Shared\ImmediateIdempotentConsumer(),
     );
 
-    $subscriber->onCalendarEventUpdated(new CalendarEventUpdatedEvent(
+    $subscriber->deliver('onCalendarEventUpdated', new CalendarEventUpdatedEvent(
       organizationId: 'org-1',
       eventId: 'event-1',
       title: 'Updated drill',
@@ -621,7 +608,7 @@ final class AuditEventSubscriberTest extends TestCase
         && ['organization_id' => 'org-1'] === $command->metadata))
       ->willReturn(new RecordAuditEventResult(eventId: 'event-203'));
 
-    $subscriber = new OperationsAuditEventSubscriber(
+    $subscriber = AuditSubscriberSet::family(
       commandBus: $commandBus,
       sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: 'salt-for-tests'),
       requestStack: new RequestStack(),
@@ -631,7 +618,7 @@ final class AuditEventSubscriberTest extends TestCase
       eventConsumer: new \App\Tests\Support\Shared\ImmediateIdempotentConsumer(),
     );
 
-    $subscriber->onCalendarEventDeleted(new CalendarEventDeletedEvent(
+    $subscriber->deliver('onCalendarEventDeleted', new CalendarEventDeletedEvent(
       organizationId: 'org-1',
       eventId: 'event-1',
       actorUserId: 'user-1',
@@ -657,7 +644,7 @@ final class AuditEventSubscriberTest extends TestCase
         ] === $command->metadata))
       ->willReturn(new RecordAuditEventResult(eventId: 'event-132'));
 
-    $subscriber = new GovernanceAuditEventSubscriber(
+    $subscriber = AuditSubscriberSet::family(
       commandBus: $commandBus,
       sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: 'salt-for-tests'),
       requestStack: new RequestStack(),
@@ -667,7 +654,7 @@ final class AuditEventSubscriberTest extends TestCase
       eventConsumer: new \App\Tests\Support\Shared\ImmediateIdempotentConsumer(),
     );
 
-    $subscriber->onWebhookSubscriptionCreated(new WebhookSubscriptionCreatedEvent(
+    $subscriber->deliver('onWebhookSubscriptionCreated', new WebhookSubscriptionCreatedEvent(
       organizationId: 'org-1',
       subscriptionId: 'sub-1',
       urlHost: 'example.com',
@@ -691,7 +678,7 @@ final class AuditEventSubscriberTest extends TestCase
         && ['organization_id' => 'org-1'] === $command->metadata))
       ->willReturn(new RecordAuditEventResult(eventId: 'event-133'));
 
-    $subscriber = new GovernanceAuditEventSubscriber(
+    $subscriber = AuditSubscriberSet::family(
       commandBus: $commandBus,
       sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: 'salt-for-tests'),
       requestStack: new RequestStack(),
@@ -701,7 +688,7 @@ final class AuditEventSubscriberTest extends TestCase
       eventConsumer: new \App\Tests\Support\Shared\ImmediateIdempotentConsumer(),
     );
 
-    $subscriber->onWebhookSubscriptionDeleted(new WebhookSubscriptionDeletedEvent(
+    $subscriber->deliver('onWebhookSubscriptionDeleted', new WebhookSubscriptionDeletedEvent(
       organizationId: 'org-1',
       subscriptionId: 'sub-1',
       actorUserId: 'admin-1',
@@ -728,7 +715,7 @@ final class AuditEventSubscriberTest extends TestCase
         ] === $command->metadata))
       ->willReturn(new RecordAuditEventResult(eventId: 'event-134'));
 
-    $subscriber = new ExportAuditEventSubscriber(
+    $subscriber = AuditSubscriberSet::family(
       commandBus: $commandBus,
       sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: 'salt-for-tests'),
       requestStack: new RequestStack(),
@@ -738,7 +725,7 @@ final class AuditEventSubscriberTest extends TestCase
       eventConsumer: new \App\Tests\Support\Shared\ImmediateIdempotentConsumer(),
     );
 
-    $subscriber->onAuditEventsExported(new AuditEventsExportedEvent(
+    $subscriber->deliver('onAuditEventsExported', new AuditEventsExportedEvent(
       actorUserId: 'user-1',
       tenantId: 'tenant-1',
       format: 'csv',
@@ -768,7 +755,7 @@ final class AuditEventSubscriberTest extends TestCase
         ] === $command->metadata))
       ->willReturn(new RecordAuditEventResult(eventId: 'event-200'));
 
-    $subscriber = new InterventionAuditEventSubscriber(
+    $subscriber = AuditSubscriberSet::family(
       commandBus: $commandBus,
       sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: 'salt-for-tests'),
       requestStack: new RequestStack(),
@@ -778,7 +765,7 @@ final class AuditEventSubscriberTest extends TestCase
       eventConsumer: new \App\Tests\Support\Shared\ImmediateIdempotentConsumer(),
     );
 
-    $subscriber->onInterventionStatusTransitioned(new InterventionStatusTransitionedEvent(
+    $subscriber->deliver('onInterventionStatusTransitioned', new InterventionStatusTransitionedEvent(
       organizationId: 'org-1',
       interventionId: 'intervention-1',
       interventionNumber: 42,
@@ -804,7 +791,7 @@ final class AuditEventSubscriberTest extends TestCase
       ] === $command->metadata))
       ->willReturn(new RecordAuditEventResult(eventId: 'event-201'));
 
-    $subscriber = new InterventionAuditEventSubscriber(
+    $subscriber = AuditSubscriberSet::family(
       commandBus: $commandBus,
       sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: 'salt-for-tests'),
       requestStack: new RequestStack(),
@@ -814,7 +801,7 @@ final class AuditEventSubscriberTest extends TestCase
       eventConsumer: new \App\Tests\Support\Shared\ImmediateIdempotentConsumer(),
     );
 
-    $subscriber->onInterventionStatusTransitioned(new InterventionStatusTransitionedEvent(
+    $subscriber->deliver('onInterventionStatusTransitioned', new InterventionStatusTransitionedEvent(
       organizationId: 'org-1',
       interventionId: 'intervention-1',
       interventionNumber: 42,
@@ -837,7 +824,7 @@ final class AuditEventSubscriberTest extends TestCase
         && ['organization_id' => 'organization'] === $command->metadata,
       ))
       ->willReturn(new RecordAuditEventResult(eventId: 'audit'));
-    $subscriber = new OrganizationLifecycleAuditEventSubscriber(
+    $subscriber = AuditSubscriberSet::family(
       commandBus: $commandBus,
       sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: 'salt-for-tests'),
       requestStack: new RequestStack(),
@@ -846,7 +833,7 @@ final class AuditEventSubscriberTest extends TestCase
       eventContext: new \Shared\Infrastructure\Messaging\Outbox\DurableEventContext(),
       eventConsumer: new \App\Tests\Support\Shared\ImmediateIdempotentConsumer(),
     );
-    $subscriber->onOrganizationJoinChanged(new OrganizationJoinChangedEvent('organization', 'reviewer', 'approve', 'request'));
+    $subscriber->deliver('onOrganizationJoinChanged', new OrganizationJoinChangedEvent('organization', 'reviewer', 'approve', 'request'));
   }
 
   // #region Helpers

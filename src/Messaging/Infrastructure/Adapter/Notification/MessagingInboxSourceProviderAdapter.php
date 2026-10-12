@@ -6,10 +6,10 @@ namespace Messaging\Infrastructure\Adapter\Notification;
 
 use DateTimeImmutable;
 use Messaging\Application\Contract\Message\MessageView;
+use Messaging\Application\Port\Inbound\MessagingSubjectCatalogPort;
 use Messaging\Application\Port\Outbound\Internal\{MessagingConversationRepositoryPort, MessagingMessageRepositoryPort};
 use Messaging\Application\Port\Outbound\{MessagingMemberDirectoryPort, MessagingParticipantRepositoryPort, MessagingReadMarkerRepositoryPort};
 use Messaging\Application\Service\MessagingAccessPolicy;
-use Messaging\Domain\ValueObject\MessagingSubjectType;
 use Notification\Application\Contract\Inbox\{InboxCursor, InboxItem};
 use Notification\Application\Port\Outbound\InboxSourceProviderPort;
 
@@ -38,14 +38,8 @@ use const ENT_QUOTES;
  * mentions (`@{memberUuid}` tokens) a user needs to act on through the
  * unified inbox feed.
  *
- * **Only `mention` is live.** `direct_message` and `thread_reply` are
- * reserved `kind` values (see `Notification\Application\Contract\Inbox\InboxItem::$kind`)
- * with NO backing data model yet — Messaging has no direct-message subject
- * type (`MessagingSubjectType` is `facility|equipment|intervention|non_conformity|channel`)
- * and no threaded replies. When either ships, add a sibling
- * `fetchDirectMessages()`/`fetchThreadReplies()` private method and merge
- * its results into {@see self::fetch()} the same way this class already
- * merges nothing else today — no rewrite of the mention path is needed.
+ * Only mentions contribute inbox entries. Subject permission metadata comes
+ * from the registered catalog without resolving every subject individually.
  *
  * A mention alone never grants access: the mentioned member must still pass
  * Messaging's normal read rule for that conversation (the subject's own
@@ -129,28 +123,6 @@ final readonly class MessagingInboxSourceProviderAdapter implements InboxSourceP
    */
   private const int UNREAD_COUNT_SCAN_LIMIT = 200;
 
-  /**
-   * Subject type -> required read permission, mirroring the table
-   * documented in `Messaging\MODULE.md` ("The `messaging.subject_resolver`
-   * tagged-iterator seam"). Deliberately duplicated here instead of calling
-   * `MessagingSubjectResolverRegistry::resolve()` per candidate conversation:
-   * that registry issues one cross-module EXISTENCE query per subject
-   * (Facility/Equipment/Intervention/Inspection), which is exactly the
-   * per-row N+1 this adapter must avoid. The four resolver adapters
-   * (`FacilityMessagingSubjectResolverAdapter` and siblings) already
-   * duplicate these same literal permission strings for the identical
-   * reason `MentionExtractor`'s regex is duplicated in `Intervention` — see
-   * `Messaging\MODULE.md`. `CHANNEL` is handled separately (participation,
-   * not a permission — see {@see self::resolveAccessibleConversationIds()}).
-   *
-   * @var array<string, string>
-   */
-  private const array SUBJECT_READ_PERMISSIONS = [
-    'facility' => 'organization.facilities.read',
-    'equipment' => 'organization.equipment.read',
-    'intervention' => 'organization.interventions.read',
-    'non_conformity' => 'organization.inspection.read',
-  ];
   // #endregion
 
   // #region Constructor
@@ -165,6 +137,7 @@ final readonly class MessagingInboxSourceProviderAdapter implements InboxSourceP
    * @param MessagingParticipantRepositoryPort $participants the participant repository port
    * @param MessagingMemberDirectoryPort $members the member directory port
    * @param MessagingAccessPolicy $accessPolicy the messaging access policy
+   * @param MessagingSubjectCatalogPort $subjects the registered subject metadata
    */
   public function __construct(
     private MessagingMessageRepositoryPort $messages,
@@ -173,6 +146,7 @@ final readonly class MessagingInboxSourceProviderAdapter implements InboxSourceP
     private MessagingParticipantRepositoryPort $participants,
     private MessagingMemberDirectoryPort $members,
     private MessagingAccessPolicy $accessPolicy,
+    private MessagingSubjectCatalogPort $subjects,
   ) {
   }
   // #endregion
@@ -377,7 +351,7 @@ final readonly class MessagingInboxSourceProviderAdapter implements InboxSourceP
     $manages = $this->accessPolicy->hasManagePermission($userId, $organizationId);
     // ONE bulk lookup of every channel this member participates in, never
     // one `isParticipant()` call per channel.
-    $channelIds = $manages && !in_array(MessagingSubjectType::DIRECT->value, $subjectTypesByConversation, true)
+    $channelIds = $manages && !in_array('direct', $subjectTypesByConversation, true)
       ? [] : $this->participants->listChannelIdsForMember($organizationId, $memberId);
 
     $permissionCache = [];
@@ -392,7 +366,7 @@ final readonly class MessagingInboxSourceProviderAdapter implements InboxSourceP
         continue;
       }
 
-      $requiredPermission = self::SUBJECT_READ_PERMISSIONS[$subjectType] ?? null;
+      $requiredPermission = $this->subjects->find($subjectType)?->requiredReadPermission;
       if (null === $requiredPermission) {
         // Unknown/foreign subject type: fail closed, never assume access.
         continue;
@@ -423,7 +397,7 @@ final readonly class MessagingInboxSourceProviderAdapter implements InboxSourceP
    */
   private static function isParticipantConversation(string $subjectType): bool
   {
-    return MessagingSubjectType::CHANNEL->value === $subjectType || MessagingSubjectType::DIRECT->value === $subjectType;
+    return 'channel' === $subjectType || 'direct' === $subjectType;
   }
 
   /**
@@ -431,7 +405,7 @@ final readonly class MessagingInboxSourceProviderAdapter implements InboxSourceP
    */
   private static function canReadParticipantConversation(string $subjectType, string $conversationId, bool $manages, array $channelIds): bool
   {
-    return (MessagingSubjectType::CHANNEL->value === $subjectType && $manages)
+    return ('channel' === $subjectType && $manages)
       || in_array($conversationId, $channelIds, true);
   }
 

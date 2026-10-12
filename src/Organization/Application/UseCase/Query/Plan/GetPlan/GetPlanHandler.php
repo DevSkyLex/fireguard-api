@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Organization\Application\UseCase\Query\Plan\GetPlan;
 
+use Organization\Application\Port\Inbound\OrganizationQuotaCatalogPort;
 use Organization\Application\Port\Outbound\Internal\PlanRepositoryPort;
 use Organization\Domain\Exception\PlanNotFoundException;
 use Organization\Domain\ValueObject\PlanId;
@@ -34,6 +35,7 @@ final readonly class GetPlanHandler implements QueryHandler
   public function __construct(
     private PlanRepositoryPort $planRepository,
     private TranslationPort $translator,
+    private OrganizationQuotaCatalogPort $quotaCatalog,
   ) {
   }
   // #endregion
@@ -58,7 +60,7 @@ final readonly class GetPlanHandler implements QueryHandler
       throw PlanNotFoundException::withId($query->planId);
     }
 
-    return GetPlanResult::fromDomain($plan, $this->translator);
+    return GetPlanResult::fromDomain($plan, $this->translator, $this->quotaCatalog);
   }
   // #endregion
 }

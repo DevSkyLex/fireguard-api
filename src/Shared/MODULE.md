@@ -154,6 +154,67 @@ Key folders:
 
 ## Configuration
 
+### Durable HTTP idempotency
+
+An explicitly opted-in write operation reserves its client key only after current authentication,
+tenant context, permissions and resource scope have been verified. The scope binds the verified
+principal, tenant, organization when present, operation identity and canonical resource URI.
+Global identifier routes may use principal/tenant/operation/URI scope and retain the original
+organization in authenticated non-secret result proof. Meaningful request query data, input and
+original preconditions belong to the canonical HMAC fingerprint. Neither raw keys nor credentials
+or request inputs are persisted.
+
+Each database owns its independent `http_idempotency_receipts` table and engine. A reservation
+commits on a separate physical connection to that same database before business writes.
+Unused pending reservations expire after 60 seconds and can change owner under a row lock;
+an earlier owner is fenced before any mutation. Once the owning write transaction starts,
+the engine durably marks the reservation as writing and locks its receipt on the primary
+connection. It stores the versioned application result before that transaction commits.
+Fresh owner-organization evidence supplied at claim also indexes incomplete global-URI attempts
+for permanent organization purge, including after a confirmed rollback.
+The business mutation, outbox work and result snapshot therefore share one owning commit.
+No HTTP transaction encloses root-owned media writes and no transaction spans auth and main.
+
+Replays return the originally committed application result for 24 hours. Secret-bearing results
+use a five-minute window measured from the first completion; retries never renew either deadline.
+Current authentication and authorization must be revalidated for every replay. `inspectProof`
+authenticates non-secret identifiers, revisions and scope metadata before result bytes are opened.
+Its HMAC binds the canonical proof, scoped receipt, original fingerprint and absolute deadline.
+Encrypted result AAD also binds that deadline and proof MAC. Proof never contains raw tokens.
+The engine also submits the authenticated proof of the receipt actually selected for replay
+to the current owner gate before opening bytes or acknowledging expiry. A completion between
+initial inspection and reservation therefore uses the original committed proof, including
+during uncertain-commit reconciliation, without repeating credential attempts or mutations.
+An altered fingerprint, an in-flight write, an elapsed replay window or an uncertain outcome
+denies execution. Only confirmed root rollback releases the current owner's reservation.
+Rollback retains the original fingerprint and expires its ownership, allowing an identical
+retry to take over while continuing to reject changed input on the same key.
+An unknown commit can reconcile a visible completed result; incomplete writing or unknown
+receipts remain blocked and never permit automatic takeover.
+
+Configure `HTTP_IDEMPOTENCY_HMAC_KEY` as a dedicated random base64 HMAC key of at least 32 decoded
+bytes. `HTTP_IDEMPOTENCY_ENCRYPTION_KEYS` is a JSON object of version names to dedicated base64
+AES-256 keys; `HTTP_IDEMPOTENCY_ENCRYPTION_ACTIVE_VERSION` selects the writing version.
+Keep earlier versions available through the secret replay window during rotation. These keys
+are separate from application, OAuth and JWT keys. Missing or invalid keys fail closed.
+The HMAC addressing key must remain stable while any retained scope can retry; changing it
+without preserving lookup of the earlier key would bypass its receipt and tombstone identities.
+Main is the ordinary default engine; auth operations must receive the explicit auth engine.
+
+Run `app:cleanup:http-idempotency-results` every minute to erase elapsed replay bytes on each
+database independently. It retains durable non-reusable tombstones beyond the 24-hour result
+window, protecting offline retries. Permanently deleted accounts and organizations must call
+`purgePrincipal` and `purgeOrganization` on both explicitly owned engines after confirmed deletion;
+these indexed digests remove every operation/URI receipt for that lifecycle. Account deletion
+also removes client-scoped and federated receipts whose finalized owner-verified proof names
+that account in `user_id`, including after encrypted result bytes have expired. Narrow
+`purgeScope` is available for a definitively removed operation scope.
+
+Pure unit tests cover canonical HMACs, AES-GCM rotation/tampering, proof and deadline authentication,
+replay expiry and transaction boundary denials. PostgreSQL integration tests use independent physical
+connections on both databases to cover atomic snapshots, lease takeover and stale-owner fencing,
+confirmed rollback, unknown commits, offline tombstones and secret expiration.
+
 GeoIP defaults live in `config/packages/geoip.yaml`: `GEOIP_ENABLED=false`,
 `GEOIP_DATABASE_PATH=%kernel.project_dir%/var/geoip/dbip-city-lite.mmdb`, `GEOIP_MAX_AGE_DAYS=45`.
 `TRUSTED_PROXIES` is an explicit comma-separated IP/CIDR allowlist, empty by default. Only
@@ -428,3 +489,64 @@ SeedReferenceRegistryPort exposes only identifiers and permitted scalar facts,
 without credentials or persistence objects. State resets between database passes
 and worker resets. Deterministic seed metadata and timeline helpers are published
 under Application contracts; append-safe workload examples remain opt-in.
+
+### HTTP application-result idempotency
+
+Owner modules contribute explicit operation descriptors with the
+`http.idempotency_operation` tag. Each declares its auth/main database, exact
+primary command and immutable result schema, final `bus_owner` or `root_owner`
+transaction, and any response/precondition query schemas. Duplicate ownership,
+mutable result contracts and overlapping captured/live authorization queries
+fail registry validation. The metadata factory rejects uncovered writes in the
+mandatory stage; audited read-only operations and verified native protocol
+receipts are declared separately. Declared stateful GET operations participate.
+
+`HttpIdempotencySubscriber` runs after authentication and before API reads.
+Owner replay gates (`http.idempotency_replay_authorization`) inspect signed
+nonsecret receipt proof and check current actor, tenant, original organization,
+resource visibility and captured permission requirements before the engine
+opens any saved result. Sensitive owner proof policies
+(`shared.sensitive_idempotency_proof`) prove the actual typed primary command
+and current credential/security lineage before replay. Shared consumes pure
+owner-contributed principal/account/authority ports and has no business owner
+or persistence dependency.
+
+The execution context reserves outside the owning transaction, claims its
+fence before effects, and stores the versioned application result with the
+owner SQL writes and outbox before the final commit. Root media handlers retain
+their own transaction and capture their typed result inside its callback.
+The receipt adapter lives at
+`Infrastructure/Persistence/Doctrine/Repository/DoctrineIdempotencyReceiptRepository.php`
+and is explicitly bound to the owning main or auth database.
+Explicit query projections preserve the original consumed precondition and
+final output without caching a kernel response. Multipart fingerprints bind
+logical fields and file bytes independently of transport boundaries.
+
+External adapters derive stable purpose-separated provider keys through
+`HttpIdempotencyExecutionPort` and mark effects before network calls. A local
+rollback after an external effect retains an unknown receipt and dispatches
+owner current-state reconciliation contributors tagged
+`shared.external_idempotency_reconciliation` only after the owning transaction
+has ended. Unknown outcomes never permit automatic mutation takeover.
+
+Successful replays expose `Idempotency-Replayed`; in-progress conflicts expose
+`Retry-After`. Missing/invalid keys map to 400, key/input conflicts, expired or
+uncertain outcomes to 409, and fresh authorization denials retain 401/403.
+The global required-header flag stages compatibility consistently across
+runtime validation; the separate documentation flag publishes the final mandatory
+header contract during the compatibility stage. HTTP lifecycle cleanup releases
+unused pending reservations and isolates state between requests.
+
+Authorization evidence binds only the exact verified principal of an idempotent
+request. Native role decisions retain their existing behavior outside that bound
+context, including legacy requests without a key during compatibility. Owner-proven
+native identities bind after their logical key is selected. Explicit owner tenant
+facts override unrelated ambient credentials while preserving route/host context.
+
+Owners may contribute nonsecret post-result facts through
+`shared.http_idempotency_result_proof`. The registry rejects duplicate contributors
+for a declared operation. The context flushes the owning entity manager before
+calling the contributor and accepts only new facts or identical existing values;
+verified scope and security facts cannot be overwritten. These facts join the
+same result snapshot and owning commit, including generated subject identifiers
+needed for privacy purge.

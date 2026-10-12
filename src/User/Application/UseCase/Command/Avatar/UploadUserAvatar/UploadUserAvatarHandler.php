@@ -7,6 +7,7 @@ namespace User\Application\UseCase\Command\Avatar\UploadUserAvatar;
 use Shared\Application\Contract\Transaction\CommitOutcomeUnknownException;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\{FileCleanupPort, LoggerPort, RootTransactionManagerPort, UuidGeneratorPort};
+use Shared\Application\Port\Outbound\Idempotency\HttpIdempotencyExecutionPort;
 use Throwable;
 use User\Application\Contract\User\{AvatarPaths, AvatarVariants};
 use User\Application\Port\Outbound\{AvatarPersistencePort, AvatarStoragePort};
@@ -32,6 +33,7 @@ final readonly class UploadUserAvatarHandler implements CommandHandler
     private FileCleanupPort $cleanup,
     private UuidGeneratorPort $ids,
     private LoggerPort $logger,
+    private ?HttpIdempotencyExecutionPort $idempotency = null,
   ) {
   }
 
@@ -45,12 +47,16 @@ final readonly class UploadUserAvatarHandler implements CommandHandler
     $generation = $this->ids->generate();
 
     try {
-      $this->storage->resize($command->userId, $command->sourceContents, $generation);
+      return $this->transactions->transactional(function () use ($command, $userId, $generation): UploadUserAvatarResult {
+        $this->storage->resize($command->userId, $command->sourceContents, $generation);
+        $result = $this->avatars->withUserLock(
+          $command->userId,
+          fn (): UploadUserAvatarResult => $this->persistAvatar($command, $userId, $generation),
+        );
+        $this->idempotency?->captureResult($result);
 
-      return $this->transactions->transactional(fn (): UploadUserAvatarResult => $this->avatars->withUserLock(
-        $command->userId,
-        fn (): UploadUserAvatarResult => $this->persistAvatar($command, $userId, $generation),
-      ));
+        return $result;
+      });
     } catch (Throwable $failure) {
       if (!$failure instanceof CommitOutcomeUnknownException) {
         $this->compensateUpload($command->userId, $generation);

@@ -14,7 +14,6 @@ use Intervention\Domain\ValueObject\InterventionAttachmentId;
 use Intervention\Presentation\Api\Attachment\MultipartAttachmentGuard;
 use Intervention\Presentation\Api\Dto\Output\Attachment\InterventionAttachmentOutput;
 use Intervention\Presentation\Api\Http\RevisionGuard;
-use Intervention\Presentation\Api\Provider\Attachment\InterventionMediaProvider;
 use Shared\Application\Contract\Http\ResourceIriParser;
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Shared\Domain\Exception\InvalidValueException;
@@ -78,7 +77,23 @@ final readonly class InterventionMediaProcessor implements ProcessorInterface
       /** @var ResolveInterventionMediaResult $replay */
       $replay = $this->queryBus->ask(new ResolveInterventionMediaQuery(userId: $user->getId(), attachmentId: $clientId, interventionId: $interventionId, replay: true));
       if (null !== $replay->attachment) {
-        return InterventionMediaProvider::output($replay->attachment);
+        $existing = $replay->attachment;
+        /** @var AddInterventionAttachmentResult $acknowledged */
+        $acknowledged = $this->commandBus->dispatch(new AddInterventionAttachmentCommand(
+          userId: $user->getId(),
+          interventionId: $interventionId,
+          fileName: $existing->fileName,
+          contents: '',
+          mimeType: $existing->mimeType,
+          size: $existing->size,
+          label: $existing->label,
+          attachmentId: $existing->id,
+          workItemId: $existing->workItemId,
+          kind: $existing->kind,
+          acknowledgementOnly: true,
+        ));
+
+        return self::output($acknowledged);
       }
     }
     $uploaded = $this->attachmentGuard->fromRequest($request);
@@ -97,6 +112,12 @@ final readonly class InterventionMediaProcessor implements ProcessorInterface
       workItemId: is_string($workItem) && '' !== $workItem ? ResourceIriParser::id($workItem, 'intervention-work-items') : null,
       kind: is_string($kind) && '' !== $kind ? $kind : 'file',
     ));
+
+    return self::output($result);
+  }
+
+  private static function output(AddInterventionAttachmentResult $result): InterventionAttachmentOutput
+  {
     $output = new InterventionAttachmentOutput();
     $output->id = $result->attachmentId;
     $output->interventionId = $result->interventionId;

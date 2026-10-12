@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Messaging\Presentation\Api\Factory;
 
 use Messaging\Application\Contract\Conversation\ConversationView;
+use Messaging\Application\Port\Inbound\MessagingSubjectCatalogPort;
 use Messaging\Presentation\Api\Dto\Output\ConversationOutput;
 
 /**
@@ -19,28 +20,20 @@ final class ConversationOutputFactory
 {
   // #region Constants
   /**
-   * Property SUBJECT_RESOURCE_SEGMENTS.
-   *
-   * Maps a subject type to the descriptive API resource path segment used
-   * to build its (illustrative, not necessarily dereferenceable — several
-   * subject resources are organization-nested) IRI, mirroring
-   * `MaintenanceScheduleOutputFactory`'s treatment of the equipment/facility
-   * fields.
-   *
-   * @var array<string, string>
-   */
-  private const array SUBJECT_RESOURCE_SEGMENTS = [
-    'facility' => 'facilities',
-    'equipment' => 'equipment',
-    'intervention' => 'interventions',
-    'non_conformity' => 'non-conformities',
-    'channel' => 'channels',
-  ];
-
-  /**
    * Constant ORGANIZATION_IRI_PREFIX
    */
   private const string ORGANIZATION_IRI_PREFIX = '/api/organizations/';
+  // #endregion
+
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * @param MessagingSubjectCatalogPort $subjects the registered subject metadata
+   */
+  public function __construct(private readonly MessagingSubjectCatalogPort $subjects)
+  {
+  }
   // #endregion
 
   // #region Methods
@@ -66,7 +59,7 @@ final class ConversationOutputFactory
     $output->subjectType = $view->subjectType;
     $output->subject = null === $view->subjectId
       ? null
-      : '/api/' . self::subjectResourceSegment($view->subjectType) . '/' . $view->subjectId;
+      : '/api/' . $this->subjectResourceSegment($view->subjectType) . '/' . $view->subjectId;
     $output->subjectLabel = $subjectLabel;
     $output->visibility = $view->visibility;
     $output->lastMessageAt = $view->lastMessageAt?->format('c');
@@ -88,8 +81,6 @@ final class ConversationOutputFactory
   /**
    * Method subjectResourceSegment.
    *
-   * @static
-   *
    * Resolves the descriptive API resource path segment for a subject type,
    * shared with the input-side IRI parsing in
    * `GetOrCreateConversationProcessor`.
@@ -100,9 +91,9 @@ final class ConversationOutputFactory
    *
    * @return string the resource path segment
    */
-  public static function subjectResourceSegment(string $subjectType): string
+  public function subjectResourceSegment(string $subjectType): string
   {
-    return self::SUBJECT_RESOURCE_SEGMENTS[$subjectType] ?? $subjectType;
+    return $this->subjects->find($subjectType)->resourceSegment ?? $subjectType;
   }
   // #endregion
 }

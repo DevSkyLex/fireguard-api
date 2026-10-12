@@ -6,6 +6,8 @@ namespace Tests\Unit\Messaging\Infrastructure\Adapter\Notification;
 
 use DateTimeImmutable;
 use Messaging\Application\Contract\Message\MessageView;
+use Messaging\Application\Contract\Subject\MessagingSubjectDescriptor;
+use Messaging\Application\Port\Inbound\MessagingSubjectCatalogPort;
 use Messaging\Application\Port\Outbound\Internal\{MessagingConversationRepositoryPort, MessagingMessageRepositoryPort};
 use Messaging\Application\Port\Outbound\{MessagingMemberDirectoryPort, MessagingParticipantRepositoryPort, MessagingReadMarkerRepositoryPort};
 use Messaging\Application\Service\MessagingAccessPolicy;
@@ -34,6 +36,24 @@ use function str_repeat;
 #[CoversClass(MessagingInboxSourceProviderAdapter::class)]
 final class MessagingInboxSourceProviderAdapterTest extends TestCase
 {
+  #[Test]
+  public function testExtraSubjectMetadataControlsMentionAccessWithoutACorePermissionMap(): void
+  {
+    $message = $this->message(id: 'message-1', conversationId: 'conversation-1');
+    $messages = $this->createStub(MessagingMessageRepositoryPort::class);
+    $messages->method('listMentionsForMember')->willReturn([$message]);
+    $conversations = $this->createStub(MessagingConversationRepositoryPort::class);
+    $conversations->method('findSubjectTypesByIds')->willReturn(['conversation-1' => 'service_request']);
+    $subjects = $this->createStub(MessagingSubjectCatalogPort::class);
+    $subjects->method('find')->willReturn(new MessagingSubjectDescriptor('service_request', 'Service request', 'service-requests', 'organization.service_requests.read'));
+
+    $allowed = $this->buildAdapter(messages: $messages, conversations: $conversations, subjects: $subjects, accessPolicy: $this->accessPolicy(subjectPermissions: ['organization.service_requests.read' => true]));
+    $denied = $this->buildAdapter(messages: $messages, conversations: $conversations, subjects: $subjects, accessPolicy: $this->accessPolicy(subjectPermissions: ['organization.service_requests.read' => false]));
+
+    self::assertCount(1, $allowed->fetch('user-1', 'org-1', null, 20));
+    self::assertSame([], $denied->fetch('user-1', 'org-1', null, 20));
+  }
+
   #[Test]
   public function testSourceKeyReturnsTheMessagingMentionConstant(): void
   {
@@ -509,6 +529,7 @@ final class MessagingInboxSourceProviderAdapterTest extends TestCase
     ?MessagingMemberDirectoryPort $members = null,
     ?MessagingAccessPolicy $accessPolicy = null,
     string $memberId = 'member-1',
+    ?MessagingSubjectCatalogPort $subjects = null,
   ): MessagingInboxSourceProviderAdapter {
     if (null === $messages) {
       $messages = $this->createStub(MessagingMessageRepositoryPort::class);
@@ -534,6 +555,6 @@ final class MessagingInboxSourceProviderAdapterTest extends TestCase
 
     $accessPolicy ??= $this->accessPolicy();
 
-    return new MessagingInboxSourceProviderAdapter($messages, $conversations, $readMarkers, $participants, $members, $accessPolicy);
+    return new MessagingInboxSourceProviderAdapter($messages, $conversations, $readMarkers, $participants, $members, $accessPolicy, $subjects ?? \Tests\Support\Messaging\MessagingSubjectCatalog::create());
   }
 }

@@ -4,16 +4,20 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Authorization\Application\EventHandler;
 
+use Authorization\Application\Contract\Catalog\RoleDefinition;
 use Authorization\Application\EventHandler\AssignDefaultRoleOnUserCreatedHandler;
+use Authorization\Application\Port\Inbound\RoleCatalogContributionPort;
 use Authorization\Application\Port\Outbound\Internal\{RoleAssignmentRepositoryPort, RoleRepositoryPort};
 use Authorization\Domain\Model\Role\Role;
 use Authorization\Domain\Model\RoleAssignment\RoleAssignment;
 use Authorization\Domain\ValueObject\{RoleAssignmentId, RoleId, RoleName};
+use Authorization\Infrastructure\Catalog\RoleCatalog;
 use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Application\Port\Outbound\{LoggerPort, UuidGeneratorPort};
+use Tests\Support\AuthorizationCatalogFixture;
 use User\Application\Contract\Event\UserCreatedEvent;
 
 /**
@@ -53,6 +57,7 @@ final class AssignDefaultRoleOnUserCreatedHandlerTest extends TestCase
       }));
 
     $handler = new AssignDefaultRoleOnUserCreatedHandler(
+      roleCatalog: AuthorizationCatalogFixture::roles(),
       roleRepository: $roleRepository,
       roleAssignmentRepository: $assignmentRepository,
       uuidFactory: $this->uuidFactory(),
@@ -81,6 +86,7 @@ final class AssignDefaultRoleOnUserCreatedHandlerTest extends TestCase
     $assignmentRepository->expects(self::never())->method('save');
 
     $handler = new AssignDefaultRoleOnUserCreatedHandler(
+      roleCatalog: AuthorizationCatalogFixture::roles(),
       roleRepository: $roleRepository,
       roleAssignmentRepository: $assignmentRepository,
       uuidFactory: $this->uuidFactory(),
@@ -103,6 +109,7 @@ final class AssignDefaultRoleOnUserCreatedHandlerTest extends TestCase
     $logger->expects(self::once())->method('warning');
 
     $handler = new AssignDefaultRoleOnUserCreatedHandler(
+      roleCatalog: AuthorizationCatalogFixture::roles(),
       roleRepository: $roleRepository,
       roleAssignmentRepository: $assignmentRepository,
       uuidFactory: $this->uuidFactory(),
@@ -137,12 +144,41 @@ final class AssignDefaultRoleOnUserCreatedHandlerTest extends TestCase
       );
 
     $handler = new AssignDefaultRoleOnUserCreatedHandler(
+      roleCatalog: AuthorizationCatalogFixture::roles(),
       roleRepository: $roleRepository,
       roleAssignmentRepository: $assignmentRepository,
       uuidFactory: $this->uuidFactory(),
       logger: $logger,
     );
 
+    $handler($this->event());
+  }
+
+  #[Test]
+  public function testForeignContributionSelectsDefaultRole(): void
+  {
+    $contribution = new class () implements RoleCatalogContributionPort {
+      public static function definitions(): array
+      {
+        return [new RoleDefinition('reviewer', 'Review', [], defaultForNewUsers: true)];
+      }
+    };
+    $repository = $this->createMock(RoleRepositoryPort::class);
+    $repository->expects(self::once())->method('findByName')->with(self::callback(static fn (RoleName $name): bool => 'reviewer' === $name->value))->willReturn(null);
+    $assignments = $this->createMock(RoleAssignmentRepositoryPort::class);
+    $assignments->expects(self::never())->method('save');
+    $handler = new AssignDefaultRoleOnUserCreatedHandler($repository, $assignments, $this->uuidFactory(), $this->createStub(LoggerPort::class), new RoleCatalog([$contribution]));
+    $handler($this->event());
+  }
+
+  #[Test]
+  public function testNoContributionDoesNotGrantAnImplicitDefaultRole(): void
+  {
+    $repository = $this->createMock(RoleRepositoryPort::class);
+    $repository->expects(self::never())->method('findByName');
+    $assignments = $this->createMock(RoleAssignmentRepositoryPort::class);
+    $assignments->expects(self::never())->method('save');
+    $handler = new AssignDefaultRoleOnUserCreatedHandler($repository, $assignments, $this->uuidFactory(), $this->createStub(LoggerPort::class), new RoleCatalog([]));
     $handler($this->event());
   }
 

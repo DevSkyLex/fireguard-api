@@ -12,6 +12,7 @@ use Otp\Domain\Exception\{OtpExpiredException, OtpMaxAttemptsException};
 use Otp\Domain\Model\Otp;
 use Otp\Domain\ValueObject\{ChallengeToken, OtpChannel, OtpId};
 use Shared\Application\Message\CommandHandler;
+use Shared\Application\Port\Outbound\TransactionManagerPort;
 
 /**
  * Handler VerifyOtpHandler.
@@ -43,6 +44,7 @@ final readonly class VerifyOtpHandler implements CommandHandler
     private readonly OtpRepositoryPort $otpRepository,
     private readonly TotpEnrollmentRepositoryPort $totpEnrollmentRepository,
     private readonly TotpServicePort $totpService,
+    private TransactionManagerPort $transaction,
   ) {
   }
   // #endregion
@@ -64,7 +66,16 @@ final readonly class VerifyOtpHandler implements CommandHandler
    */
   public function __invoke(VerifyOtpCommand $command): VerifyOtpResult
   {
+    return $this->transaction->transactional(fn (): VerifyOtpResult => $this->verify($command));
+  }
+
+  /**
+   * @param VerifyOtpCommand $command owner-bound request verified inside the auth transaction
+   */
+  private function verify(VerifyOtpCommand $command): VerifyOtpResult
+  {
     $otp = match (true) {
+      null !== $command->challengeToken && null !== $command->expectedUserId && null !== $command->expectedPurpose => $this->otpRepository->findForVerification(ChallengeToken::fromString($command->challengeToken), $command->expectedUserId, $command->expectedPurpose),
       null !== $command->otpId => $this->otpRepository->findById(new OtpId($command->otpId)),
       null !== $command->challengeToken => $this->otpRepository->findByChallengeToken(
         ChallengeToken::fromString($command->challengeToken),
@@ -101,6 +112,7 @@ final readonly class VerifyOtpHandler implements CommandHandler
         error: 'OTP has expired.',
       );
     } catch (OtpMaxAttemptsException) {
+      $this->otpRepository->save($otp);
       $result = VerifyOtpResult::failed(
         attemptsRemaining: 0,
         error: 'Maximum verification attempts exceeded.',

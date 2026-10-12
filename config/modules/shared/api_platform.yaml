@@ -1,0 +1,8 @@
+api_platform:
+  mapping:
+    paths:
+      - '%kernel.project_dir%/src/Shared/Presentation/Api/Resource'
+  exception_to_status:
+    Shared\Application\Contract\Image\InvalidImageInputException: 422
+    Shared\Domain\Attachment\InvalidAttachmentException: 422
+    Shared\Domain\Exception\InvalidValueException: 400

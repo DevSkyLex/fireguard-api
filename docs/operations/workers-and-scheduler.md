@@ -260,3 +260,31 @@ php -d memory_limit=1G bin/console app:cleanup:auth-data --days=90 --dry-run
 | Auth Codes      | Expired > X days                      |
 | OTPs            | Expired > X days                      |
 | Trusted Devices | Expired OR revoked > X days           |
+
+## HTTP idempotency result retention
+
+Run the separate result-erasure command through the managed recurring maintenance
+job, with the same selected environment and deployment mutex as other maintenance:
+
+```sh
+php -d memory_limit=1G bin/console app:cleanup:http-idempotency-results --env=prod
+```
+
+The command erases expired `result_payload` bytes independently on main and auth
+and reports only counts. It does not delete keys, fingerprints, final state or
+durable tombstones. Its work is separate from `app:cleanup:auth-data`; neither
+routine replaces the other. Observe command failures and correct the owning
+database/connection problem before retrying. A failure on one database never
+justifies deleting receipts from either database.
+
+Secret response replay stops five minutes after the first committed operation;
+ordinary bodies stop after 24 hours. Replay checks the absolute expiry even if a
+cleanup invocation is delayed, and retry never refreshes it. Expired offline
+receipts remain non-reusable until the owning scope is deleted. Do not purge
+tombstones to reduce table size or to recover an uncertain client result.
+
+Use the installed maintenance job on managed hosts rather than adding an illustrative
+second cron entry. Keep the job present after the [HTTP idempotency rollout](../../OPERATIONS.md#http-idempotency-rollout)
+and verify its successful executions separately from HTTP/worker health. Restrict
+database and backup access; expired ciphertext in an older backup still requires
+the same proof, absolute-expiry and authenticated-data checks before replay.

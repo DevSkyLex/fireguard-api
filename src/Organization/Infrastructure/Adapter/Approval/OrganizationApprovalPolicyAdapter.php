@@ -4,9 +4,8 @@ declare(strict_types=1);
 
 namespace Organization\Infrastructure\Adapter\Approval;
 
-use Approval\Application\Contract\Action\ApprovalActionTypes;
 use Approval\Application\Contract\Policy\ApprovalPolicy;
-use Approval\Application\Port\Outbound\ApprovalPolicyPort;
+use Approval\Application\Port\Outbound\{ApprovalActionCatalogPort, ApprovalPolicyPort};
 use Organization\Application\Port\Outbound\Internal\OrganizationRepositoryPort;
 use Organization\Domain\Catalog\OrganizationApprovalDefaults;
 use Organization\Domain\ValueObject\{OrganizationApprovalSettings, OrganizationId};
@@ -36,9 +35,11 @@ final readonly class OrganizationApprovalPolicyAdapter implements ApprovalPolicy
    * @since 1.0.0
    *
    * @param OrganizationRepositoryPort $organizationRepository the organization repository port
+   * @param ApprovalActionCatalogPort $catalog the installed action defaults
    */
   public function __construct(
     private OrganizationRepositoryPort $organizationRepository,
+    private ApprovalActionCatalogPort $catalog,
   ) {
   }
   // #endregion
@@ -60,17 +61,17 @@ final readonly class OrganizationApprovalPolicyAdapter implements ApprovalPolicy
     try {
       $organization = $this->organizationRepository->findById(OrganizationId::fromString($organizationId));
     } catch (InvalidValueException) {
-      return self::disabledPolicy();
+      return $this->disabledPolicy();
     }
 
     $settings = $organization?->settings()->approval;
 
     if (null === $settings) {
-      return self::disabledPolicy();
+      return $this->disabledPolicy();
     }
 
     return new ApprovalPolicy(
-      actionRules: self::resolveActionRules($settings),
+      actionRules: $this->resolveActionRules($settings),
       allowSelfApproval: $settings->allowSelfApproval,
       approvalTtlDays: $settings->approvalTtlDays,
     );
@@ -79,12 +80,8 @@ final readonly class OrganizationApprovalPolicyAdapter implements ApprovalPolicy
   /**
    * Method resolveActionRules.
    *
-   * @static
-   *
-   * Resolves every known Approval action type's effective rule, applying
-   * the `nc_waiver` default minimum severity when not customized — the only
-   * place this Organization-hosted adapter knows about a specific Approval
-   * action type value (the domain value object itself never does).
+   * Resolves installed action rules using owner-contributed severity defaults.
+   * The Organization domain retains stored action keys without importing their owners.
    *
    * @since 1.0.0
    *
@@ -92,13 +89,14 @@ final readonly class OrganizationApprovalPolicyAdapter implements ApprovalPolicy
    *
    * @return array<string, array{enabled: bool, minApproverRole: string, minSeverity: ?string}> the resolved action rules
    */
-  private static function resolveActionRules(OrganizationApprovalSettings $settings): array
+  private function resolveActionRules(OrganizationApprovalSettings $settings): array
   {
     $actionRules = [];
 
-    foreach (ApprovalActionTypes::all() as $actionType) {
+    foreach ($this->catalog->descriptors() as $descriptor) {
+      $actionType = $descriptor->value;
       $rule = $settings->ruleFor($actionType);
-      $minSeverity = $rule['minSeverity'] ?? (ApprovalActionTypes::NC_WAIVER === $actionType ? OrganizationApprovalDefaults::NC_WAIVER_MIN_SEVERITY : null);
+      $minSeverity = $rule['minSeverity'] ?? $descriptor->defaultMinSeverity;
 
       $actionRules[$actionType] = [
         'enabled' => $rule['enabled'],
@@ -113,18 +111,16 @@ final readonly class OrganizationApprovalPolicyAdapter implements ApprovalPolicy
   /**
    * Method disabledPolicy.
    *
-   * @static
-   *
    * @since 1.0.0
    *
    * @return ApprovalPolicy the permissive-off fallback policy
    */
-  private static function disabledPolicy(): ApprovalPolicy
+  private function disabledPolicy(): ApprovalPolicy
   {
     $actionRules = [];
 
-    foreach (ApprovalActionTypes::all() as $actionType) {
-      $actionRules[$actionType] = [
+    foreach ($this->catalog->descriptors() as $descriptor) {
+      $actionRules[$descriptor->value] = [
         'enabled' => false,
         'minApproverRole' => OrganizationApprovalDefaults::MIN_APPROVER_ROLE,
         'minSeverity' => null,

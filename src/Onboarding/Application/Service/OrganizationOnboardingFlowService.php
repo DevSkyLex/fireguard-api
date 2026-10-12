@@ -4,16 +4,15 @@ declare(strict_types=1);
 
 namespace Onboarding\Application\Service;
 
-use Equipment\Application\Port\Inbound\EquipmentAvailabilityPort;
-use Facility\Application\Port\Inbound\FacilityAvailabilityPort;
 use InvalidArgumentException;
 use LogicException;
 use Onboarding\Application\Contract\Organization\OnboardingOrganizationCandidate;
 use Onboarding\Application\Contract\Setup\OrganizationSetupConflict;
+use Onboarding\Application\Contract\Step\OrganizationOnboardingStepContext;
 use Onboarding\Application\Port\Inbound\Internal\OrganizationOnboardingServicePort;
 use Onboarding\Application\Port\Outbound\Internal\OrganizationOnboardingSessionRepositoryPort;
 use Onboarding\Domain\Event\OrganizationOnboardingSessionCompletedEvent;
-use Onboarding\Domain\Exception\{OnboardingStepNotExecutableException, UnsupportedOnboardingStepException};
+use Onboarding\Domain\Exception\OnboardingStepNotExecutableException;
 use Onboarding\Domain\Model\OrganizationOnboardingSession\{ComputedOnboardingState, OrganizationOnboardingSession};
 use Onboarding\Domain\Model\OrganizationOnboardingSession\RollbackAction\{DeleteOrganizationRollbackAction, RollbackActionInterface};
 use Onboarding\Domain\ValueObject\{
@@ -28,7 +27,6 @@ use Shared\Application\Port\Outbound\{EventDispatcherPort, TransactionManagerPor
 
 use function array_map;
 use function in_array;
-use function is_string;
 use function sprintf;
 
 /**
@@ -69,8 +67,7 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
    *
    * @param OrganizationOnboardingSessionRepositoryPort $sessionRepository session lookup and persistence
    * @param OrganizationOnboardingDirectoryPort $organizationDirectory scoped organization facts and canonical archive
-   * @param FacilityAvailabilityPort $facilities facility existence
-   * @param EquipmentAvailabilityPort $equipment equipment existence
+   * @param OrganizationOnboardingStepRegistry $steps owner-registered step definitions and execution
    * @param UuidGeneratorPort $uuidFactory creates onboarding session identifiers
    * @param TransactionManagerPort $transactionManager transaction boundary for session changes
    * @param EventDispatcherPort $eventDispatcher publishes completed-flow events
@@ -81,8 +78,7 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
   public function __construct(
     private OrganizationOnboardingSessionRepositoryPort $sessionRepository,
     private OrganizationOnboardingDirectoryPort $organizationDirectory,
-    private FacilityAvailabilityPort $facilities,
-    private EquipmentAvailabilityPort $equipment,
+    private OrganizationOnboardingStepRegistry $steps,
     private UuidGeneratorPort $uuidFactory,
     private TransactionManagerPort $transactionManager,
     private EventDispatcherPort $eventDispatcher,
@@ -170,9 +166,7 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
    */
   public function executeStep(string $userId, string $stepKey, ExecuteOnboardingStepPayload $input): OrganizationOnboardingSessionState
   {
-    if (!OrganizationOnboardingStep::isValid($stepKey)) {
-      throw UnsupportedOnboardingStepException::withStepKey($stepKey);
-    }
+    $this->steps->get($stepKey);
 
     $completionEvent = null;
 
@@ -268,7 +262,7 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
    *
    * Marks a non-required step as voluntarily skipped so the flow can advance
    * to completion without executing it. Whether a step is required is determined
-   * by {@see OrganizationOnboardingStep::isRequired()} — required steps cannot be skipped.
+   * by the owner's registered manifest; required steps cannot be skipped.
    *
    * @param string $userId the authenticated user identifier
    * @param string $stepKey the step to skip
@@ -280,11 +274,7 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
    */
   public function skipStep(string $userId, string $stepKey): OrganizationOnboardingSessionState
   {
-    if (!OrganizationOnboardingStep::isValid($stepKey)) {
-      throw UnsupportedOnboardingStepException::withStepKey($stepKey);
-    }
-
-    if (OrganizationOnboardingStep::isRequired($stepKey)) {
+    if ($this->steps->get($stepKey)::definition()->required) {
       throw new LogicException(sprintf('Step "%s" is required and cannot be skipped.', $stepKey));
     }
 
@@ -456,6 +446,7 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
     return OrganizationOnboardingSession::start(
       id: $this->uuidFactory->generate(),
       userId: $userId,
+      firstStep: $this->steps->keys()[0] ?? null,
     );
   }
 
@@ -463,7 +454,7 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
    * Method synchronizeSessionFromCurrentState.
    *
    * Resolves current flow state from authoritative module data and updates the session accordingly.
-   * Steps are processed in their canonical order defined by {@see OrganizationOnboardingStep::all()}.
+   * Steps follow the canonical order of their owner-registered manifests.
    *
    * @since 1.0.0
    *
@@ -494,7 +485,7 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
       $joinedOrganization = OnboardingTargetResolver::resolveAlreadyJoinedOrganization($session, $organizations);
 
       return $joinedOrganization instanceof OnboardingOrganizationCandidate
-        ? OnboardingTargetResolver::completeForAlreadyJoinedOrganization($session, $joinedOrganization)
+        ? OnboardingTargetResolver::completeForAlreadyJoinedOrganization($session, $joinedOrganization, $this->steps->keys())
         : $this->resetSessionWithoutTarget($session);
     }
 
@@ -551,17 +542,18 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
       $this->setupRepository?->saveOperations($session->id(), []);
     }
     $session->clearTargetOrganization();
-    foreach (OrganizationOnboardingStep::all() as $step) {
+    foreach ([...$session->completedSteps(), ...$session->skippedSteps()] as $step) {
       $session->markStepPending($step);
       $session->removeSkippedStep($step);
     }
     $session->clearStepHistory();
     $session->clearRollbackStack();
-    $session->setInProgress(OrganizationOnboardingStep::CREATE_ORGANIZATION);
+    $firstStep = $this->steps->keys()[0] ?? null;
+    $session->setInProgress($firstStep);
 
     return new ComputedOnboardingState(
       state: OrganizationOnboardingState::IN_PROGRESS,
-      nextStep: OrganizationOnboardingStep::CREATE_ORGANIZATION,
+      nextStep: $firstStep,
       blockedReason: null,
       targetOrganizationId: null,
       targetOrganizationName: null,
@@ -583,12 +575,12 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
   {
     $completedSteps = $session->completedSteps();
     $skippedSteps = $session->skippedSteps();
-    foreach (OrganizationOnboardingStep::all() as $step) {
+    foreach ($this->steps->definitions() as $definition) {
+      $step = $definition->key;
       if (in_array($step, $completedSteps, true)) {
         continue;
       }
-      // Creation requires explicit confirmation, even if marked skipped.
-      if (OrganizationOnboardingStep::CREATE_ORGANIZATION !== $step && in_array($step, $skippedSteps, true)) {
+      if (!$definition->required && in_array($step, $skippedSteps, true)) {
         continue;
       }
 
@@ -610,88 +602,28 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
    */
   private function applyStepExecution(OrganizationOnboardingSession $session, string $stepKey): void
   {
-    if (OrganizationOnboardingStep::CREATE_ORGANIZATION === $stepKey) {
-      $organizationId = $session->targetOrganizationId();
-      if (!is_string($organizationId) || '' === $organizationId) {
-        throw OnboardingStepNotExecutableException::noTargetOrganization();
-      }
-
-      $session->markStepCompleted(OrganizationOnboardingStep::CREATE_ORGANIZATION);
-      $session->removeSkippedStep(OrganizationOnboardingStep::CREATE_ORGANIZATION);
-      $session->pushRollbackAction(new DeleteOrganizationRollbackAction(
-        organizationId: $organizationId,
-      ));
-
-      return;
+    $contribution = $this->steps->get($stepKey);
+    $context = new OrganizationOnboardingStepContext(
+      sessionId: $session->id(),
+      userId: $session->userId(),
+      organizationId: $session->targetOrganizationId(),
+    );
+    if (OrganizationOnboardingStep::CREATE_ORGANIZATION === $stepKey && null === $context->organizationId) {
+      throw OnboardingStepNotExecutableException::noTargetOrganization();
     }
-
-    if (OrganizationOnboardingStep::SELECT_PLAN === $stepKey) {
-      // Plan selection is a confirmation step: subscribing to a paid plan happens
-      // out-of-band through Billing (hosted Checkout + webhook), and a new
-      // organization already defaults to the free plan. Confirming simply records
-      // that the user reviewed the plans; it carries no rollback action.
-      $session->markStepCompleted(OrganizationOnboardingStep::SELECT_PLAN);
-      $session->removeSkippedStep(OrganizationOnboardingStep::SELECT_PLAN);
-
-      return;
-    }
-
-    if (OrganizationOnboardingStep::INVITE_MEMBERS === $stepKey) {
-      $session->markStepCompleted(OrganizationOnboardingStep::INVITE_MEMBERS);
-      $session->removeSkippedStep(OrganizationOnboardingStep::INVITE_MEMBERS);
-
-      return;
-    }
-
-    // Auto-detected steps (create_first_facility, create_first_equipment):
-    // validate that the external action was actually completed before accepting
-    // the user's confirmation. This prevents advancing the flow when the required
-    // module data does not exist yet.
-    $orgId = $session->targetOrganizationId();
-    if (!is_string($orgId) || '' === $orgId) {
-      throw OnboardingStepNotExecutableException::noTargetOrganizationForStep($stepKey);
-    }
-
-    $stateExists = match ($stepKey) {
-      OrganizationOnboardingStep::CREATE_FIRST_FACILITY => $this->hasFacility($orgId),
-      OrganizationOnboardingStep::CREATE_FIRST_EQUIPMENT => $this->hasEquipment($orgId),
-      default => false,
-    };
-
-    if (!$stateExists) {
+    if (!$contribution->evaluate($context)) {
       throw OnboardingStepNotExecutableException::requiredActionNotCompleted($stepKey);
     }
-
+    $contribution->execute($context);
     $session->markStepCompleted($stepKey);
     $session->removeSkippedStep($stepKey);
-  }
-
-  /**
-   * Method hasFacility.
-   *
-   * @since 2.0.0
-   *
-   * @param string $organizationId the organization to check
-   *
-   * @return bool true when at least one facility exists
-   */
-  private function hasFacility(string $organizationId): bool
-  {
-    return $this->facilities->hasFacility($organizationId);
-  }
-
-  /**
-   * Method hasEquipment.
-   *
-   * @since 2.0.0
-   *
-   * @param string $organizationId the organization to check
-   *
-   * @return bool true when at least one equipment item exists
-   */
-  private function hasEquipment(string $organizationId): bool
-  {
-    return $this->equipment->hasEquipment($organizationId);
+    if (
+      OrganizationOnboardingStep::CREATE_ORGANIZATION === $stepKey
+      && $contribution::definition()->rollbackable
+      && null !== $context->organizationId
+    ) {
+      $session->pushRollbackAction(new DeleteOrganizationRollbackAction($context->organizationId));
+    }
   }
 
   /**
@@ -745,6 +677,7 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
       accessibleOrganizationId: $accessibleOrganizationId,
       sessionId: $session->id(),
       setupOperations: $this->setupRepository?->listOperations($session->id()) ?? [],
+      stepDefinitions: $this->steps->definitions(),
     );
   }
 

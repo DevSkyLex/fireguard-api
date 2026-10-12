@@ -21,6 +21,7 @@ use LogicException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Contract\Http\ResourceIriParser;
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
+use Shared\Application\Port\Outbound\Idempotency\HttpIdempotencyExecutionPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
@@ -101,6 +102,7 @@ final readonly class CanonicalEquipmentMutationProcessor implements ProcessorInt
    * @param InterventionResourcesPort $interventionResourceManager the intervention resource manager value
    * @param RevisionGuard $revisionGuard the revision guard value
    * @param MergePatchFields $mergePatchFields the merge patch fields value
+   * @param HttpIdempotencyExecutionPort|null $idempotency currently authorized completed replay state
    */
   public function __construct(
     private CommandBusPort $commandBus,
@@ -112,6 +114,7 @@ final readonly class CanonicalEquipmentMutationProcessor implements ProcessorInt
     private InterventionResourcesPort $interventionResourceManager,
     private RevisionGuard $revisionGuard,
     private MergePatchFields $mergePatchFields,
+    private ?HttpIdempotencyExecutionPort $idempotency = null,
   ) {
   }
   // #endregion
@@ -239,6 +242,10 @@ final readonly class CanonicalEquipmentMutationProcessor implements ProcessorInt
     $user = $this->security->getUser();
     if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
+    }
+    if ($this->idempotency?->isReplay()) {
+      // The boundary has freshly checked the receipt's original scope and permissions before restoring this precondition view.
+      return $user->getId();
     }
 
     try {

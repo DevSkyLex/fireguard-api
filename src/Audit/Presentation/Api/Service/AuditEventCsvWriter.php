@@ -5,12 +5,9 @@ declare(strict_types=1);
 namespace Audit\Presentation\Api\Service;
 
 use Audit\Application\Contract\AuditEventView;
+use Audit\Application\Service\AuditCsvLayout;
 
 use function fputcsv;
-use function json_encode;
-
-use const JSON_UNESCAPED_SLASHES;
-use const JSON_UNESCAPED_UNICODE;
 
 /**
  * Service AuditEventCsvWriter.
@@ -31,38 +28,6 @@ use const JSON_UNESCAPED_UNICODE;
  */
 final class AuditEventCsvWriter
 {
-  // #region Constants
-  /**
-   * Constant HEADER.
-   *
-   * @since 1.0.0
-   *
-   * @var list<string>
-   */
-  private const array HEADER = [
-    'id',
-    'action',
-    'actor_type',
-    'actor_id',
-    'actor_email',
-    'actor_email_hash',
-    'subject_type',
-    'subject_id',
-    'client_id',
-    'tenant_id',
-    'ip_address',
-    'ip_hash',
-    'user_agent',
-    'metadata',
-    'occurred_at',
-    'recorded_at',
-    'chain_id',
-    'sequence',
-    'prev_hash',
-    'event_hash',
-  ];
-  // #endregion
-
   // #region Methods
   /**
    * Method write.
@@ -76,50 +41,12 @@ final class AuditEventCsvWriter
    */
   public function write(iterable $rows, $handle): void
   {
-    fputcsv($handle, self::HEADER, escape: '\\');
+    fputcsv($handle, AuditCsvLayout::header(), escape: '\\');
 
     foreach ($rows as $view) {
-      fputcsv($handle, $this->toRow($view), escape: '\\');
+      fputcsv($handle, AuditCsvLayout::row($view), escape: '\\');
     }
   }
 
-  /**
-   * Method toRow.
-   *
-   * Maps a single audit event view to a CSV row. `metadata` (a JSON
-   * payload) is serialized to a single JSON string cell — CSV has no
-   * native nested structure.
-   *
-   * @since 1.0.0
-   *
-   * @param AuditEventView $view the audit event view
-   *
-   * @return list<string> the CSV row values
-   */
-  private function toRow(AuditEventView $view): array
-  {
-    return [
-      $view->id,
-      $view->action,
-      $view->actorType,
-      $view->actorId ?? '',
-      $view->actorEmail ?? '',
-      $view->actorEmailHash ?? '',
-      $view->subjectType ?? '',
-      $view->subjectId ?? '',
-      $view->clientId ?? '',
-      $view->tenantId ?? '',
-      $view->ipAddress ?? '',
-      $view->ipHash ?? '',
-      $view->userAgent ?? '',
-      (string) json_encode($view->metadata, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
-      $view->occurredAt,
-      $view->recordedAt,
-      $view->chainId,
-      (string) $view->sequence,
-      $view->prevHash ?? '',
-      $view->eventHash,
-    ];
-  }
   // #endregion
 }

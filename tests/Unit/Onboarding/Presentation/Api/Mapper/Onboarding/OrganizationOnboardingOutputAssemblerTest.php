@@ -191,7 +191,7 @@ final class OrganizationOnboardingOutputAssemblerTest extends TestCase
       nextStep: null,
       targetOrganizationId: $orgId,
       targetOrganizationName: 'Fireguard SAS',
-      completedSteps: OrganizationOnboardingStep::all(),
+      completedSteps: \Tests\Helper\Onboarding\RegisteredOrganizationOnboardingSteps::keys(),
       canRollback: false,
       lastRollbackableStep: null,
     );
@@ -253,6 +253,7 @@ final class OrganizationOnboardingOutputAssemblerTest extends TestCase
     // but completedSteps is empty. completedAt must be null — a pending/blocked step
     // must never expose a timestamp from a previous session lifecycle.
     $state = new OrganizationOnboardingSessionState(
+      stepDefinitions: \Tests\Helper\Onboarding\RegisteredOrganizationOnboardingSteps::definitions(),
       flow: 'organization',
       state: OrganizationOnboardingState::IN_PROGRESS,
       nextStep: OrganizationOnboardingStep::CREATE_ORGANIZATION,
@@ -287,6 +288,7 @@ final class OrganizationOnboardingOutputAssemblerTest extends TestCase
     $orgId = '550e8400-e29b-41d4-a716-446655440007';
 
     $state = new OrganizationOnboardingSessionState(
+      stepDefinitions: \Tests\Helper\Onboarding\RegisteredOrganizationOnboardingSteps::definitions(),
       flow: 'organization',
       state: OrganizationOnboardingState::IN_PROGRESS,
       nextStep: OrganizationOnboardingStep::INVITE_MEMBERS,
@@ -330,6 +332,7 @@ final class OrganizationOnboardingOutputAssemblerTest extends TestCase
     array $skippedSteps = [],
   ): OrganizationOnboardingSessionState {
     return new OrganizationOnboardingSessionState(
+      stepDefinitions: \Tests\Helper\Onboarding\RegisteredOrganizationOnboardingSteps::definitions(),
       flow: 'organization',
       state: $state,
       nextStep: $nextStep,

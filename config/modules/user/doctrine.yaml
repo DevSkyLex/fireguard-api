@@ -1,0 +1,11 @@
+doctrine:
+  orm:
+    entity_managers:
+      auth:
+        mappings:
+          User:
+            is_bundle: false
+            type: attribute
+            dir: '%kernel.project_dir%/src/User/Infrastructure/Persistence/Doctrine/Record'
+            prefix: 'User\Infrastructure\Persistence\Doctrine\Record'
+            alias: User

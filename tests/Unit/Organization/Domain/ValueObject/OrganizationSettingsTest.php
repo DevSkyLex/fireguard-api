@@ -105,7 +105,7 @@ final class OrganizationSettingsTest extends TestCase
   public function testWithComplianceReturnsNewImmutableInstance(): void
   {
     $settings = OrganizationSettings::default();
-    $updated = $settings->withCompliance(new OrganizationComplianceSettings(reminderWindowDays: 45));
+    $updated = $settings->withCompliance(new OrganizationComplianceSettings(reminderWindowDays: 45, defaultSlaDays: \Tests\Support\OrganizationCatalogTestFactory::complianceSlaDefaults(), defaultPeriodicities: \Tests\Support\OrganizationCatalogTestFactory::compliancePeriodicityDefaults()));
 
     self::assertNotSame($settings, $updated);
     self::assertSame(30, $settings->compliance->reminderWindowDays, 'original is unchanged');

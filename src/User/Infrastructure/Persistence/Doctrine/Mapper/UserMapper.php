@@ -9,6 +9,8 @@ use User\Domain\Model\User\{RestoredUserActivity, RestoredUserIdentity, Restored
 use User\Domain\ValueObject\{HashedPassword, Locale, UserId, UserProfile, UserStatus, Username};
 use User\Infrastructure\Persistence\Doctrine\Record\UserRecord;
 
+use function max;
+
 /**
  * Mapper UserMapper.
  *
@@ -51,6 +53,7 @@ final class UserMapper
     $record->locale = $user->locale()->value;
 
     $record->password = $user->hashedPassword()?->value;
+    $record->securityRevision = $user->securityRevision();
     $record->failedLoginAttempts = $user->failedLoginAttempts();
 
     return $record;
@@ -83,6 +86,7 @@ final class UserMapper
     $record->locale = $user->locale()->value;
 
     $record->password = $user->hashedPassword()?->value;
+    $record->securityRevision = max($record->securityRevision, $user->securityRevision());
     $record->failedLoginAttempts = $user->failedLoginAttempts();
   }
 
@@ -118,6 +122,7 @@ final class UserMapper
         emailVerified: $record->emailVerified,
         failedLoginAttempts: $record->failedLoginAttempts,
         emailOwnershipVerifiedAt: $record->emailOwnershipVerifiedAt,
+        securityRevision: $record->securityRevision,
       ),
       activity: new RestoredUserActivity(
         createdAt: $record->createdAt,

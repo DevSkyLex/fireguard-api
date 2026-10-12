@@ -10,26 +10,22 @@ use ApiPlatform\State\ProviderInterface;
 use ArrayIterator;
 use Auth\Application\Contract\User\AuthenticatedUser;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Application\UseCase\Query\Organization\ListOrganizationInvitations\{GetOrganizationInvitationResult, ListOrganizationInvitationsQuery};
+use Organization\Application\UseCase\Command\Organization\ListOrganizationInvitations\{ListOrganizationInvitationsCommand, ListOrganizationInvitationsResult};
+use Organization\Application\UseCase\Query\Organization\ListOrganizationInvitations\GetOrganizationInvitationResult;
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationInvitationOutput;
-use Shared\Application\Contract\Pagination\{PaginatedResult, Pagination};
-use Shared\Application\Contract\Pagination\PaginationExtractor;
+use Shared\Application\Contract\Pagination\{Pagination, PaginationExtractor};
 use Shared\Application\Contract\Search\{CollectionSearcher, SearchExtractor};
 use Shared\Application\Contract\Sorting\{CollectionSorter, SortingExtractor};
 use Shared\Application\Contract\Sorting\SortDirection;
-use Shared\Application\Port\Inbound\QueryBusPort;
+use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
-use Throwable;
-use User\Application\Port\Inbound\UserDirectoryPort;
 
 use function array_filter;
 use function array_slice;
-use function array_unique;
 use function array_values;
 use function count;
 use function is_string;
-use function trim;
 
 /**
  * Provider ListOrganizationInvitationsProvider.
@@ -52,15 +48,14 @@ final readonly class ListOrganizationInvitationsProvider implements ProviderInte
    *
    * @since 1.0.0
    *
-   * @param QueryBusPort $queryBus the query bus
+   * @param CommandBusPort $commandBus the owner transaction command bus
    * @param OrganizationAuthorizationPort $authorization the organization authorization port
    * @param Security $security the security service
    */
   public function __construct(
-    private QueryBusPort $queryBus,
+    private CommandBusPort $commandBus,
     private OrganizationAuthorizationPort $authorization,
     private Security $security,
-    private UserDirectoryPort $users,
   ) {
   }
   // #endregion
@@ -97,12 +92,14 @@ final readonly class ListOrganizationInvitationsProvider implements ProviderInte
 
     $pagination = PaginationExtractor::fromContext($context);
 
-    /** @var PaginatedResult<GetOrganizationInvitationResult> $result */
-    $result = $this->queryBus->ask(new ListOrganizationInvitationsQuery(
+    /** @var ListOrganizationInvitationsResult $listing */
+    $listing = $this->commandBus->dispatch(new ListOrganizationInvitationsCommand(
       organizationId: $organizationId,
+      userId: $user->getId(),
       pagination: new Pagination(offset: $pagination->offset, limit: $pagination->itemsPerPage),
     ));
-    $displayNameCache = $this->displayNamesForInviters($result);
+    $result = $listing->page;
+    $displayNameCache = $listing->inviterDisplayNames;
     $outputs = [];
     foreach ($result->items as $invitation) {
       $outputs[] = $this->mapToOutput($invitation, $displayNameCache);
@@ -133,37 +130,6 @@ final readonly class ListOrganizationInvitationsProvider implements ProviderInte
       itemsPerPage: (float) $pagination->itemsPerPage,
       totalItems: (float) $total,
     );
-  }
-
-  /**
-   * Method displayNamesForInviters.
-   *
-   * Resolves distinct inviter profiles once and keeps a missing-account fallback for the listing.
-   *
-   * @access private
-   *
-   * @param PaginatedResult<GetOrganizationInvitationResult> $result the authorized invitation page
-   *
-   * @return array<string, ?string> available display names keyed by account identifier
-   */
-  private function displayNamesForInviters(PaginatedResult $result): array
-  {
-    /** @var array<string, ?string> $displayNameCache */
-    $displayNameCache = [];
-    $userIds = [];
-    foreach ($result->items as $item) {
-      $userIds[] = $item->invitedByUserId;
-    }
-
-    try {
-      foreach ($this->users->findByIds(array_values(array_unique($userIds))) as $userId => $profile) {
-        $displayNameCache[$userId] = trim($profile->firstName . ' ' . $profile->lastName) ?: ($profile->username ?: null);
-      }
-    } catch (Throwable) {
-      $displayNameCache = [];
-    }
-
-    return $displayNameCache;
   }
 
   /**

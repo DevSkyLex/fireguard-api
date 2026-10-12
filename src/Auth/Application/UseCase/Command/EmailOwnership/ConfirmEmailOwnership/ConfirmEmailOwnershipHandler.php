@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Auth\Application\UseCase\Command\EmailOwnership\ConfirmEmailOwnership;
 
-use Auth\Domain\Exception\EmailOwnershipException;
 use Otp\Application\Port\Inbound\Challenge\EmailOwnershipChallengePort;
 use Shared\Application\Message\CommandHandler;
 use User\Application\Port\Inbound\EmailOwnershipPort;
@@ -44,7 +43,7 @@ final readonly class ConfirmEmailOwnershipHandler implements CommandHandler
     $owner = $this->ownership->get($command->userId);
     $result = $this->challenges->verify($owner->userId, $owner->email, $command->challengeToken, $command->code);
     if (!$result->success) {
-      throw new EmailOwnershipException();
+      return new ConfirmEmailOwnershipResult(false);
     }
     // Compare-and-set prevents an email change during OTP verification from proving the new address.
     $this->ownership->confirm($owner->userId, $owner->email);

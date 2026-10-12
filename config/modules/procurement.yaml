@@ -1,3 +1,7 @@
+imports:
+  - { resource: 'procurement/doctrine.yaml' }
+  - { resource: 'procurement/api_platform.yaml' }
+
 services:
   _defaults:
     autowire: true
@@ -30,3 +34,13 @@ services:
   Procurement\Infrastructure\Adapter\Reporting\ProcurementEconomicOverviewAdapter:
     arguments:
       $connection: '@doctrine.dbal.main_connection'
+
+  Procurement\Infrastructure\Adapter\Event\IntegrationEventConverterAdapter: ~
+
+  Procurement\Infrastructure\Adapter\Idempotency\ProcurementHttpIdempotencyOperationContributionAdapter:
+    tags: [http.idempotency_operation]
+
+  Procurement\Infrastructure\Adapter\Idempotency\ProcurementHttpIdempotencyReplayAuthorizationAdapter:
+    arguments:
+      $connection: '@doctrine.dbal.main_connection'
+    tags: [http.idempotency_replay_authorization]

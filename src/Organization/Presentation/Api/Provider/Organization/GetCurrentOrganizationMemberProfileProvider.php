@@ -7,7 +7,7 @@ namespace Organization\Presentation\Api\Provider\Organization;
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
 use Auth\Application\Contract\User\AuthenticatedUser;
-use Organization\Application\Contract\Authorization\OrganizationPermissionCatalog;
+use Organization\Application\Port\Inbound\OrganizationPermissionCatalogPort;
 use Organization\Application\UseCase\Query\Organization\GetCurrentOrganizationMemberProfile\{
   GetCurrentOrganizationMemberProfileQuery,
   GetCurrentOrganizationMemberProfileResult
@@ -51,6 +51,7 @@ final readonly class GetCurrentOrganizationMemberProfileProvider implements Prov
   public function __construct(
     private QueryBusPort $queryBus,
     private Security $security,
+    private OrganizationPermissionCatalogPort $permissionCatalog,
   ) {
   }
   // #endregion
@@ -89,16 +90,16 @@ final readonly class GetCurrentOrganizationMemberProfileProvider implements Prov
     $output->isActive = $result->isActive;
     $output->joinedAt = $result->joinedAt->format('c');
     $output->roles = array_map(
-      static function ($role): OrganizationRoleOutput {
+      function ($role): OrganizationRoleOutput {
         $output = new OrganizationRoleOutput();
         $output->id = $role->id;
         $output->organizationId = $role->organizationId;
         $output->name = $role->name;
         $output->permissions = array_map(
-          static function (string $permissionName): OrganizationPermissionOutput {
+          function (string $permissionName): OrganizationPermissionOutput {
             $permission = new OrganizationPermissionOutput();
             $permission->name = $permissionName;
-            $permission->description = OrganizationPermissionCatalog::descriptionFor($permissionName);
+            $permission->description = $this->permissionCatalog->descriptionFor($permissionName);
 
             return $permission;
           },
@@ -114,10 +115,10 @@ final readonly class GetCurrentOrganizationMemberProfileProvider implements Prov
       $result->roles,
     );
     $output->permissions = array_map(
-      static function (string $permissionName): OrganizationPermissionOutput {
+      function (string $permissionName): OrganizationPermissionOutput {
         $permission = new OrganizationPermissionOutput();
         $permission->name = $permissionName;
-        $permission->description = OrganizationPermissionCatalog::descriptionFor($permissionName);
+        $permission->description = $this->permissionCatalog->descriptionFor($permissionName);
 
         return $permission;
       },

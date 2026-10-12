@@ -63,7 +63,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       openapi: new Operation(
         tags: ['Onboarding'],
         summary: 'Get organization onboarding flow',
-        description: 'Returns persisted onboarding progression for organization setup and exposes actionable endpoints for each step.',
+        description: 'Initializes or synchronizes persisted onboarding progression for organization setup and exposes actionable endpoints for each step. Retries retain the same Idempotency-Key as the original request.',
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Onboarding flow retrieved'),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(description: self::AUTHENTICATION_REQUIRED_DESCRIPTION),

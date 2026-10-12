@@ -55,7 +55,7 @@ final class ImportConfirmationConcurrencyTest extends KernelTestCase
     $sender->setup();
     $this->sender = $sender;
     $this->clean();
-    $source = ImportJob::create(ImportJobId::fromString(self::SOURCE), 'org', ImportKind::FACILITY, 'retained.csv', 'facilities.csv', 'uploader', true);
+    $source = ImportJob::create(ImportJobId::fromString(self::SOURCE), 'org', ImportKind::from('facility'), 'retained.csv', 'facilities.csv', 'uploader', true);
     $now = new DateTimeImmutable();
     $source->markProcessing($now);
     $source->setTotalRows(1);
@@ -151,6 +151,6 @@ final class ImportConfirmationConcurrencyTest extends KernelTestCase
     $clock = $this->createStub(ClockPort::class);
     $clock->method('now')->willReturn(new DateTimeImmutable());
 
-    return new ConfirmImportSimulationHandler(new ImportJobRepository($em), $authorization, new PostgresImportConfirmationLockAdapter($em), $queue, $files, $ids, $clock);
+    return new ConfirmImportSimulationHandler(new ImportJobRepository($em), $authorization, new PostgresImportConfirmationLockAdapter($em), $queue, $files, $ids, $clock, \Tests\Support\Import\BuiltinImportProcessors::create());
   }
 }

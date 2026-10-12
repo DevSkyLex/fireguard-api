@@ -8,7 +8,6 @@ use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Inspection\Infrastructure\Adapter\Messaging\InspectionMessagingSubjectResolverAdapter;
 use Inspection\Infrastructure\Persistence\Doctrine\Record\{InspectionRecord, NonConformityRecord};
-use Messaging\Application\Contract\Subject\MessagingSubjectType;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
@@ -30,12 +29,13 @@ final class InspectionMessagingSubjectResolverAdapterTest extends TestCase
   private const string NON_CONFORMITY_ID = '550e8400-e29b-41d4-a716-446655440002';
 
   #[Test]
-  public function testSupportsOnlyNonConformitySubjectType(): void
+  public function testPublishesTheSubjectDescriptor(): void
   {
     $adapter = new InspectionMessagingSubjectResolverAdapter($this->createStub(EntityManagerInterface::class));
 
-    self::assertTrue($adapter->supports(MessagingSubjectType::NON_CONFORMITY));
-    self::assertFalse($adapter->supports(MessagingSubjectType::FACILITY));
+    self::assertSame('non_conformity', $adapter->descriptor()->type);
+    self::assertSame('non-conformities', $adapter->descriptor()->resourceSegment);
+    self::assertSame('organization.inspection.read', $adapter->descriptor()->requiredReadPermission);
   }
 
   #[Test]

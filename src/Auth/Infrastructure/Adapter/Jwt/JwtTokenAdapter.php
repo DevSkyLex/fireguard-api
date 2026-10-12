@@ -6,7 +6,7 @@ namespace Auth\Infrastructure\Adapter\Jwt;
 
 use Auth\Application\Contract\Token\SignInGrantType;
 use Auth\Application\Port\Outbound\JwtTokenServicePort;
-use Authorization\Application\Port\Inbound\AuthorizationPort;
+use Authorization\Application\Port\Inbound\{AuthorizationPort, UserGrantSnapshotPort};
 use DateInterval;
 use DateTimeImmutable;
 use InvalidArgumentException;
@@ -16,6 +16,7 @@ use Lcobucci\JWT\Signer\Rsa\Sha256;
 use League\OAuth2\Server\CryptTrait;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Throwable;
+use User\Application\Port\Inbound\UserSecurityRevisionPort;
 
 use function array_key_exists;
 use function bin2hex;
@@ -142,6 +143,8 @@ final class JwtTokenAdapter implements JwtTokenServicePort
     bool $includeEmailClaim = true,
     #[Autowire('%env(bool:ACCESS_TOKEN_INCLUDE_RBAC)%')]
     bool $includeRbacClaims = true,
+    private readonly ?UserGrantSnapshotPort $grantSnapshots = null,
+    private readonly ?UserSecurityRevisionPort $securityProofs = null,
   ) {
     $this->setEncryptionKey(key: $encryptionKey);
     $this->refreshTokenTtlShort = $refreshTokenTtlShort ?? $this->refreshTokenTtl;
@@ -201,8 +204,15 @@ final class JwtTokenAdapter implements JwtTokenServicePort
     }
 
     if ($this->includeRbacClaims && null !== $this->authorizationService) {
-      $roles = $this->authorizationService->getUserRoleNames(userId: $userId);
-      $permissions = $this->authorizationService->getUserPermissionNames(userId: $userId);
+      if (null !== $this->grantSnapshots && null !== $this->securityProofs) {
+        $user = $this->securityProofs->current($userId) ?? throw new InvalidArgumentException('Session account is unavailable.');
+        $snapshot = $this->grantSnapshots->current($userId, $user->tenantId);
+        $roles = $snapshot->roles;
+        $permissions = $snapshot->permissions;
+      } else {
+        $roles = $this->authorizationService->getUserRoleNames(userId: $userId);
+        $permissions = $this->authorizationService->getUserPermissionNames(userId: $userId);
+      }
       $accessTokenBuilder = $accessTokenBuilder
         ->withClaim('roles', $roles)
         ->withClaim('permissions', $permissions);

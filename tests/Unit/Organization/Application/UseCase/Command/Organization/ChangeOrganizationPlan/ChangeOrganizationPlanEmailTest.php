@@ -10,7 +10,6 @@ use Notification\Application\Contract\Notification\NotificationType;
 use Notification\Application\Service\NotificationService;
 use Notification\Application\UseCase\Command\Notification\SendNotification\SendNotificationHandler;
 use Notification\Infrastructure\Adapter\Channel\EmailNotificationChannelAdapter;
-use Organization\Application\Contract\Quota\OrganizationQuotaResource;
 use Organization\Application\Port\Inbound\OrganizationQuotaPort;
 use Organization\Application\Port\Outbound\Internal\{OrganizationRepositoryPort, PlanRepositoryPort};
 use Organization\Application\UseCase\Command\Organization\ChangeOrganizationPlan\{ChangeOrganizationPlanCommand, ChangeOrganizationPlanHandler};
@@ -57,7 +56,7 @@ final class ChangeOrganizationPlanEmailTest extends TestCase
     $planRepository = $this->createMock(PlanRepositoryPort::class);
     $planRepository->expects(self::once())->method('findById')->with(new PlanId($planId))->willReturn($plan);
     $quota = $this->createMock(OrganizationQuotaPort::class);
-    $quota->expects(self::once())->method('getUsage')->with($organizationId, OrganizationQuotaResource::MEMBERS)->willReturn(60);
+    $quota->expects(self::once())->method('getUsage')->with($organizationId, 'members')->willReturn(60);
     $transactionManager = $this->createMock(TransactionManagerPort::class);
     $transactionManager->expects(self::once())->method('transactional')
       ->willReturnCallback(static fn (callable $operation): mixed => $operation());
@@ -74,6 +73,7 @@ final class ChangeOrganizationPlanEmailTest extends TestCase
       quota: $quota,
       transactionManager: $transactionManager,
       eventDispatcher: $eventDispatcher,
+      quotaCatalog: \Tests\Support\OrganizationCatalogTestFactory::quota(),
     );
 
     $result = $handler(new ChangeOrganizationPlanCommand(

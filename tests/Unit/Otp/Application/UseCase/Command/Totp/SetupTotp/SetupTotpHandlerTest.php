@@ -57,7 +57,7 @@ final class SetupTotpHandlerTest extends TestCase
           && $secret->secret === $enrollment->pendingSecret()?->secret;
       }));
 
-    $handler = new SetupTotpHandler(totpService: $totpService, enrollmentRepository: $enrollmentRepository, accountStatus: $this->activeAccount());
+    $handler = new SetupTotpHandler(totpService: $totpService, enrollmentRepository: $enrollmentRepository, accountStatus: $this->activeAccount(), securityRevision: $this->createStub(\User\Application\Port\Inbound\UserSecurityRevisionPort::class), rootTransaction: new \Tests\Support\Shared\ImmediateRootTransactionManager());
 
     $command = new SetupTotpCommand(
       userId: 'user-123',
@@ -104,7 +104,7 @@ final class SetupTotpHandlerTest extends TestCase
           && $newSecret->secret === $enrollment->pendingSecret()?->secret;
       }));
 
-    $handler = new SetupTotpHandler(totpService: $totpService, enrollmentRepository: $enrollmentRepository, accountStatus: $this->activeAccount());
+    $handler = new SetupTotpHandler(totpService: $totpService, enrollmentRepository: $enrollmentRepository, accountStatus: $this->activeAccount(), securityRevision: $this->createStub(\User\Application\Port\Inbound\UserSecurityRevisionPort::class), rootTransaction: new \Tests\Support\Shared\ImmediateRootTransactionManager());
 
     $handler->__invoke(new SetupTotpCommand(userId: 'user-123', accountName: 'test@example.com'));
   }
@@ -120,7 +120,7 @@ final class SetupTotpHandlerTest extends TestCase
     $service = $this->createStub(TotpServicePort::class);
     $service->method('generateSecret')->willReturn(new TotpSecret('AAAAAAAAAAAAAAAA'));
     $service->method('getProvisioningUri')->willReturn('otpauth://totp/test');
-    $handler = new SetupTotpHandler($service, $repository, $this->activeAccount());
+    $handler = new SetupTotpHandler($service, $repository, $this->activeAccount(), securityRevision: $this->createStub(\User\Application\Port\Inbound\UserSecurityRevisionPort::class), rootTransaction: new \Tests\Support\Shared\ImmediateRootTransactionManager());
     $this->expectException(\Shared\Domain\Exception\DomainException::class);
     $handler->__invoke(new SetupTotpCommand('user-123', 'test@example.com'));
   }
@@ -145,7 +145,7 @@ final class SetupTotpHandlerTest extends TestCase
     $repository->expects(self::never())->method('save');
     $service = $this->createMock(TotpServicePort::class);
     $service->expects(self::never())->method('generateSecret');
-    $handler = new SetupTotpHandler($service, $repository, $status);
+    $handler = new SetupTotpHandler($service, $repository, $status, securityRevision: $this->createStub(\User\Application\Port\Inbound\UserSecurityRevisionPort::class), rootTransaction: new \Tests\Support\Shared\ImmediateRootTransactionManager());
     $this->expectException(TotpEnrollmentUnavailableException::class);
     $handler->__invoke(new SetupTotpCommand('user-123', 'test@example.com'));
   }
@@ -160,7 +160,7 @@ final class SetupTotpHandlerTest extends TestCase
     $repository->expects(self::never())->method('save');
     $service = $this->createMock(TotpServicePort::class);
     $service->expects(self::never())->method('generateSecret');
-    $handler = new SetupTotpHandler($service, $repository, $status);
+    $handler = new SetupTotpHandler($service, $repository, $status, securityRevision: $this->createStub(\User\Application\Port\Inbound\UserSecurityRevisionPort::class), rootTransaction: new \Tests\Support\Shared\ImmediateRootTransactionManager());
     $this->expectException(RuntimeException::class);
     $handler->__invoke(new SetupTotpCommand('user-123', 'test@example.com'));
   }

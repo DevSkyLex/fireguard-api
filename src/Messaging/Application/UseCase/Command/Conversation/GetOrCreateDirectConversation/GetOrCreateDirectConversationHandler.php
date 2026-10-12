@@ -90,7 +90,7 @@ final readonly class GetOrCreateDirectConversationHandler implements CommandHand
 
     $view = $this->conversations->getOrCreate(
       $command->organizationId,
-      MessagingSubjectType::DIRECT,
+      MessagingSubjectType::from(MessagingSubjectType::DIRECT),
       $subjectId,
       ConversationVisibility::PARTICIPANTS,
     );

@@ -9,7 +9,7 @@ use OAuth\Domain\Model\Client\Client;
 use OAuth\Domain\ValueObject\Client\{ClientId, ClientName, ClientSecret};
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\{EventBusPort, HashingPort};
-use Shared\Application\Port\Outbound\UuidGeneratorPort;
+use Shared\Application\Port\Outbound\{TransactionManagerPort, UuidGeneratorPort};
 use Shared\Domain\Service\EventIdProvider;
 
 use function bin2hex;
@@ -46,6 +46,7 @@ final readonly class RegisterClientHandler implements CommandHandler
     private readonly HashingPort $hashing,
     private readonly EventBusPort $eventBus,
     private readonly EventIdProvider $eventIdProvider,
+    private ?TransactionManagerPort $transactionManager = null,
   ) {
   }
   // #endregion
@@ -63,6 +64,15 @@ final readonly class RegisterClientHandler implements CommandHandler
    * @return RegisterClientResult the result message
    */
   public function __invoke(RegisterClientCommand $command): RegisterClientResult
+  {
+    if (null === $this->transactionManager) {
+      return $this->execute($command);
+    }
+
+    return $this->transactionManager->transactional(fn (): RegisterClientResult => $this->execute($command));
+  }
+
+  private function execute(RegisterClientCommand $command): RegisterClientResult
   {
     // Generate client ID using factory
     $clientId = new ClientId($this->uuidFactory->generate());
@@ -98,6 +108,7 @@ final readonly class RegisterClientHandler implements CommandHandler
     return new RegisterClientResult(
       clientId: $clientId->value,
       clientSecret: $plainSecret,
+      createdAt: $client->createdAt()->format('Y-m-d H:i:s'),
     );
   }
   // #endregion

@@ -11,7 +11,7 @@ use Symfony\Component\Validator\Constraints as Assert;
  *
  * A single `{type, id, label?, code?}` structured reference (B3), embedded
  * in `PostMessageInput`/`EditMessageInput`'s `references` list. Shape
- * validation only (type whitelist, non-blank id, bounded lengths) — the
+ * validation only (subject key syntax, non-blank id, bounded lengths) — the
  * command handler additionally validates org-scoped EXISTENCE through the
  * `messaging.subject_resolver` seam.
  *
@@ -28,7 +28,7 @@ final class MessageReferenceInput
    * @since 1.0.0
    */
   #[Assert\NotBlank]
-  #[Assert\Choice(choices: ['non_conformity', 'intervention', 'facility', 'equipment'])]
+  #[Assert\Regex(pattern: '/\A[a-z][a-z0-9_]{0,31}\z/D')]
   public string $type = '';
 
   /**

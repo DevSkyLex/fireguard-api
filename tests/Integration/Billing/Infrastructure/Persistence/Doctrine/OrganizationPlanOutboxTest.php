@@ -70,7 +70,7 @@ final class OrganizationPlanOutboxTest extends KernelTestCase
     $this->receiver = $this->transport($this->reader);
     $this->sender->setup();
     $this->clearRows();
-    new OrganizationRepository($this->entityManager)->save(Organization::create(new OrganizationId(self::ORGANIZATION), new OrganizationName('Transactional plan'), self::OWNER));
+    new OrganizationRepository($this->entityManager, \Tests\Support\OrganizationCatalogTestFactory::settingsPolicies())->save(Organization::create(new OrganizationId(self::ORGANIZATION), new OrganizationName('Transactional plan'), self::OWNER));
   }
 
   protected function tearDown(): void
@@ -142,7 +142,7 @@ final class OrganizationPlanOutboxTest extends KernelTestCase
   #[Test]
   public function lateLogoFailureRollsBackMetadataAndCleanupWhilePreservingThePreviousBytes(): void
   {
-    $repository = new OrganizationRepository($this->entityManager);
+    $repository = new OrganizationRepository($this->entityManager, \Tests\Support\OrganizationCatalogTestFactory::settingsPolicies());
     $organization = $repository->findById(new OrganizationId(self::ORGANIZATION));
     self::assertNotNull($organization);
     $organization->setLogoUrl('https://app.test/api/organizations/' . self::ORGANIZATION . '/logo.webp?v=1726000000');
@@ -192,7 +192,7 @@ final class OrganizationPlanOutboxTest extends KernelTestCase
     $ids = $this->createStub(UuidGeneratorPort::class);
     $ids->method('generate')->willReturnOnConsecutiveCalls('bd000000-0000-4000-8000-000000000084', 'bd000000-0000-4000-8000-000000000085');
 
-    return new ChangeOrganizationPlanHandler(new OrganizationRepository($this->entityManager), $plans, $quota, new DoctrineTransactionManagerAdapter($this->entityManager), new TransactionalEventDispatcher($this->writer, $this->sender, $ids, $this->createStub(CurrentActorPort::class)));
+    return new ChangeOrganizationPlanHandler(new OrganizationRepository($this->entityManager, \Tests\Support\OrganizationCatalogTestFactory::settingsPolicies()), $plans, $quota, new DoctrineTransactionManagerAdapter($this->entityManager), new TransactionalEventDispatcher($this->writer, $this->sender, $ids, $this->createStub(CurrentActorPort::class)), \Tests\Support\OrganizationCatalogTestFactory::quota());
   }
 
   private function transport(Connection $connection): DoctrineTransport

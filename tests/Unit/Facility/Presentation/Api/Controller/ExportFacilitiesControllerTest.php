@@ -9,14 +9,13 @@ use Facility\Application\Contract\Export\FacilityExportRow;
 use Facility\Application\UseCase\Query\ExportFacilities\ExportFacilitiesResult;
 use Facility\Domain\Exception\{FacilityAccessDeniedException, FacilityExportTooLargeException, FacilityNotFoundException};
 use Facility\Presentation\Api\Controller\ExportFacilitiesController;
-use Facility\Presentation\Api\Service\{FacilityCsvWriter, FacilityExportCriteriaFactory};
+use Facility\Presentation\Api\Service\FacilityExportCriteriaFactory;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Shared\Application\Port\Outbound\EventDispatcherPort;
-use Shared\Infrastructure\Csv\SpreadsheetSafeTextAdapter;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, StreamedResponse};
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException, UnprocessableEntityHttpException};
@@ -39,6 +38,8 @@ use function ob_start;
 #[CoversClass(ExportFacilitiesController::class)]
 final class ExportFacilitiesControllerTest extends TestCase
 {
+  use \Tests\Support\Export\ExportArtifactCommandBusTrait;
+
   private const string USER_ID = '550e8400-e29b-41d4-a716-446655508001';
 
   private const string ORGANIZATION_ID = '550e8400-e29b-41d4-a716-446655508002';
@@ -115,10 +116,9 @@ final class ExportFacilitiesControllerTest extends TestCase
     $queryBus->expects(self::never())->method('ask');
 
     $controller = new ExportFacilitiesController(
-      queryBus: $queryBus,
+      commands: $this->facilityExportCommands($queryBus),
       security: $security,
       criteriaFactory: new FacilityExportCriteriaFactory(),
-      csvWriter: new FacilityCsvWriter(new SpreadsheetSafeTextAdapter()),
     );
 
     $this->expectException(AccessDeniedHttpException::class);
@@ -191,10 +191,9 @@ final class ExportFacilitiesControllerTest extends TestCase
     ));
 
     return new ExportFacilitiesController(
-      queryBus: $queryBus,
+      commands: $this->facilityExportCommands($queryBus),
       security: $security,
       criteriaFactory: new FacilityExportCriteriaFactory(),
-      csvWriter: new FacilityCsvWriter(new SpreadsheetSafeTextAdapter()),
     );
   }
 }

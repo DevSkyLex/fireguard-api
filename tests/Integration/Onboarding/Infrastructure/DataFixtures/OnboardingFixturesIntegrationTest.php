@@ -8,7 +8,7 @@ use Doctrine\Common\DataFixtures\Executor\ORMExecutor;
 use Doctrine\Common\DataFixtures\Loader;
 use Doctrine\Common\DataFixtures\Purger\ORMPurger;
 use Doctrine\ORM\EntityManagerInterface;
-use Onboarding\Domain\ValueObject\{OrganizationOnboardingState, OrganizationOnboardingStep};
+use Onboarding\Domain\ValueObject\OrganizationOnboardingState;
 use Onboarding\Infrastructure\DataFixtures\OnboardingFixtures;
 use Onboarding\Infrastructure\Persistence\Doctrine\Record\OrganizationOnboardingSessionRecord;
 use Organization\Infrastructure\DataFixtures\OrganizationFixtures;
@@ -67,7 +67,7 @@ final class OnboardingFixturesIntegrationTest extends KernelTestCase
     self::assertNull($session->nextStep);
     self::assertSame(OrganizationFixtures::ORGANIZATION_ID, $session->targetOrganizationId);
     self::assertSame('Fireguard Seed Organization', $session->targetOrganizationName);
-    self::assertSame(OrganizationOnboardingStep::all(), $session->completedSteps);
+    self::assertSame(\Tests\Helper\Onboarding\RegisteredOrganizationOnboardingSteps::keys(), $session->completedSteps);
     self::assertCount(4, $session->stepHistory);
   }
 }

@@ -45,7 +45,7 @@ final class GetConversationProviderTest extends TestCase
         && self::CONVERSATION_ID === $query->conversationId))
       ->willReturn(new GetConversationResult($this->view(), 'Site nord', 3, true));
 
-    $provider = new GetConversationProvider($queryBus, new ConversationOutputFactory(), $this->securityWithUser());
+    $provider = new GetConversationProvider($queryBus, new ConversationOutputFactory(\Tests\Support\Messaging\MessagingSubjectCatalog::create()), $this->securityWithUser());
 
     $output = $provider->provide(new Get(), ['id' => self::CONVERSATION_ID]);
 
@@ -58,7 +58,7 @@ final class GetConversationProviderTest extends TestCase
   #[Test]
   public function testProvideThrowsWhenIdIsMissing(): void
   {
-    $provider = new GetConversationProvider($this->createStub(QueryBusPort::class), new ConversationOutputFactory(), $this->securityWithUser());
+    $provider = new GetConversationProvider($this->createStub(QueryBusPort::class), new ConversationOutputFactory(\Tests\Support\Messaging\MessagingSubjectCatalog::create()), $this->securityWithUser());
 
     $this->expectException(BadRequestHttpException::class);
 
@@ -71,7 +71,7 @@ final class GetConversationProviderTest extends TestCase
     $queryBus = $this->createStub(QueryBusPort::class);
     $queryBus->method('ask')->willThrowException(MessagingNotFoundException::conversation(self::CONVERSATION_ID));
 
-    $provider = new GetConversationProvider($queryBus, new ConversationOutputFactory(), $this->securityWithUser());
+    $provider = new GetConversationProvider($queryBus, new ConversationOutputFactory(\Tests\Support\Messaging\MessagingSubjectCatalog::create()), $this->securityWithUser());
 
     $this->expectException(NotFoundHttpException::class);
 
@@ -84,7 +84,7 @@ final class GetConversationProviderTest extends TestCase
     $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn(null);
 
-    $provider = new GetConversationProvider($this->createStub(QueryBusPort::class), new ConversationOutputFactory(), $security);
+    $provider = new GetConversationProvider($this->createStub(QueryBusPort::class), new ConversationOutputFactory(\Tests\Support\Messaging\MessagingSubjectCatalog::create()), $security);
 
     $this->expectException(AccessDeniedHttpException::class);
 

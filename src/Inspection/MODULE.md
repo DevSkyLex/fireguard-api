@@ -103,8 +103,8 @@ Two streamed, synchronous CSV export endpoints — `GET .../inspections/export` 
 `GET .../non-conformities/export` — mirroring the canonical pattern
 `Intervention\...\ExportInterventionsController` established: an invokable API
 Platform controller (`read`/`write`/`serialize`/`deserialize`/`output` all
-disabled on the `Get` operation), a query-bus round trip to a dedicated export
-handler, and a `StreamedResponse` with `Content-Type: text/csv; charset=utf-8`,
+disabled on the `Get` operation), a typed command whose owning main transaction
+reads and renders the complete document, and a `StreamedResponse` with `Content-Type: text/csv; charset=utf-8`,
 `Content-Disposition: attachment`, and `X-Accel-Buffering: no`. No 202+poll —
 both are bounded and fast enough to answer inline.
 
@@ -151,8 +151,8 @@ equipment, checklist, performed_at, non_conformities_open,
 non_conformities_total, created_at, updated_at`.
   - Non-conformities (`NonConformityCsvWriter::HEADER`): `id, severity, status,
 age_in_days, facility, equipment, inspection_id, created_at, resolved_at`.
-- **Audit**: each controller dispatches its own domain event after a
-  successful export — `Inspection\Domain\Event\Export\InspectionsExportedEvent`
+- **Audit**: each export command records its own domain event in the main outbox
+  before the transaction that captures the original document commits — `Inspection\Domain\Event\Export\InspectionsExportedEvent`
   / `NonConformitiesExportedEvent` — carrying `organizationId`, `actorUserId`,
   `format` (`csv`), `rowCount`, and `filterKeys` (names only, never values).
   Centralized audit wiring (`Audit\...\AuditEventSubscriber`) is untouched by
@@ -187,7 +187,7 @@ regional date formatting, dompdf renderer adapters with `isRemoteEnabled`/
   presentation shaping. Inherits the CSV export's 422 row cap.
 
 **Decision — entitlement gate.** Both reports are reserved to the `pro`/`max`
-plans, exactly like the Compliance safety register: the controllers check
+plans, exactly like the Compliance safety register: the export handlers and fresh HTTP replay gate check
 `InspectionReportEntitlementPort` (aliased to the SAME Organization adapter,
 `OrganizationExportEntitlementAdapter`, so the plan allow-list lives in one
 place) and answer a dedicated **403** (`InspectionReportNotEntitledException::planTooLow`)
@@ -199,8 +199,8 @@ align on the gated register, not on it.
 Authorization mirrors the CSV exports: `resolveAccess()` with
 `organization.inspection.read`, `OUTSIDE_SCOPE` → **404**,
 `MISSING_PERMISSION` → **403**, entitlement checked only after that split so
-an outsider never learns the route exists. Each export dispatches its audit
-event (`inspection.report_exported` with the plan key;
+an outsider never learns the route exists. Each export command records its audit
+event before the same main commit (`inspection.report_exported` with the plan key;
 `inspection.non_conformities_report_exported` with row count + filter _names_
 
 - plan key), wired centrally in `Audit\...\AuditEventSubscriber`. The single
@@ -770,13 +770,13 @@ Cross-module contracts and lifecycle invariants:
 - **Calendar unified feed**:
   `Inspection\Infrastructure\Adapter\Calendar\InspectionCalendarFeedAdapter`
   implements the Calendar module's
-  `Calendar\Application\Port\Outbound\Feed\InspectionCalendarFeedPort`
-  (`findBetween(organizationId, from, to, limit)`), reusing
+  `Calendar\Application\Port\Outbound\Feed\CalendarFeedSourcePort`
+  (`sourceKey(): 'inspection'`, `findBetween(organizationId, from, to, limit)`), reusing
   `InspectionRepositoryPort::findByOrganizationId()` (already filters to
   `recordStatus = 'published'`, and already supports the `performedAt`
   range + sort + hard-limit needed here) rather than a new query. Registered
-  in `config/modules/inspection.yaml`; aliased in
-  `config/modules/calendar.yaml`. See `src/Calendar/MODULE.md`.
+  in `config/modules/inspection.yaml` with the `calendar.feed_source` tag
+  (priority 300), collected by Calendar's registry. See `src/Calendar/MODULE.md`.
 - **Assistant business-context provider (L2.2)**:
   `Inspection\Infrastructure\Adapter\Assistant\InspectionAssistantContextProviderAdapter`
   implements the Assistant module's `assistant.context_provider` tagged-
@@ -1208,3 +1208,43 @@ Maintenance can recover a missed closure synchronization through its published
 `MaintenanceInspectionHistoryPort`, implemented here. Only closed, published inspections
 within the requested organization/equipment scope contribute; closure time uses the same
 immutable `updatedAt` instant passed by CloseInspection. Draft inspections are excluded.
+
+## Durable HTTP mutation replay
+
+An authorized canonical PATCH or DELETE replay uses the original precondition projection
+and committed result even after its preparing intervention advances. The owner rechecks
+current grants and required execution participation before opening that result; the
+processor does not repeat the lifecycle precondition for a mutation already committed.
+New or unkeyed mutations continue to enforce the current parent lifecycle.
+Their pre-dispatch permission check reads the same-organization parent without a
+write lock; pessimistic write locks belong to the owning command transaction.
+
+Every HTTP mutation publishes an explicit module-owned idempotency operation and immutable
+application result schema. The receipt commits with the owning main-database mutation and
+outbox. Media handlers retain their final transaction boundary; upload processing does not
+run under a parent HTTP transaction.
+
+Before any replay result is opened, the owner reads current scalar scope on the explicitly
+selected main connection and checks fresh organization grants. Global resource deletions
+retain signed original organization evidence so a completed deletion can replay after the
+row disappears. Saved response projections preserve the original result rather than reading
+later modified state. Intervention-derived operations also recheck current participation and
+assignment through the published fresh owner capability.
+
+
+### Durable effectful document GETs
+
+The four CSV/PDF export GET operations declare typed main-owned commands and require an
+`Idempotency-Key` when mandatory-header enforcement is enabled. Rendering, original base64
+bytes, filename/MIME metadata, receipt and main audit outbox intent share the final main
+transaction. Authorized replay reconstructs those original bytes and headers without reading
+later inspection data or rendering again. Existing filters, 50,000-row caps, CSV columns,
+PDF layout and status remain unchanged. A native main transaction also protects unkeyed
+compatibility calls when staged enforcement is disabled.
+
+Current organization membership and `organization.inspection.read` are rechecked before
+opening the receipt. Single-inspection reports additionally resolve the current owning scope;
+both PDFs recheck the current `pro`/`max` entitlement. Revoked READ or entitlement denies
+without exposing saved bytes or creating another audit intent. Non-conformity report access
+still precedes severity/status validation. The two CSV renderer ports preserve the existing
+stream formatting, and command handlers bind the explicit main transaction and outbox ports.

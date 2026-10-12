@@ -38,7 +38,7 @@ final class ResumeOrganizationOnboardingProcessorTest extends TestCase
       ->with(self::USER_ID)
       ->willReturn($this->state());
 
-    $processor = new ResumeOrganizationOnboardingProcessor($flowService, $this->authenticatedSecurity());
+    $processor = new ResumeOrganizationOnboardingProcessor(new \Tests\Helper\Onboarding\OrganizationOnboardingCommandBus($flowService), $this->authenticatedSecurity());
 
     $output = $processor->process(null, new Post());
 
@@ -57,7 +57,7 @@ final class ResumeOrganizationOnboardingProcessorTest extends TestCase
     $security->method('getUser')->willReturn(null);
 
     $processor = new ResumeOrganizationOnboardingProcessor(
-      $this->createStub(OrganizationOnboardingServicePort::class),
+      new \Tests\Helper\Onboarding\OrganizationOnboardingCommandBus($this->createStub(OrganizationOnboardingServicePort::class)),
       $security,
     );
 

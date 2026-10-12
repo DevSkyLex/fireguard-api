@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Functional\Api;
 
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Authorization\Application\Port\Inbound\AuthorizationSeedRoleAssignmentsPort;
+use Authorization\Application\Port\Outbound\RoleCatalogPort;
 use DAMA\DoctrineTestBundle\PHPUnit\SkipDatabaseRollback;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
@@ -15,7 +16,11 @@ use Shared\Application\Port\Outbound\FileStoragePort;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
+use Tests\Support\Auth\InteractiveTokenFactory;
 use Tests\Support\Database\RootCommitDatabaseIsolationTrait;
+use Tests\Support\Factory\UserTestFactory;
+use User\Application\Port\Outbound\Internal\UserRepositoryPort;
+use User\Domain\ValueObject\UserId;
 
 use function array_filter;
 use function array_values;
@@ -916,18 +921,34 @@ final class InterventionAttachmentApiTest extends WebTestCase
   /**
    * Method loginAs.
    *
-   * Authenticates the client against the stateless `api` firewall (the token
-   * is stored in the container, not the session).
+   * Persists a verified account and its installed default role, then authenticates
+   * through a real revocable session rather than synthetic token role claims.
+   *
+   * @param non-empty-string $userId the fixture account identity
+   * @param string $email the fixture account email
    */
   private function loginAs(KernelBrowser $client, string $userId, string $email): void
   {
-    $user = new SecurityUser(
-      id: $userId,
-      email: $email,
-      password: 'hashed-password',
-      roles: ['ROLE_USER'],
-    );
-    $client->loginUser($user, 'api');
+    $client->disableReboot();
+    $container = static::getContainer();
+    $users = $container->get(UserRepositoryPort::class);
+    $roles = $container->get(RoleCatalogPort::class);
+    $assignments = $container->get(AuthorizationSeedRoleAssignmentsPort::class);
+    self::assertInstanceOf(UserRepositoryPort::class, $users);
+    self::assertInstanceOf(RoleCatalogPort::class, $roles);
+    self::assertInstanceOf(AuthorizationSeedRoleAssignmentsPort::class, $assignments);
+    if (null === $users->findById(new UserId($userId))) {
+      $users->save(UserTestFactory::createActive($userId, $email, 'attachment_' . str_replace('-', '', $userId)));
+    }
+    $roleName = $roles->defaultRoleName();
+    self::assertIsString($roleName);
+    $auth = $container->get('doctrine.orm.auth_entity_manager');
+    self::assertInstanceOf(EntityManagerInterface::class, $auth);
+    if (false === $auth->getConnection()->fetchOne('SELECT a.id FROM role_assignments a JOIN roles r ON r.id = a.role_id WHERE a.subject_type = :type AND a.subject_id = :user AND r.name = :role', ['type' => 'user', 'user' => $userId, 'role' => $roleName])) {
+      $assignments->assign($userId, $roleName, $userId, new DateTimeImmutable());
+      $auth->flush();
+    }
+    $client->setServerParameter('HTTP_AUTHORIZATION', 'Bearer ' . InteractiveTokenFactory::issue($container, $userId, $email));
   }
 
   /**

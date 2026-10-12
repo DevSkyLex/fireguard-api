@@ -1,3 +1,7 @@
+imports:
+  - { resource: 'notification/doctrine.yaml' }
+  - { resource: 'notification/api_platform.yaml' }
+
 services:
   _defaults:
     autowire: true
@@ -99,3 +103,11 @@ services:
 
   Notification\Application\UseCase\Query\Inbox\GetInboxUnreadCount\GetInboxUnreadCountHandler:
     tags: ['messenger.message_handler']
+
+  Notification\Infrastructure\Adapter\Idempotency\NotificationHttpIdempotencyOperationContributionAdapter:
+    tags: [http.idempotency_operation]
+
+  Notification\Infrastructure\Adapter\Idempotency\NotificationHttpIdempotencyReplayAuthorizationAdapter:
+    arguments:
+      $connection: '@doctrine.dbal.main_connection'
+    tags: [http.idempotency_replay_authorization]

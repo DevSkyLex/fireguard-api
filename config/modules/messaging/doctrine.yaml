@@ -1,0 +1,11 @@
+doctrine:
+  orm:
+    entity_managers:
+      main:
+        mappings:
+          Messaging:
+            is_bundle: false
+            type: attribute
+            dir: '%kernel.project_dir%/src/Messaging/Infrastructure/Persistence/Doctrine/Record'
+            prefix: 'Messaging\Infrastructure\Persistence\Doctrine\Record'
+            alias: Messaging

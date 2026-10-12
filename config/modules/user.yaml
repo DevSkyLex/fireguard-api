@@ -1,3 +1,7 @@
+imports:
+  - { resource: 'user/doctrine.yaml' }
+  - { resource: 'user/api_platform.yaml' }
+
 services:
   _defaults:
     autowire: true
@@ -37,6 +41,7 @@ services:
     arguments:
       $entityManager: '@doctrine.orm.auth_entity_manager'
       $avatarCleanup: '@shared.auth_file_cleanup'
+      $rootTransaction: '@shared.auth_root_transaction'
 
   User\Application\Port\Inbound\FederatedUserPort:
     alias: User\Application\Service\FederatedUserService
@@ -72,6 +77,8 @@ services:
     tags: ['messenger.message_handler']
 
   User\Application\UseCase\Command\User\DeleteUser\DeleteUserHandler:
+    arguments:
+      $events: '@shared.auth_event_dispatcher'
     tags: ['messenger.message_handler']
 
   User\Application\UseCase\Command\User\UpdateUser\UpdateUserHandler:
@@ -173,3 +180,81 @@ services:
       $transactions: '@shared.auth_root_transaction'
       $cleanup: '@shared.auth_file_cleanup'
     tags: ['messenger.message_handler']
+
+  User\Infrastructure\Adapter\Event\IntegrationEventConverterAdapter: ~
+
+  User\Infrastructure\Adapter\Authorization\UserPermissionContributionAdapter:
+    tags: [authorization.permission_catalog_contribution]
+
+  User\Infrastructure\Adapter\Audit\AuditRecordEventAdapter: ~
+
+  User\Application\Port\Outbound\PasswordPolicyPort: '@User\Infrastructure\Adapter\Policy\ConfiguredPasswordPolicyAdapter'
+  User\Infrastructure\Adapter\Policy\ConfiguredPasswordPolicyAdapter:
+    arguments:
+      $minimumLength: '%password_policy.minimum_length%'
+      $maximumLength: '%password_policy.maximum_length%'
+      $requireUppercase: '%password_policy.require_uppercase%'
+      $requireLowercase: '%password_policy.require_lowercase%'
+      $requireDigit: '%password_policy.require_digit%'
+      $specialCharacters: '%password_policy.special_characters%'
+
+  User\Application\Port\Inbound\UserSecurityRevisionPort: '@User\Infrastructure\Adapter\Idempotency\UserSecurityProofAdapter'
+  User\Application\Port\Inbound\UserCredentialProofPort: '@User\Infrastructure\Adapter\Idempotency\UserSecurityProofAdapter'
+  User\Infrastructure\Adapter\Idempotency\UserSecurityProofAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.auth_entity_manager'
+
+  User\Application\Port\Inbound\SignInEligibilityPort: '@User\Infrastructure\Adapter\User\SignInEligibilityAdapter'
+  User\Infrastructure\Adapter\User\SignInEligibilityAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.auth_entity_manager'
+
+  User\Infrastructure\Adapter\Idempotency\UserHttpIdempotencyOperationContributionAdapter:
+    tags: [http.idempotency_operation]
+
+  User\Infrastructure\Adapter\Idempotency\UserHttpIdempotencyReplayAuthorizationAdapter:
+    arguments:
+      $connection: '@doctrine.dbal.auth_connection'
+    tags: [http.idempotency_replay_authorization]
+
+  User\Infrastructure\Adapter\Idempotency\UserHttpIdempotencyResponseProjectionAdapter:
+    tags: [shared.http_idempotency_response_projection]
+
+  User\Infrastructure\Adapter\Idempotency\EmailChangeIdempotencyProofAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.auth_entity_manager'
+    tags: [shared.sensitive_idempotency_proof]
+
+  User\Infrastructure\Adapter\Idempotency\UserHttpIdempotencyResultProofAdapter:
+    arguments:
+      $connection: '@doctrine.dbal.auth_connection'
+    tags: [shared.http_idempotency_result_proof]
+
+  User\Infrastructure\EventSubscriber\Idempotency\UserReceiptPurgeSubscriber:
+    arguments:
+      $auth: '@shared.http_idempotency.auth'
+      $main: '@Shared\Application\Service\Idempotency\DurableHttpIdempotencyService'
+
+  Shared\Application\Port\Outbound\Idempotency\HttpIdempotencyAccountPort: '@User\Infrastructure\Adapter\Idempotency\UserHttpIdempotencyAccountAdapter'
+  User\Infrastructure\Adapter\Idempotency\UserHttpIdempotencyAccountAdapter:
+    arguments:
+      $authenticationPolicy: '@Auth\Application\Port\Outbound\AuthenticationPolicyPort'
+      $connection: '@doctrine.dbal.auth_connection'
+
+  User\Application\Port\Inbound\CredentialLifecycleProofPort: '@User\Infrastructure\Adapter\Idempotency\CredentialLifecycleProofAdapter'
+  User\Infrastructure\Adapter\Idempotency\CredentialLifecycleProofAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.auth_entity_manager'
+
+  User\Application\Port\Inbound\FreshEmailOwnershipPort: '@User\Infrastructure\Adapter\Idempotency\FreshEmailOwnershipAdapter'
+  User\Infrastructure\Adapter\Idempotency\FreshEmailOwnershipAdapter:
+    arguments:
+      $connection: '@doctrine.dbal.auth_connection'
+
+when@dev:
+  imports:
+    - { resource: 'user/seeds.yaml' }
+
+when@test:
+  imports:
+    - { resource: 'user/seeds.yaml' }

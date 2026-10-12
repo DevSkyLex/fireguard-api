@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Auth\Application\Port\Outbound\Federation;
 
-use Auth\Application\Contract\Federation\{FederatedConnection, FederatedProvider};
+use Auth\Application\Contract\Federation\{FederatedConnection, ProviderId};
 
 /**
  * Interface FederatedIdentityRepositoryPort.
@@ -20,18 +20,30 @@ interface FederatedIdentityRepositoryPort
 {
   // #region Methods
   /**
+   * Method hasIssuerConflict
+   *
+   * @access public
+   *
+   * @param ProviderId $provider configured provider namespace
+   * @param string $issuer verified issuer to pin
+   *
+   * @return bool whether a retained identity pins that namespace to another issuer
+   */
+  public function hasIssuerConflict(ProviderId $provider, string $issuer): bool;
+
+  /**
    * Method findBySubject.
    *
    * Finds the external identity associated with a provider subject.
    *
    * @access public
    *
-   * @param FederatedProvider $provider the identity provider
+   * @param ProviderId $provider the identity provider
    * @param string $subject the provider-issued subject identifier
    *
    * @return ?FederatedConnection the matching federated identity
    */
-  public function findBySubject(FederatedProvider $provider, string $subject): ?FederatedConnection;
+  public function findBySubject(ProviderId $provider, string $subject): ?FederatedConnection;
 
   /**
    * Method findForUserProvider.
@@ -41,11 +53,11 @@ interface FederatedIdentityRepositoryPort
    * @access public
    *
    * @param string $userId the local user identifier
-   * @param FederatedProvider $provider the identity provider
+   * @param ProviderId $provider the identity provider
    *
    * @return ?FederatedConnection the matching connection
    */
-  public function findForUserProvider(string $userId, FederatedProvider $provider): ?FederatedConnection;
+  public function findForUserProvider(string $userId, ProviderId $provider): ?FederatedConnection;
 
   /**
    * @return list<FederatedConnection>
@@ -85,12 +97,12 @@ interface FederatedIdentityRepositoryPort
    *
    * @access public
    *
-   * @param FederatedProvider $provider the identity provider
+   * @param ProviderId $provider the identity provider
    * @param string $userId the local user identifier
    * @param bool $passwordConfigured whether the user has a configured password
    *
    * @return bool whether a connection was removed
    */
-  public function removePreservingAccess(FederatedProvider $provider, string $userId, bool $passwordConfigured): bool;
+  public function removePreservingAccess(ProviderId $provider, string $userId, bool $passwordConfigured): bool;
   // #endregion
 }

@@ -12,6 +12,7 @@ use OAuth\Infrastructure\Persistence\Doctrine\Mapper\Client\ClientMapper;
 use OAuth\Infrastructure\Persistence\Doctrine\Record\ClientRecord;
 
 use function array_map;
+use function max;
 
 /**
  * Repository ClientRepository.
@@ -79,10 +80,12 @@ final class ClientRepository implements ClientRepositoryPort, OAuthClientReposit
       // Update existing record properties
       $existingRecord->name = $record->name;
       $existingRecord->secret = $record->secret;
+      $existingRecord->securityRevision = max($existingRecord->securityRevision, $record->securityRevision);
       $existingRecord->redirectUris = $record->redirectUris;
       $existingRecord->grantTypes = $record->grantTypes;
       $existingRecord->scopes = $record->scopes;
       $existingRecord->isActive = $record->isActive;
+      $existingRecord->deletedAt = $record->deletedAt;
       // CreatedAt should not change
     } else {
       // Persist new record

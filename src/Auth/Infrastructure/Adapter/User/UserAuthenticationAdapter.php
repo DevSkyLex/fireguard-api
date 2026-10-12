@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Auth\Infrastructure\Adapter\User;
 
 use Auth\Application\Contract\User\UserAuthenticationResult;
-use Auth\Application\Port\Outbound\UserAuthenticationPort;
+use Auth\Application\Port\Outbound\{AuthenticationPolicyPort, UserAuthenticationPort};
 use Psr\Log\LoggerInterface;
 use Throwable;
 use User\Application\Port\Inbound\UserAuthenticationPort as AccountAuthenticationPort;
@@ -30,10 +30,12 @@ final readonly class UserAuthenticationAdapter implements UserAuthenticationPort
    *
    * @param AccountAuthenticationPort $queryBus the query bus
    * @param LoggerInterface $logger the structured application logger
+   * @param AuthenticationPolicyPort $authenticationPolicy trusted project verification choice
    */
   public function __construct(
     private AccountAuthenticationPort $queryBus,
     private LoggerInterface $logger,
+    private AuthenticationPolicyPort $authenticationPolicy,
   ) {
   }
   // #endregion
@@ -54,7 +56,7 @@ final readonly class UserAuthenticationAdapter implements UserAuthenticationPort
   public function authenticate(string $email, string $password): UserAuthenticationResult
   {
     try {
-      $result = $this->queryBus->authenticate($email, $password);
+      $result = $this->queryBus->authenticate($email, $password, $this->authenticationPolicy->emailVerificationRequired());
 
       if (!$result->authenticated || null === $result->userId) {
         return UserAuthenticationResult::failed();

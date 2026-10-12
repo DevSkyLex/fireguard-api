@@ -36,6 +36,38 @@ use function substr;
 #[CoversClass(className: MfaVerifyProcessor::class)]
 final class MfaVerifyProcessorTest extends TestCase
 {
+  public function testRecoveryProofReachesBoundVerifierAndFailedProofDoesNotIssueTokens(): void
+  {
+    $code = 'abcd-abcd-abcd-abcd-abcd-abcd-abcd-abcd';
+    $jwt = $this->createMock(JwtTokenServicePort::class);
+    $jwt->expects(self::once())->method('decodePreAuthToken')->willReturn(['sub' => 'user', 'challenge_token' => 'challenge']);
+    $jwt->expects(self::never())->method('generateTokens');
+    $verifier = $this->createMock(ChallengeVerifierPort::class);
+    $verifier->expects(self::once())->method('verify')->with('challenge', $code, 'user', 'recovery_code')->willReturn(new MfaVerifyResult(false, 4, 'Invalid verification code.'));
+    $handler = new MfaVerifyHandler($jwt, $verifier, $this->createStub(SessionTrackingPort::class), $this->createStub(EventDispatcherPort::class), $this->createStub(FederatedUserPort::class));
+    $processor = new MfaVerifyProcessor($handler, new RequestStack(), $this->createStub(RefreshTokenCookieService::class));
+    $input = new MfaVerifyInput();
+    $input->preAuthToken = 'token';
+    $input->code = $code;
+    $input->method = 'recovery_code';
+    $this->expectException(BadRequestHttpException::class);
+    $processor->process($input, new Post());
+  }
+
+  public function testUnknownProofMethodIsRejectedBeforePreAuthDecode(): void
+  {
+    $jwt = $this->createMock(JwtTokenServicePort::class);
+    $jwt->expects(self::never())->method('decodePreAuthToken');
+    $handler = new MfaVerifyHandler($jwt, $this->createStub(ChallengeVerifierPort::class), $this->createStub(SessionTrackingPort::class), $this->createStub(EventDispatcherPort::class), $this->createStub(FederatedUserPort::class));
+    $processor = new MfaVerifyProcessor($handler, new RequestStack(), $this->createStub(RefreshTokenCookieService::class));
+    $input = new MfaVerifyInput();
+    $input->preAuthToken = 'token';
+    $input->code = '123456';
+    $input->method = 'unrecognized';
+    $this->expectException(BadRequestHttpException::class);
+    $processor->process($input, new Post());
+  }
+
   // #region Methods
   /**
    * Method testProcessThrowsUnauthorizedOnAuthError.

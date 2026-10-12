@@ -12,12 +12,12 @@ doctrine:
         # that froze it. Exclude it from schema introspection: schema:validate
         # and migrations:diff ignore the framework table. Combined (AND) with the
         # tagged SchemaFilterListener that hides the migration-versions tables.
-        schema_filter: ~^(?!messenger_messages)~
+        schema_filter: ~^(?!(?:messenger_messages|http_idempotency_receipts))~
       main:
         url: "%env(resolve:MAIN_DATABASE_URL)%"
         profiling_collect_backtrace: "%kernel.debug%"
         use_savepoints: true
-        schema_filter: ~^(?!messenger_messages)~
+        schema_filter: ~^(?!(?:messenger_messages|http_idempotency_receipts))~
   orm:
     default_entity_manager: auth
     auto_generate_proxy_classes: true
@@ -35,67 +35,6 @@ doctrine:
           tenant:
             class: Tenant\Infrastructure\Persistence\Doctrine\Filter\TenantFilter
             enabled: false
-        mappings:
-          SharedReceipts:
-            is_bundle: false
-            type: attribute
-            dir: '%kernel.project_dir%/src/Shared/Infrastructure/Persistence/Doctrine/Record'
-            prefix: 'Shared\Infrastructure\Persistence\Doctrine\Record'
-            alias: SharedReceipts
-          Auth:
-            is_bundle: false
-            type: attribute
-            dir: '%kernel.project_dir%/src/Auth/Infrastructure/Persistence/Doctrine/Record'
-            prefix: 'Auth\Infrastructure\Persistence\Doctrine\Record'
-            alias: Auth
-          OAuth:
-            is_bundle: false
-            type: attribute
-            dir: '%kernel.project_dir%/src/OAuth/Infrastructure/Persistence/Doctrine/Record'
-            prefix: 'OAuth\Infrastructure\Persistence\Doctrine\Record'
-            alias: OAuth
-          User:
-            is_bundle: false
-            type: attribute
-            dir: '%kernel.project_dir%/src/User/Infrastructure/Persistence/Doctrine/Record'
-            prefix: 'User\Infrastructure\Persistence\Doctrine\Record'
-            alias: User
-          Otp:
-            is_bundle: false
-            type: attribute
-            dir: '%kernel.project_dir%/src/Otp/Infrastructure/Persistence/Doctrine/Record'
-            prefix: 'Otp\Infrastructure\Persistence\Doctrine\Record'
-            alias: Otp
-          Authorization:
-            is_bundle: false
-            type: attribute
-            dir: '%kernel.project_dir%/src/Authorization/Infrastructure/Persistence/Doctrine/Record'
-            prefix: 'Authorization\Infrastructure\Persistence\Doctrine\Record'
-            alias: Authorization
-          Session:
-            is_bundle: false
-            type: attribute
-            dir: '%kernel.project_dir%/src/Session/Infrastructure/Persistence/Doctrine/Record'
-            prefix: 'Session\Infrastructure\Persistence\Doctrine\Record'
-            alias: Session
-          Tenant:
-            is_bundle: false
-            type: attribute
-            dir: '%kernel.project_dir%/src/Tenant/Infrastructure/Persistence/Doctrine/Record'
-            prefix: 'Tenant\Infrastructure\Persistence\Doctrine\Record'
-            alias: Tenant
-          TrustedDevice:
-            is_bundle: false
-            type: attribute
-            dir: '%kernel.project_dir%/src/TrustedDevice/Infrastructure/Persistence/Doctrine/Record'
-            prefix: 'TrustedDevice\Infrastructure\Persistence\Doctrine\Record'
-            alias: TrustedDevice
-          Audit:
-            is_bundle: false
-            type: attribute
-            dir: '%kernel.project_dir%/src/Audit/Infrastructure/Persistence/Doctrine/Record'
-            prefix: 'Audit\Infrastructure\Persistence\Doctrine\Record'
-            alias: Audit
       main:
         connection: main
         auto_mapping: false
@@ -103,157 +42,6 @@ doctrine:
         validate_xml_mapping: true
         identity_generation_preferences:
           Doctrine\DBAL\Platforms\PostgreSQLPlatform: identity
-        mappings:
-          SharedReceipts:
-            is_bundle: false
-            type: attribute
-            dir: '%kernel.project_dir%/src/Shared/Infrastructure/Persistence/Doctrine/Record'
-            prefix: 'Shared\Infrastructure\Persistence\Doctrine\Record'
-            alias: SharedReceipts
-          Organization:
-            is_bundle: false
-            type: attribute
-            dir: '%kernel.project_dir%/src/Organization/Infrastructure/Persistence/Doctrine/Record'
-            prefix: 'Organization\Infrastructure\Persistence\Doctrine\Record'
-            alias: Organization
-          Facility:
-            is_bundle: false
-            type: attribute
-            dir: '%kernel.project_dir%/src/Facility/Infrastructure/Persistence/Doctrine/Record'
-            prefix: 'Facility\Infrastructure\Persistence\Doctrine\Record'
-            alias: Facility
-          Notification:
-            is_bundle: false
-            type: attribute
-            dir: '%kernel.project_dir%/src/Notification/Infrastructure/Persistence/Doctrine/Record'
-            prefix: 'Notification\Infrastructure\Persistence\Doctrine\Record'
-            alias: Notification
-          Onboarding:
-            is_bundle: false
-            type: attribute
-            dir: '%kernel.project_dir%/src/Onboarding/Infrastructure/Persistence/Doctrine/Record'
-            prefix: 'Onboarding\Infrastructure\Persistence\Doctrine\Record'
-            alias: Onboarding
-          Equipment:
-            is_bundle: false
-            type: attribute
-            dir: '%kernel.project_dir%/src/Equipment/Infrastructure/Persistence/Doctrine/Record'
-            prefix: 'Equipment\Infrastructure\Persistence\Doctrine\Record'
-            alias: Equipment
-          Inspection:
-            is_bundle: false
-            type: attribute
-            dir: '%kernel.project_dir%/src/Inspection/Infrastructure/Persistence/Doctrine/Record'
-            prefix: 'Inspection\Infrastructure\Persistence\Doctrine\Record'
-            alias: Inspection
-          Intervention:
-            is_bundle: false
-            type: attribute
-            dir: '%kernel.project_dir%/src/Intervention/Infrastructure/Persistence/Doctrine/Record'
-            prefix: 'Intervention\Infrastructure\Persistence\Doctrine\Record'
-            alias: Intervention
-          Billing:
-            is_bundle: false
-            type: attribute
-            dir: '%kernel.project_dir%/src/Billing/Infrastructure/Persistence/Doctrine/Record'
-            prefix: 'Billing\Infrastructure\Persistence\Doctrine\Record'
-            alias: Billing
-          Maintenance:
-            is_bundle: false
-            type: attribute
-            dir: '%kernel.project_dir%/src/Maintenance/Infrastructure/Persistence/Doctrine/Record'
-            prefix: 'Maintenance\Infrastructure\Persistence\Doctrine\Record'
-            alias: Maintenance
-          Automation:
-            is_bundle: false
-            type: attribute
-            dir: '%kernel.project_dir%/src/Automation/Infrastructure/Persistence/Doctrine/Record'
-            prefix: 'Automation\Infrastructure\Persistence\Doctrine\Record'
-            alias: Automation
-          Messaging:
-            is_bundle: false
-            type: attribute
-            dir: '%kernel.project_dir%/src/Messaging/Infrastructure/Persistence/Doctrine/Record'
-            prefix: 'Messaging\Infrastructure\Persistence\Doctrine\Record'
-            alias: Messaging
-          Import:
-            is_bundle: false
-            type: attribute
-            dir: '%kernel.project_dir%/src/Import/Infrastructure/Persistence/Doctrine/Record'
-            prefix: 'Import\Infrastructure\Persistence\Doctrine\Record'
-            alias: Import
-          Webhook:
-            is_bundle: false
-            type: attribute
-            dir: '%kernel.project_dir%/src/Webhook/Infrastructure/Persistence/Doctrine/Record'
-            prefix: 'Webhook\Infrastructure\Persistence\Doctrine\Record'
-            alias: Webhook
-          Approval:
-            is_bundle: false
-            type: attribute
-            dir: '%kernel.project_dir%/src/Approval/Infrastructure/Persistence/Doctrine/Record'
-            prefix: 'Approval\Infrastructure\Persistence\Doctrine\Record'
-            alias: Approval
-          Assistant:
-            is_bundle: false
-            type: attribute
-            dir: '%kernel.project_dir%/src/Assistant/Infrastructure/Persistence/Doctrine/Record'
-            prefix: 'Assistant\Infrastructure\Persistence\Doctrine\Record'
-            alias: Assistant
-          Calendar:
-            is_bundle: false
-            type: attribute
-            dir: '%kernel.project_dir%/src/Calendar/Infrastructure/Persistence/Doctrine/Record'
-            prefix: 'Calendar\Infrastructure\Persistence\Doctrine\Record'
-            alias: Calendar
-          Workload:
-            is_bundle: false
-            type: attribute
-            dir: '%kernel.project_dir%/src/Workload/Infrastructure/Persistence/Doctrine/Record'
-            prefix: 'Workload\Infrastructure\Persistence\Doctrine\Record'
-            alias: Workload
-          Compliance:
-            is_bundle: false
-            type: attribute
-            dir: '%kernel.project_dir%/src/Compliance/Infrastructure/Persistence/Doctrine/Record'
-            prefix: 'Compliance\Infrastructure\Persistence\Doctrine\Record'
-            alias: Compliance
-          Customer:
-            is_bundle: false
-            type: attribute
-            dir: '%kernel.project_dir%/src/Customer/Infrastructure/Persistence/Doctrine/Record'
-            prefix: 'Customer\Infrastructure\Persistence\Doctrine\Record'
-            alias: Customer
-          ServiceRequest:
-            is_bundle: false
-            type: attribute
-            dir: '%kernel.project_dir%/src/ServiceRequest/Infrastructure/Persistence/Doctrine/Record'
-            prefix: 'ServiceRequest\Infrastructure\Persistence\Doctrine\Record'
-            alias: ServiceRequest
-          Inventory:
-            is_bundle: false
-            type: attribute
-            dir: '%kernel.project_dir%/src/Inventory/Infrastructure/Persistence/Doctrine/Record'
-            prefix: 'Inventory\Infrastructure\Persistence\Doctrine\Record'
-            alias: Inventory
-          Procurement:
-            is_bundle: false
-            type: attribute
-            dir: '%kernel.project_dir%/src/Procurement/Infrastructure/Persistence/Doctrine/Record'
-            prefix: 'Procurement\Infrastructure\Persistence\Doctrine\Record'
-            alias: Procurement
-          MaintenanceCost:
-            is_bundle: false
-            type: attribute
-            dir: '%kernel.project_dir%/src/MaintenanceCost/Infrastructure/Persistence/Doctrine'
-            prefix: 'MaintenanceCost\Infrastructure\Persistence\Doctrine'
-            alias: MaintenanceCost
-          MaintenanceExport:
-            is_bundle: false
-            type: attribute
-            dir: '%kernel.project_dir%/src/MaintenanceExport/Infrastructure/Persistence/Doctrine/Record'
-            prefix: 'MaintenanceExport\Infrastructure\Persistence\Doctrine\Record'
-            alias: MaintenanceExport
     controller_resolver:
       auto_mapping: false
 

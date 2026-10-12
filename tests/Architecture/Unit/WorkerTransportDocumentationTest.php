@@ -14,6 +14,7 @@ use Symfony\Component\Yaml\Yaml;
 use function array_keys;
 use function dirname;
 use function file_get_contents;
+use function glob;
 use function in_array;
 use function preg_match;
 use function preg_match_all;
@@ -169,6 +170,22 @@ final class WorkerTransportDocumentationTest extends TestCase
     self::assertIsArray($messenger, 'messenger.yaml must declare a `framework.messenger` section.');
     $transports = $messenger['transports'] ?? null;
     self::assertIsArray($transports, 'messenger.yaml must declare transports.');
+
+    // Dedicated business queues are loaded with their owner modules.
+    foreach (glob(dirname(__DIR__, 3) . '/config/modules/*/framework*.yaml') ?: [] as $moduleFile) {
+      $module = Yaml::parseFile($moduleFile);
+      self::assertIsArray($module);
+      $framework = $module['framework'] ?? [];
+      self::assertIsArray($framework);
+      $messenger = $framework['messenger'] ?? [];
+      self::assertIsArray($messenger);
+      $moduleTransports = $messenger['transports'] ?? [];
+      self::assertIsArray($moduleTransports);
+      foreach ($moduleTransports as $name => $definition) {
+        self::assertIsString($name);
+        $transports[$name] = $definition;
+      }
+    }
 
     $names = [];
     foreach ($transports as $name => $_definition) {

@@ -84,7 +84,7 @@ final class OrganizationMemberRepositoryTest extends TestCase
       ->with(OrganizationRecord::class, $organizationId)
       ->willReturn($organization);
 
-    $repository = new OrganizationMemberRepository($entityManager);
+    $repository = new OrganizationMemberRepository($entityManager, systemRoles: \Tests\Support\OrganizationCatalogTestFactory::systemRoles());
 
     $permissions = $repository->getPermissionNamesForUserInOrganization(
       $userId,
@@ -190,7 +190,7 @@ final class OrganizationMemberRepositoryTest extends TestCase
       ->with(OrganizationRecord::class, $organizationId)
       ->willReturn($organization);
 
-    $repository = new OrganizationMemberRepository($entityManager);
+    $repository = new OrganizationMemberRepository($entityManager, systemRoles: \Tests\Support\OrganizationCatalogTestFactory::systemRoles());
 
     $counts = $repository->countActiveMembersGroupedByRoleId(OrganizationId::fromString($organizationId));
 
@@ -237,7 +237,7 @@ final class OrganizationMemberRepositoryTest extends TestCase
       ->method('getReference')
       ->willReturn($organization);
 
-    $repository = new OrganizationMemberRepository($entityManager);
+    $repository = new OrganizationMemberRepository($entityManager, systemRoles: \Tests\Support\OrganizationCatalogTestFactory::systemRoles());
 
     self::assertSame([], $repository->getPermissionNamesForUserInOrganization(
       $userId,
@@ -257,7 +257,7 @@ final class OrganizationMemberRepositoryTest extends TestCase
     $entityManager = $this->entityManagerFor($memberRepository, $this->createStub(EntityRepository::class), $roleRepository);
     $entityManager->expects(self::never())->method('flush');
 
-    $repository = new OrganizationMemberRepository($entityManager);
+    $repository = new OrganizationMemberRepository($entityManager, systemRoles: \Tests\Support\OrganizationCatalogTestFactory::systemRoles());
 
     $this->expectException(InvalidArgumentException::class);
     $this->expectExceptionMessage('Member or role not found for role assignment.');
@@ -279,7 +279,7 @@ final class OrganizationMemberRepositoryTest extends TestCase
 
     $entityManager = $this->entityManagerFor($memberRepository, $memberRoleRepository, $this->createStub(EntityRepository::class));
 
-    $repository = new OrganizationMemberRepository($entityManager);
+    $repository = new OrganizationMemberRepository($entityManager, systemRoles: \Tests\Support\OrganizationCatalogTestFactory::systemRoles());
 
     self::assertSame([], $repository->findRoleIdsForMember(
       OrganizationMemberId::fromString('550e8400-e29b-41d4-a716-446655440760'),
@@ -302,7 +302,7 @@ final class OrganizationMemberRepositoryTest extends TestCase
     $entityManager->expects(self::never())->method('remove');
     $entityManager->expects(self::never())->method('flush');
 
-    $repository = new OrganizationMemberRepository($entityManager);
+    $repository = new OrganizationMemberRepository($entityManager, systemRoles: \Tests\Support\OrganizationCatalogTestFactory::systemRoles());
 
     $repository->unassignRole(
       OrganizationMemberId::fromString('550e8400-e29b-41d4-a716-446655440770'),
@@ -347,7 +347,7 @@ final class OrganizationMemberRepositoryTest extends TestCase
     $entityManager->expects(self::never())->method('remove');
     $entityManager->expects(self::never())->method('flush');
 
-    $repository = new OrganizationMemberRepository($entityManager);
+    $repository = new OrganizationMemberRepository($entityManager, systemRoles: \Tests\Support\OrganizationCatalogTestFactory::systemRoles());
 
     $repository->unassignRole(
       OrganizationMemberId::fromString($memberRecord->id),
@@ -393,7 +393,7 @@ final class OrganizationMemberRepositoryTest extends TestCase
 
     // The record carries no organization, so cache invalidation is skipped
     // before the invalidator would ever be consulted.
-    $repository = new OrganizationMemberRepository($entityManager);
+    $repository = new OrganizationMemberRepository($entityManager, systemRoles: \Tests\Support\OrganizationCatalogTestFactory::systemRoles());
 
     $repository->unassignRole(
       OrganizationMemberId::fromString($memberRecord->id),
@@ -444,7 +444,7 @@ final class OrganizationMemberRepositoryTest extends TestCase
       ->with(OrganizationRecord::class, $organizationId)
       ->willReturn($organization);
 
-    $repository = new OrganizationMemberRepository($entityManager);
+    $repository = new OrganizationMemberRepository($entityManager, systemRoles: \Tests\Support\OrganizationCatalogTestFactory::systemRoles());
 
     self::assertSame([], $repository->countByOrganizationIds([]));
     self::assertSame(
@@ -498,7 +498,7 @@ final class OrganizationMemberRepositoryTest extends TestCase
       ->method('getReference')
       ->willReturn($organization);
 
-    $repository = new OrganizationMemberRepository($entityManager);
+    $repository = new OrganizationMemberRepository($entityManager, systemRoles: \Tests\Support\OrganizationCatalogTestFactory::systemRoles());
 
     self::assertSame(
       [$roleId => 3],

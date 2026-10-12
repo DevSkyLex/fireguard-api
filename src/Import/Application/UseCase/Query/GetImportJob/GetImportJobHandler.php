@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Import\Application\UseCase\Query\GetImportJob;
 
 use Import\Application\Port\Outbound\Internal\{ImportExecutionPort, ImportJobRepositoryPort};
-use Import\Application\Service\ImportPermissions;
+use Import\Application\Port\Outbound\Internal\ImportKindRegistryPort;
 use Import\Domain\Exception\{ImportAccessDeniedException, ImportJobNotFoundException};
 use Import\Domain\ValueObject\ImportJobId;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
@@ -45,6 +45,7 @@ final readonly class GetImportJobHandler implements QueryHandler
     private ImportJobRepositoryPort $repository,
     private OrganizationAuthorizationPort $authorization,
     private ImportExecutionPort $execution,
+    private ImportKindRegistryPort $kinds,
   ) {
   }
   // #endregion
@@ -66,7 +67,7 @@ final readonly class GetImportJobHandler implements QueryHandler
       throw ImportJobNotFoundException::withId($query->importJobId);
     }
 
-    $permission = ImportPermissions::read($job->kind());
+    $permission = $this->kinds->get($job->kind()->value)->descriptor()->readPermission;
 
     $decision = $this->authorization->resolveAccess($query->userId, $job->organizationId(), $permission);
     if ($decision->isOutsideScope()) {
@@ -76,7 +77,7 @@ final readonly class GetImportJobHandler implements QueryHandler
       throw ImportAccessDeniedException::missingPermission($permission);
     }
 
-    $canResume = $this->authorization->hasPermission($query->userId, $job->organizationId(), ImportPermissions::write($job->kind()))
+    $canResume = $this->authorization->hasPermission($query->userId, $job->organizationId(), $this->kinds->get($job->kind()->value)->descriptor()->writePermission)
       && $this->execution->canResume($job->id());
 
     $page = max(1, $query->reportPage);
@@ -85,7 +86,7 @@ final readonly class GetImportJobHandler implements QueryHandler
     return GetImportJobResult::fromDomain(
       $job,
       $canResume,
-      $this->authorization->hasPermission($query->userId, $job->organizationId(), ImportPermissions::write($job->kind())),
+      $this->authorization->hasPermission($query->userId, $job->organizationId(), $this->kinds->get($job->kind()->value)->descriptor()->writePermission),
       $this->repository->reportPage($job->id(), $page, $limit),
       $page,
       $limit,

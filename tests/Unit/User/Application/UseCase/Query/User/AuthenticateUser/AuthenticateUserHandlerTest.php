@@ -150,7 +150,7 @@ final class AuthenticateUserHandlerTest extends TestCase
     $user->verifyEmail($eventIdProvider);
 
     $this->userRepository->expects($this->once())->method('findByUsername')->willReturn($user);
-    $this->userRepository->expects($this->never())->method('save');
+    $this->userRepository->expects($this->once())->method('save')->with(self::callback(static fn (User $saved): bool => 1 === $saved->failedLoginAttempts()));
 
     // Act
     $result = ($this->handler)($query);

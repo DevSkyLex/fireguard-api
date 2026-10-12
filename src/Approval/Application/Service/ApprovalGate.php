@@ -6,9 +6,10 @@ namespace Approval\Application\Service;
 
 use Approval\Application\Contract\Gate\{ApprovalGateDecision, ApprovalGateRequest};
 use Approval\Application\Port\Inbound\ApprovalGatePort;
-use Approval\Application\Port\Outbound\{ApprovalMemberDirectoryPort, ApprovalPolicyPort};
+use Approval\Application\Port\Outbound\{ApprovalActionCatalogPort, ApprovalMemberDirectoryPort, ApprovalPolicyPort};
 use Approval\Application\Port\Outbound\Internal\ApprovalRequestRepositoryPort;
 use Approval\Domain\Event\Request\ApprovalRequestedEvent;
+use Approval\Domain\Exception\ApprovalActionExecutorNotFoundException;
 use Approval\Domain\Model\ApprovalRequest\{ApprovalRequestCreation, ApprovalRequestSchedule, ApprovalRequestSubmission};
 use Approval\Domain\ValueObject\{ApprovalRequestId, ApprovalStatus};
 use DateInterval;
@@ -62,6 +63,7 @@ final readonly class ApprovalGate implements ApprovalGatePort
    * @param EventDispatcherPort $eventDispatcher the domain event dispatcher
    * @param ClockPort $clock the clock port
    * @param UuidGeneratorPort $uuidFactory the uuid factory
+   * @param ApprovalActionCatalogPort $catalog the installed action catalog
    */
   public function __construct(
     private ApprovalPolicyPort $policy,
@@ -71,6 +73,7 @@ final readonly class ApprovalGate implements ApprovalGatePort
     private EventDispatcherPort $eventDispatcher,
     private ClockPort $clock,
     private UuidGeneratorPort $uuidFactory,
+    private ApprovalActionCatalogPort $catalog,
   ) {
   }
   // #endregion
@@ -89,6 +92,10 @@ final readonly class ApprovalGate implements ApprovalGatePort
    */
   public function evaluate(ApprovalGateRequest $request): ApprovalGateDecision
   {
+    if (null === $this->catalog->find($request->actionType)) {
+      throw ApprovalActionExecutorNotFoundException::forActionType($request->actionType);
+    }
+
     $policy = $this->policy->policyFor($request->organizationId);
 
     $requiresApproval = $policy->isEnabledFor($request->actionType);

@@ -34,6 +34,7 @@ final readonly class AddInterventionAttachmentCommand implements CommandMessage
    * @param ?string $attachmentId optional caller-supplied attachment identifier
    * @param ?string $workItemId optional work item linked to the attachment
    * @param string $kind attachment kind, defaulting to a regular file
+   * @param bool $acknowledgementOnly rechecks a native identity under the owning transaction and forbids creation
    *
    * @return void
    */
@@ -48,6 +49,7 @@ final readonly class AddInterventionAttachmentCommand implements CommandMessage
     public ?string $attachmentId = null,
     public ?string $workItemId = null,
     public string $kind = 'file',
+    public bool $acknowledgementOnly = false,
   ) {
   }
   // #endregion

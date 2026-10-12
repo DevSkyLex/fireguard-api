@@ -8,7 +8,8 @@ use Otp\Application\Port\Outbound\Internal\Totp\{TotpEnrollmentRepositoryPort, T
 use Otp\Domain\Exception\{TotpEnrollmentAlreadyActiveException, TotpEnrollmentUnavailableException};
 use Otp\Domain\Model\Totp\TotpEnrollment;
 use Shared\Application\Message\CommandHandler;
-use User\Application\Port\Inbound\AccountStatusPort;
+use Shared\Application\Port\Outbound\RootTransactionManagerPort;
+use User\Application\Port\Inbound\{AccountStatusPort, UserSecurityRevisionPort};
 
 /**
  * Handler SetupTotpHandler.
@@ -46,11 +47,15 @@ final readonly class SetupTotpHandler implements CommandHandler
    * @param TotpServicePort $totpService the TOTP service
    * @param TotpEnrollmentRepositoryPort $enrollmentRepository the enrollment repository
    * @param AccountStatusPort $accountStatus the fresh auth-side account eligibility check
+   * @param UserSecurityRevisionPort $securityRevision atomic auth-side account revision
+   * @param RootTransactionManagerPort $rootTransaction final owning auth commit
    */
   public function __construct(
     private TotpServicePort $totpService,
     private TotpEnrollmentRepositoryPort $enrollmentRepository,
     private AccountStatusPort $accountStatus,
+    private UserSecurityRevisionPort $securityRevision,
+    private RootTransactionManagerPort $rootTransaction,
   ) {
   }
   // #endregion
@@ -67,7 +72,7 @@ final readonly class SetupTotpHandler implements CommandHandler
    */
   public function __invoke(SetupTotpCommand $command): SetupTotpResult
   {
-    return $this->enrollmentRepository->withUserLock($command->userId, function () use ($command): SetupTotpResult {
+    return $this->rootTransaction->transactional(fn (): SetupTotpResult => $this->enrollmentRepository->withUserLock($command->userId, function () use ($command): SetupTotpResult {
       if (!$this->accountStatus->isActive($command->userId)) {
         throw TotpEnrollmentUnavailableException::forAccount();
       }
@@ -92,6 +97,7 @@ final readonly class SetupTotpHandler implements CommandHandler
       }
 
       $this->enrollmentRepository->save($enrollment);
+      $this->securityRevision->advance($command->userId);
 
       // Generate provisioning URI for QR code
       $qrCodeUri = $this->totpService->getProvisioningUri(
@@ -104,7 +110,7 @@ final readonly class SetupTotpHandler implements CommandHandler
         secret: $secret->secret,
         qrCodeUri: $qrCodeUri,
       );
-    });
+    }));
   }
   // #endregion
 }

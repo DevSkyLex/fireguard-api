@@ -1,3 +1,7 @@
+imports:
+  - { resource: 'maintenance_cost/doctrine.yaml' }
+  - { resource: 'maintenance_cost/api_platform.yaml' }
+
 services:
   _defaults:
     autowire: true
@@ -43,7 +47,8 @@ services:
     class: Shared\Infrastructure\Symfony\Adapter\Outbound\DoctrineTransactionManagerAdapter
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
-
+      $database: main
+      $idempotency: '@Shared\Infrastructure\Idempotency\HttpIdempotencyExecutionContext'
   MaintenanceCost\Application\UseCase\Query\Cost\GetMaintenanceCost\GetMaintenanceCostHandler:
     tags: ['messenger.message_handler']
 
@@ -89,3 +94,10 @@ services:
 
   MaintenanceCost\Application\UseCase\Query\Rate\ListMaintenanceRates\ListMaintenanceRatesHandler:
     tags: ['messenger.message_handler']
+
+  MaintenanceCost\Infrastructure\Adapter\Idempotency\MaintenanceCostHttpIdempotencyOperationContributionAdapter:
+    tags: [http.idempotency_operation]
+  MaintenanceCost\Infrastructure\Adapter\Idempotency\MaintenanceCostHttpIdempotencyReplayAuthorizationAdapter:
+    arguments:
+      $connection: '@doctrine.dbal.main_connection'
+    tags: [http.idempotency_replay_authorization]

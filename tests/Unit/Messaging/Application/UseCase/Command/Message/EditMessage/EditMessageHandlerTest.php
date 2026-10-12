@@ -126,7 +126,7 @@ final class EditMessageHandlerTest extends TestCase
     // mean the handler entered the reference-existence-validation branch
     // despite `references: null` — proving it never does.
     $resolver = $this->createMock(MessagingSubjectResolverPort::class);
-    $resolver->method('supports')->willReturnCallback(static fn (\Messaging\Application\Contract\Subject\MessagingSubjectType $type): bool => \Messaging\Application\Contract\Subject\MessagingSubjectType::FACILITY === $type);
+    $resolver->method('descriptor')->willReturn(new \Messaging\Application\Contract\Subject\MessagingSubjectDescriptor('facility', 'Facility', 'facilities', 'organization.facilities.read'));
     $resolver->expects(self::once())->method('resolve')->willReturn(new MessagingSubjectResolution(true, 'Site nord', 'organization.facilities.read'));
 
     $handler = $this->handler($conversations, $messages, $members, registry: new MessagingSubjectResolverRegistry([$resolver]));
@@ -168,7 +168,7 @@ final class EditMessageHandlerTest extends TestCase
     $members = $this->createStub(MessagingMemberDirectoryPort::class);
     $members->method('resolveActiveMemberId')->willReturn(self::AUTHOR_MEMBER_ID);
 
-    $registry = new MessagingSubjectResolverRegistry([$this->notFoundEquipmentResolver()]);
+    $registry = new MessagingSubjectResolverRegistry([$this->facilityResolver(), $this->notFoundEquipmentResolver()]);
 
     $handler = $this->handler($conversations, $messages, $members, registry: $registry);
 
@@ -391,7 +391,7 @@ final class EditMessageHandlerTest extends TestCase
   private function facilityResolver(): MessagingSubjectResolverPort
   {
     $resolver = $this->createStub(MessagingSubjectResolverPort::class);
-    $resolver->method('supports')->willReturnCallback(static fn (\Messaging\Application\Contract\Subject\MessagingSubjectType $type): bool => \Messaging\Application\Contract\Subject\MessagingSubjectType::FACILITY === $type);
+    $resolver->method('descriptor')->willReturn(new \Messaging\Application\Contract\Subject\MessagingSubjectDescriptor('facility', 'Facility', 'facilities', 'organization.facilities.read'));
     $resolver->method('resolve')->willReturn(new MessagingSubjectResolution(true, 'Site nord', 'organization.facilities.read'));
 
     return $resolver;
@@ -400,7 +400,7 @@ final class EditMessageHandlerTest extends TestCase
   private function notFoundEquipmentResolver(): MessagingSubjectResolverPort
   {
     $resolver = $this->createStub(MessagingSubjectResolverPort::class);
-    $resolver->method('supports')->willReturnCallback(static fn (\Messaging\Application\Contract\Subject\MessagingSubjectType $type): bool => \Messaging\Application\Contract\Subject\MessagingSubjectType::FACILITY === $type || \Messaging\Application\Contract\Subject\MessagingSubjectType::EQUIPMENT === $type);
+    $resolver->method('descriptor')->willReturn(new \Messaging\Application\Contract\Subject\MessagingSubjectDescriptor('equipment', 'Equipment', 'equipment', 'organization.equipment.read'));
     $resolver->method('resolve')->willReturnCallback(static fn (string $organizationId, string $subjectId): MessagingSubjectResolution => new MessagingSubjectResolution('facility-1' === $subjectId, 'Site nord', 'organization.facilities.read'));
 
     return $resolver;
@@ -415,7 +415,7 @@ final class EditMessageHandlerTest extends TestCase
     return Conversation::reconstitute(
       ConversationId::fromString(self::CONVERSATION_ID),
       self::ORG_ID,
-      MessagingSubjectType::FACILITY,
+      MessagingSubjectType::from('facility'),
       $subjectId,
       new RestoredConversationActivity(
         $visibility,

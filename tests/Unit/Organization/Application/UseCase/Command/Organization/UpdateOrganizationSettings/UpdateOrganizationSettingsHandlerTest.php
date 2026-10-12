@@ -84,6 +84,7 @@ final class UpdateOrganizationSettingsHandlerTest extends TestCase
       transactionManager: $transactionManager,
       eventDispatcher: $eventDispatcher,
       equipmentTypeCatalog: $this->equipmentTypes(),
+      settingsPolicies: \Tests\Support\OrganizationCatalogTestFactory::settingsPolicies(),
     );
 
     $result = $handler->__invoke(new UpdateOrganizationSettingsCommand(
@@ -158,6 +159,7 @@ final class UpdateOrganizationSettingsHandlerTest extends TestCase
       transactionManager: $transactionManager,
       eventDispatcher: $eventDispatcher,
       equipmentTypeCatalog: $this->equipmentTypes(),
+      settingsPolicies: \Tests\Support\OrganizationCatalogTestFactory::settingsPolicies(),
     );
 
     $result = $handler->__invoke(new UpdateOrganizationSettingsCommand(
@@ -220,6 +222,7 @@ final class UpdateOrganizationSettingsHandlerTest extends TestCase
       transactionManager: $transactionManager,
       eventDispatcher: $eventDispatcher,
       equipmentTypeCatalog: $this->equipmentTypes(),
+      settingsPolicies: \Tests\Support\OrganizationCatalogTestFactory::settingsPolicies(),
     );
 
     $result = $handler->__invoke(new UpdateOrganizationSettingsCommand(
@@ -257,6 +260,7 @@ final class UpdateOrganizationSettingsHandlerTest extends TestCase
       transactionManager: $transactionManager,
       eventDispatcher: $eventDispatcher,
       equipmentTypeCatalog: $this->equipmentTypes(),
+      settingsPolicies: \Tests\Support\OrganizationCatalogTestFactory::settingsPolicies(),
     );
 
     $this->expectException(OrganizationNotFoundException::class);
@@ -310,6 +314,7 @@ final class UpdateOrganizationSettingsHandlerTest extends TestCase
       transactionManager: $transactionManager,
       eventDispatcher: $eventDispatcher,
       equipmentTypeCatalog: $this->equipmentTypes(),
+      settingsPolicies: \Tests\Support\OrganizationCatalogTestFactory::settingsPolicies(),
     );
 
     $this->expectException(OrganizationSlugAlreadyExistsException::class);
@@ -364,6 +369,7 @@ final class UpdateOrganizationSettingsHandlerTest extends TestCase
       transactionManager: $transactionManager,
       eventDispatcher: $eventDispatcher,
       equipmentTypeCatalog: $this->equipmentTypes(),
+      settingsPolicies: \Tests\Support\OrganizationCatalogTestFactory::settingsPolicies(),
     );
 
     $result = $handler->__invoke(new UpdateOrganizationSettingsCommand(
@@ -410,6 +416,7 @@ final class UpdateOrganizationSettingsHandlerTest extends TestCase
       transactionManager: $transactionManager,
       eventDispatcher: $eventDispatcher,
       equipmentTypeCatalog: $this->equipmentTypes(),
+      settingsPolicies: \Tests\Support\OrganizationCatalogTestFactory::settingsPolicies(),
     );
 
     $result = $handler->__invoke(new UpdateOrganizationSettingsCommand(
@@ -453,6 +460,7 @@ final class UpdateOrganizationSettingsHandlerTest extends TestCase
       transactionManager: $transactionManager,
       eventDispatcher: $eventDispatcher,
       equipmentTypeCatalog: $this->equipmentTypes(),
+      settingsPolicies: \Tests\Support\OrganizationCatalogTestFactory::settingsPolicies(),
     );
 
     $this->expectException(OrganizationArchivedException::class);
@@ -506,6 +514,7 @@ final class UpdateOrganizationSettingsHandlerTest extends TestCase
       transactionManager: $transactionManager,
       eventDispatcher: $eventDispatcher,
       equipmentTypeCatalog: $this->equipmentTypes(),
+      settingsPolicies: \Tests\Support\OrganizationCatalogTestFactory::settingsPolicies(),
     );
 
     $result = $handler->__invoke(new UpdateOrganizationSettingsCommand(
@@ -551,6 +560,7 @@ final class UpdateOrganizationSettingsHandlerTest extends TestCase
       transactionManager: $transactionManager,
       eventDispatcher: $eventDispatcher,
       equipmentTypeCatalog: $this->equipmentTypes(),
+      settingsPolicies: \Tests\Support\OrganizationCatalogTestFactory::settingsPolicies(),
     );
 
     $this->expectException(RuntimeException::class);
@@ -610,6 +620,7 @@ final class UpdateOrganizationSettingsHandlerTest extends TestCase
       transactionManager: $transactionManager,
       eventDispatcher: $eventDispatcher,
       equipmentTypeCatalog: $this->equipmentTypes(),
+      settingsPolicies: \Tests\Support\OrganizationCatalogTestFactory::settingsPolicies(),
     );
 
     $result = $handler->__invoke(new UpdateOrganizationSettingsCommand(
@@ -665,6 +676,7 @@ final class UpdateOrganizationSettingsHandlerTest extends TestCase
       transactionManager: $transactionManager,
       eventDispatcher: $eventDispatcher,
       equipmentTypeCatalog: $this->equipmentTypes(),
+      settingsPolicies: \Tests\Support\OrganizationCatalogTestFactory::settingsPolicies(),
     );
 
     $result = $handler->__invoke(new UpdateOrganizationSettingsCommand(
@@ -719,6 +731,7 @@ final class UpdateOrganizationSettingsHandlerTest extends TestCase
       transactionManager: $transactionManager,
       eventDispatcher: $eventDispatcher,
       equipmentTypeCatalog: $this->equipmentTypes(),
+      settingsPolicies: \Tests\Support\OrganizationCatalogTestFactory::settingsPolicies(),
     );
 
     $handler->__invoke(new UpdateOrganizationSettingsCommand(

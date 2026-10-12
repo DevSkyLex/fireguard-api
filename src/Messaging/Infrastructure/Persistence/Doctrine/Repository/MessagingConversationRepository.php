@@ -229,7 +229,7 @@ final readonly class MessagingConversationRepository implements MessagingConvers
       // subject-thread contract.
       ->andWhere('c.subjectType NOT IN (:excludedTypes)')
       ->setParameter('organization', $organizationId)
-      ->setParameter('excludedTypes', [MessagingSubjectType::CHANNEL->value, MessagingSubjectType::DIRECT->value]);
+      ->setParameter('excludedTypes', ['channel', 'direct']);
 
     if (null !== $subjectType) {
       $qb->andWhere('c.subjectType = :subjectType')->setParameter('subjectType', $subjectType->value);
@@ -373,7 +373,7 @@ final readonly class MessagingConversationRepository implements MessagingConvers
   public function findChannelById(string $id): ?ChannelView
   {
     $record = $this->entityManager->find(MessagingConversationRecord::class, $id);
-    if (!$record instanceof MessagingConversationRecord || MessagingSubjectType::CHANNEL->value !== $record->subjectType) {
+    if (!$record instanceof MessagingConversationRecord || 'channel' !== $record->subjectType) {
       return null;
     }
 
@@ -409,7 +409,7 @@ final readonly class MessagingConversationRepository implements MessagingConvers
       ->andWhere('c.subjectType = :channelType')
       ->setParameter('organization', $organizationId)
       ->setParameter('memberId', $memberId)
-      ->setParameter('channelType', MessagingSubjectType::CHANNEL->value);
+      ->setParameter('channelType', 'channel');
 
     if (null !== $isArchived) {
       $qb->andWhere(self::ARCHIVED_PREDICATE)->setParameter('isArchived', $isArchived);
@@ -471,7 +471,7 @@ final readonly class MessagingConversationRepository implements MessagingConvers
       ->andWhere('c.subjectType = :directType')
       ->setParameter('organization', $organizationId)
       ->setParameter('memberId', $memberId)
-      ->setParameter('directType', MessagingSubjectType::DIRECT->value);
+      ->setParameter('directType', 'direct');
 
     if (null !== $isArchived) {
       $qb->andWhere(self::ARCHIVED_PREDICATE)->setParameter('isArchived', $isArchived);

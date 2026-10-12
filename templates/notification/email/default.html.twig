@@ -8,5 +8,5 @@
       <td class="prose">{% if bodyIsHtml|default(false) %}{{ body|raw }}{% else %}{{ body }}{% endif %}</td>
     </tr>
   </table>
-  <p class="muted" style="margin: 16px 0 0;">You are receiving this email because of your notification settings in Fireguard. You can change which notifications you receive from your Fireguard account.</p>
+  <p class="muted" style="margin: 16px 0 0;">You are receiving this email because of your notification settings in {{ product.identity.publicName }}. You can change which notifications you receive from your {{ product.identity.publicName }} account.</p>
 {% endblock %}

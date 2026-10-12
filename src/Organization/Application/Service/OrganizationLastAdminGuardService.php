@@ -198,10 +198,10 @@ final readonly class OrganizationLastAdminGuardService implements OrganizationLa
    */
   public function assertCanRemoveMembers(string $organizationId, array $memberIds): void
   {
-    // Deliberately unlocked: a batch is executed as one independent removal per
-    // id, so this is a whole-batch pre-check that fails the request early with a
-    // useful message. The authority is assertCanRemoveMember(), which each of
-    // those removals runs under the lock inside its own transaction.
+    // This advisory check can run before dispatch. The batch handler first
+    // acquires the member-set lock through assertCanRemoveMember(), then repeats
+    // the whole-batch check inside its owning transaction. Every nested removal
+    // also validates the invariant while that same outer lock remains held.
     if ([] === $memberIds) {
       return;
     }

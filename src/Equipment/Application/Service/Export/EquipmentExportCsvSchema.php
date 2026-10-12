@@ -1,0 +1,135 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Equipment\Application\Service\Export;
+
+use Equipment\Application\Contract\Export\EquipmentExportRow;
+use Shared\Application\Port\Outbound\SpreadsheetSafeTextPort;
+
+use function array_map;
+
+/**
+ * Service EquipmentExportCsvSchema.
+ *
+ * Maps immutable export rows to the exact spreadsheet-safe CSV cells used by
+ * both the streamed writer and durable artifact renderer. All display values,
+ * including the facility name, are resolved by the owning query beforehand.
+ *
+ * {@see self::HEADER}'s first seven columns (`type`, `subType`, `brand`,
+ * `model`, `serialNumber`, `locationLabel`, `facilityCode`) are a published,
+ * load-bearing contract: they are, in that exact order, the columns
+ * `Import\Application\Service\EquipmentRowFactory` reads back on reimport —
+ * the first six frozen since v1, `facilityCode` appended as the 7th so an
+ * exported file reassigns each item to its facility on reimport.
+ * Everything after column 7 is read-only metadata the import ignores. Do not
+ * reorder the first seven without checking `EquipmentRowFactory`'s docblock —
+ * and the frozen slice assertion in
+ * `tests/Unit/Equipment/Presentation/Api/Service/EquipmentCsvWriterTest.php`.
+ *
+ * @category Service
+ * @version 1.0.0
+ *
+ * @author Valentin FORTIN <contact@valentin-fortin.pro>
+ */
+final readonly class EquipmentExportCsvSchema
+{
+  // #region Constants
+  /**
+   * Constant HEADER.
+   *
+   * Public on purpose: it is the frozen import round-trip contract, and the
+   * test that locks it down (`array_slice(self::HEADER, 0, 7)`) must be able
+   * to read it from outside the class.
+   *
+   * @since 1.0.0
+   *
+   * @var list<string>
+   */
+  public const array HEADER = [
+    // The import round-trip contract — see class docblock. Never reorder.
+    'type',
+    'subType',
+    'brand',
+    'model',
+    'serialNumber',
+    'locationLabel',
+    'facilityCode',
+    // Read-only metadata, ignored by the importer.
+    'id',
+    'status',
+    'facilityId',
+    'facilityName',
+    'installedAt',
+    'commissionedAt',
+    'createdAt',
+    'updatedAt',
+    SpreadsheetSafeTextPort::ENCODING_COLUMN,
+  ];
+  // #endregion
+
+  // #region Constructor
+  /**
+   * Constructor
+   *
+   * @param SpreadsheetSafeTextPort $spreadsheetText reversible text-cell encoder
+   */
+  public function __construct(private SpreadsheetSafeTextPort $spreadsheetText)
+  {
+  }
+  // #endregion
+
+  // #region Methods
+  /**
+   * Method cells
+   *
+   * @param EquipmentExportRow $row original owner export values
+   *
+   * @return list<string> exact import-compatible, spreadsheet-safe cells
+   */
+  public function cells(EquipmentExportRow $row): array
+  {
+    $cells = array_map($this->spreadsheetText->encode(...), $this->toRow($row));
+    $cells[] = SpreadsheetSafeTextPort::ENCODING_VERSION;
+
+    return $cells;
+  }
+
+  /**
+   * Method toRow.
+   *
+   * Maps a single equipment export row to a CSV row, in {@see self::HEADER}
+   * order. The `facilityName` cell falls back to the raw identifier when the
+   * name could not be resolved (a deleted facility), and to an empty string
+   * only when the equipment carries no facility at all — a name that could
+   * not be resolved is not the same as an absent one.
+   *
+   * @access private
+   * @since 1.0.0
+   *
+   * @param EquipmentExportRow $row the equipment export row
+   *
+   * @return list<string> the CSV row values
+   */
+  private function toRow(EquipmentExportRow $row): array
+  {
+    return [
+      $row->type,
+      $row->subType ?? '',
+      $row->brand ?? '',
+      $row->model ?? '',
+      $row->serialNumber ?? '',
+      $row->locationLabel ?? '',
+      $row->facilityCode ?? '',
+      $row->id,
+      $row->status,
+      $row->facilityId ?? '',
+      $row->facilityName ?? $row->facilityId ?? '',
+      $row->installedAt ?? '',
+      $row->commissionedAt ?? '',
+      $row->createdAt,
+      $row->updatedAt,
+    ];
+  }
+  // #endregion
+}

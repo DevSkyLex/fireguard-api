@@ -30,13 +30,17 @@ final class ApprovalActionTypeCatalogAdapterTest extends TestCase
   #[Test]
   public function testValuesMirrorsTheSharedCatalog(): void
   {
-    self::assertSame(ApprovalActionTypes::all(), new ApprovalActionTypeCatalogAdapter()->values());
+    self::assertSame(ApprovalActionTypes::all(), new ApprovalActionTypeCatalogAdapter(
+      \Tests\Support\Catalogs\BuiltInCapabilityCatalogs::approval(),
+    )->values());
   }
 
   #[Test]
   public function testDescriptorsPairEveryValueWithItsLabel(): void
   {
-    $descriptors = new ApprovalActionTypeCatalogAdapter()->descriptors();
+    $descriptors = new ApprovalActionTypeCatalogAdapter(
+      \Tests\Support\Catalogs\BuiltInCapabilityCatalogs::approval(),
+    )->descriptors();
 
     self::assertSame(ApprovalActionTypes::all(), array_column($descriptors, 'value'));
 
@@ -49,7 +53,9 @@ final class ApprovalActionTypeCatalogAdapterTest extends TestCase
   #[Test]
   public function testDescriptorsExposeTheHumanReadableLabels(): void
   {
-    $labels = array_column(new ApprovalActionTypeCatalogAdapter()->descriptors(), 'label', 'value');
+    $labels = array_column(new ApprovalActionTypeCatalogAdapter(
+      \Tests\Support\Catalogs\BuiltInCapabilityCatalogs::approval(),
+    )->descriptors(), 'label', 'value');
 
     self::assertSame('Non-conformity waiver', $labels[ApprovalActionTypes::NC_WAIVER]);
     self::assertSame('Equipment decommission', $labels[ApprovalActionTypes::EQUIPMENT_DECOMMISSION]);

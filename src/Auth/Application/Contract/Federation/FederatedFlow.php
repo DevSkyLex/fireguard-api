@@ -28,26 +28,33 @@ final readonly class FederatedFlow
    *
    * @param string $stateHash hash of the one-time OAuth state value
    * @param string $browserBindingHash hash binding the flow to its initiating browser
-   * @param FederatedProvider $provider provider handling the authorization request
+   * @param ProviderId $provider provider handling the authorization request
    * @param string $intent operation requested by the federated flow
    * @param ?string $userId account being linked, when the flow is an account-link operation
    * @param string $codeVerifier PKCE verifier needed to exchange the authorization code
    * @param string $redirectUri registered callback URI used for the flow
    * @param string $returnUrl validated application URL used after the flow
    * @param DateTimeImmutable $expiresAt deadline after which the one-time state is invalid
+   * @param ?string $nonceHash retained generic OIDC nonce hash; absent for legacy flows
    *
    * @return void
    */
   public function __construct(
     public string $stateHash,
     public string $browserBindingHash,
-    public FederatedProvider $provider,
+    public ProviderId $provider,
     public string $intent,
     public ?string $userId,
     public string $codeVerifier,
     public string $redirectUri,
     public string $returnUrl,
     public DateTimeImmutable $expiresAt,
+    public ?string $nonceHash = null,
+    public string $stage = 'reserved',
+    public ?DateTimeImmutable $exchangeStartedAt = null,
+    public ?FederatedProfile $verifiedProfile = null,
+    public ?DateTimeImmutable $proofExpiresAt = null,
+    public ?string $completedUserId = null,
   ) {
   }
   // #endregion

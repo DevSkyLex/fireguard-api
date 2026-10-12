@@ -58,6 +58,8 @@ final class MessageReferenceTest extends TestCase
     yield 'intervention' => ['intervention'];
     yield 'facility' => ['facility'];
     yield 'equipment' => ['equipment'];
+    yield 'additional subject' => ['service_request'];
+    yield 'historical unloaded subject' => ['retired_owner'];
   }
 
   #[Test]

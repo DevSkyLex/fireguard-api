@@ -6,6 +6,7 @@ namespace Auth\Presentation\Api\Processor\Registration;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
+use Auth\Application\Port\Outbound\JwtTokenServicePort;
 use Auth\Application\UseCase\Command\Registration\ConfirmRegistration\{ConfirmRegistrationCommand, ConfirmRegistrationResult};
 use Auth\Presentation\Api\Dto\Input\Registration\ConfirmRegistrationInput;
 use Auth\Presentation\Api\Dto\Output\Auth\LoginOutput;
@@ -49,6 +50,7 @@ final readonly class ConfirmRegistrationProcessor implements ProcessorInterface
     private CommandBusPort $commandBus,
     private RequestStack $requestStack,
     private RefreshTokenCookieService $cookieService,
+    private ?JwtTokenServicePort $tokens = null,
   ) {
   }
   // #endregion
@@ -123,6 +125,7 @@ final readonly class ConfirmRegistrationProcessor implements ProcessorInterface
         $cookie = $this->cookieService->createCookie(
           refreshToken: $result->refreshToken,
           rememberMe: false,
+          absoluteExpiresAt: $this->tokens?->decodeRefreshToken($result->refreshToken)['expires_at'] ?? null,
         );
 
         $request->attributes->set(

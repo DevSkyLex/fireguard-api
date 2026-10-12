@@ -9,7 +9,6 @@ use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\ORM\EntityManagerInterface;
 use Equipment\Infrastructure\Adapter\Messaging\EquipmentMessagingSubjectResolverAdapter;
 use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
-use Messaging\Application\Contract\Subject\MessagingSubjectType;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -56,11 +55,9 @@ final class EquipmentMessagingSubjectResolverAdapterTest extends KernelTestCase
   }
 
   #[Test]
-  public function testSupportsOnlyEquipmentSubjectType(): void
+  public function testPublishesTheSubjectDescriptor(): void
   {
-    self::assertTrue($this->adapter->supports(MessagingSubjectType::EQUIPMENT));
-    self::assertFalse($this->adapter->supports(MessagingSubjectType::FACILITY));
-    self::assertFalse($this->adapter->supports(MessagingSubjectType::INTERVENTION));
+    self::assertSame('equipment', $this->adapter->descriptor()->type);
   }
 
   #[Test]

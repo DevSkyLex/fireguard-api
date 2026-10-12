@@ -8,7 +8,6 @@ use Auth\Infrastructure\Security\User\SecurityUser;
 use Inspection\Application\Contract\Event\Export\NonConformitiesReportExportedEvent;
 use Inspection\Application\Contract\Export\NonConformityExportRow;
 use Inspection\Application\Port\Outbound\NonConformityReportPdfRendererPort;
-use Inspection\Application\UseCase\Command\Export\RecordInspectionExport\RecordInspectionExportCommand;
 use Inspection\Application\UseCase\Query\ExportNonConformities\{ExportNonConformitiesQuery, ExportNonConformitiesResult};
 use Inspection\Application\UseCase\Query\Report\ResolveInspectionReportAccess\{ResolveInspectionReportAccessQuery, ResolveInspectionReportAccessResult};
 use Inspection\Domain\Exception\{InspectionAccessDeniedException, InspectionExportTooLargeException, InspectionNotFoundException};
@@ -21,8 +20,8 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
-use Shared\Application\Message\VoidResult;
-use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
+use Shared\Application\Port\Inbound\QueryBusPort;
+use Shared\Application\Port\Outbound\EventDispatcherPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, Response};
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException, UnprocessableEntityHttpException};
@@ -48,6 +47,7 @@ use const STR_PAD_LEFT;
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 #[CoversClass(ExportNonConformitiesReportController::class)]
+#[CoversClass(\Inspection\Application\UseCase\Command\Export\ExportNonConformitiesReportDocument\ExportNonConformitiesReportDocumentHandler::class)]
 final class ExportNonConformitiesReportControllerTest extends TestCase
 {
   private const string ORGANIZATION_ID = '550e8400-e29b-41d4-a716-446655510101';
@@ -139,14 +139,14 @@ final class ExportNonConformitiesReportControllerTest extends TestCase
 
     $dispatched = null;
 
-    /** @var CommandBusPort&MockObject $commandBus */
-    $commandBus = $this->createMock(CommandBusPort::class);
+    /** @var EventDispatcherPort&MockObject $commandBus */
+    $commandBus = $this->createMock(EventDispatcherPort::class);
     $commandBus->expects(self::once())
       ->method('dispatch')
-      ->willReturnCallback(static function (RecordInspectionExportCommand $command) use (&$dispatched): VoidResult {
-        $dispatched = $command->event;
+      ->willReturnCallback(static function (object $event) use (&$dispatched): void {
+        $dispatched = $event;
 
-        return new VoidResult();
+
       });
 
     $request = $this->request();
@@ -218,8 +218,8 @@ final class ExportNonConformitiesReportControllerTest extends TestCase
     $renderer = $this->createMock(NonConformityReportPdfRendererPort::class);
     $renderer->expects(self::never())->method('render');
 
-    /** @var CommandBusPort&MockObject $commandBus */
-    $commandBus = $this->createMock(CommandBusPort::class);
+    /** @var EventDispatcherPort&MockObject $commandBus */
+    $commandBus = $this->createMock(EventDispatcherPort::class);
     $commandBus->expects(self::never())->method('dispatch');
 
     $controller = $this->createController(
@@ -301,7 +301,7 @@ final class ExportNonConformitiesReportControllerTest extends TestCase
   private function createController(
     QueryBusPort $queryBus,
     ?NonConformityReportPdfRendererPort $renderer = null,
-    ?CommandBusPort $commandBus = null,
+    ?EventDispatcherPort $commandBus = null,
     ?Security $security = null,
   ): ExportNonConformitiesReportController {
     if (null === $security) {
@@ -321,14 +321,7 @@ final class ExportNonConformitiesReportControllerTest extends TestCase
       $renderer->method('render')->willReturn('%PDF-fake');
     }
 
-    return new ExportNonConformitiesReportController(
-      queryBus: $queryBus,
-      branding: $this->brandingPort(),
-      renderer: $renderer,
-      criteriaFactory: new NonConformityExportCriteriaFactory(),
-      commandBus: $commandBus ?? $this->createStub(CommandBusPort::class),
-      security: $security,
-    );
+    return new ExportNonConformitiesReportController(commandBus: $this->documents(new \Inspection\Application\UseCase\Command\Export\ExportNonConformitiesReportDocument\ExportNonConformitiesReportDocumentHandler(queryBus: $queryBus, branding: $this->brandingPort(), renderer: $renderer, events: $commandBus ?? $this->createStub(EventDispatcherPort::class), transactions: $this->transactions())), security: $security);
   }
 
   /**
@@ -407,5 +400,21 @@ final class ExportNonConformitiesReportControllerTest extends TestCase
       resolvedAt: $resolvedAt,
     );
   }
+
   // #endregion
+  private function documents(\Inspection\Application\UseCase\Command\Export\ExportNonConformitiesReportDocument\ExportNonConformitiesReportDocumentHandler $handler): \Shared\Application\Port\Inbound\CommandBusPort
+  {
+    $documents = $this->createStub(\Shared\Application\Port\Inbound\CommandBusPort::class);
+    $documents->method('dispatch')->willReturnCallback($handler(...));
+
+    return $documents;
+  }
+
+  private function transactions(): \Shared\Application\Port\Outbound\TransactionManagerPort
+  {
+    $transactions = $this->createStub(\Shared\Application\Port\Outbound\TransactionManagerPort::class);
+    $transactions->method('transactional')->willReturnCallback(static fn (callable $operation): mixed => $operation());
+
+    return $transactions;
+  }
 }

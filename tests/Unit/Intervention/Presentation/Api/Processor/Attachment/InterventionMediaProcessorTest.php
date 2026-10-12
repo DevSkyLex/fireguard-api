@@ -101,13 +101,13 @@ final class InterventionMediaProcessorTest extends TestCase
   }
 
   #[Test]
-  public function replaysTheScopedSnapshotWithoutAFileOrMutation(): void
+  public function acknowledgesTheScopedSnapshotThroughTheOwningCommandWithoutFileBytes(): void
   {
     $request = Request::create('/attachments', 'POST', ['clientId' => self::CLIENT]);
     $queries = $this->createMock(QueryBusPort::class);
     $queries->expects(self::once())->method('ask')->with(self::callback(static fn (ResolveInterventionMediaQuery $query): bool => $query->replay && self::CLIENT === $query->attachmentId))->willReturn($this->scopeResult());
     $commands = $this->createMock(CommandBusPort::class);
-    $commands->expects(self::never())->method('dispatch');
+    $commands->expects(self::once())->method('dispatch')->with(self::callback(static fn (AddInterventionAttachmentCommand $command): bool => $command->acknowledgementOnly && self::CLIENT === $command->attachmentId && '' === $command->contents))->willReturn(new AddInterventionAttachmentResult(self::CLIENT, 'intervention', 'file.pdf', 'application/pdf', 4, null, new DateTimeImmutable('2026-01-01T00:00:00+00:00'), revision: 3));
     $output = $this->processor($request, $commands, $queries)->process(null, new Post(), ['interventionId' => 'intervention']);
     self::assertInstanceOf(\Intervention\Presentation\Api\Dto\Output\Attachment\InterventionAttachmentOutput::class, $output);
     self::assertSame(3, $output->revision);

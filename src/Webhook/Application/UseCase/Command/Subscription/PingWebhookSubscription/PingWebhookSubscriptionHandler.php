@@ -85,7 +85,7 @@ final readonly class PingWebhookSubscriptionHandler implements CommandHandler
 
     $envelope = new WebhookPayloadEnvelope(
       id: (string) $deliveryId,
-      type: WebhookEventType::PING->value,
+      type: WebhookEventType::PING,
       created: $now->format('c'),
       organizationId: $command->organizationId,
       data: [
@@ -99,7 +99,7 @@ final readonly class PingWebhookSubscriptionHandler implements CommandHandler
         id: $deliveryId,
         subscriptionId: $subscriptionId,
         organizationId: $command->organizationId,
-        eventType: WebhookEventType::PING->value,
+        eventType: WebhookEventType::PING,
         eventId: $eventId,
         payload: $envelope->toArray(),
       );

@@ -110,7 +110,7 @@ final class AddChannelParticipantHandlerTest extends TestCase
     $subjectThread = Conversation::create(
       ConversationId::fromString(self::CHANNEL_ID),
       self::ORG_ID,
-      MessagingSubjectType::FACILITY,
+      MessagingSubjectType::from('facility'),
       'facility-1',
     );
 

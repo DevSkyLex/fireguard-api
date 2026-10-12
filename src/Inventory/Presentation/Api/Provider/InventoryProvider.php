@@ -45,7 +45,7 @@ final readonly class InventoryProvider implements ProviderInterface
     $request = $this->requests->getCurrentRequest();
     $filters = [];
     $allowed = match($type) {
-      'parts','warehouses' => ['search', 'archived'],'balances' => ['warehouseId', 'partId'],'movements' => ['warehouseId', 'partId', 'interventionId'],'consumptions' => ['warehouseId', 'partId', 'interventionId', 'status'],default => throw new BadRequestHttpException('Invalid inventory collection.')
+      'parts','warehouses' => ['search', 'archived'],'balances' => ['warehouseId', 'partId'],'movements' => ['warehouseId', 'partId', 'interventionId'],'consumptions' => ['warehouseId', 'partId', 'interventionId', 'status', 'clientOperationId'],default => throw new BadRequestHttpException('Invalid inventory collection.')
     };
     foreach ($allowed as $key) {
       $value = $request?->query->get($key);

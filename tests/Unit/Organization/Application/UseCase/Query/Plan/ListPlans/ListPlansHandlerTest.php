@@ -30,7 +30,7 @@ final class ListPlansHandlerTest extends TestCase
       },
     );
 
-    $handler = new ListPlansHandler($planRepository, $translator);
+    $handler = new ListPlansHandler($planRepository, $translator, quotaCatalog: \Tests\Support\OrganizationCatalogTestFactory::quota());
 
     $result = $handler(new ListPlansQuery(activeOnly: true));
 
@@ -49,7 +49,7 @@ final class ListPlansHandlerTest extends TestCase
     $translator = $this->createStub(TranslationPort::class);
     $translator->method('translate')->willReturn('translated');
 
-    $handler = new ListPlansHandler($planRepository, $translator);
+    $handler = new ListPlansHandler($planRepository, $translator, quotaCatalog: \Tests\Support\OrganizationCatalogTestFactory::quota());
 
     $result = $handler(new ListPlansQuery(activeOnly: false));
 

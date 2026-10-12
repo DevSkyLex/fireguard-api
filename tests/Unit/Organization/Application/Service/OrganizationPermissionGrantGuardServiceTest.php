@@ -8,10 +8,12 @@ use DateTimeImmutable;
 use Organization\Application\Contract\Event\Security\OrganizationPermissionGrantDeniedEvent;
 use Organization\Application\Contract\Exception\OrganizationAccessDeniedException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
+use Organization\Application\Port\Outbound\Internal\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort};
 use Organization\Application\Port\Outbound\Internal\OrganizationRoleRepositoryPort;
-use Organization\Application\Service\OrganizationPermissionGrantGuardService;
+use Organization\Application\Service\{OrganizationAuthorizationService, OrganizationPermissionGrantGuardService};
 use Organization\Domain\Model\OrganizationRole\OrganizationRole;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationRoleId, OrganizationRoleName};
+use Organization\Domain\ValueObject\OrganizationStatus;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Outbound\EventDispatcherPort;
@@ -122,6 +124,51 @@ final class OrganizationPermissionGrantGuardServiceTest extends TestCase
     $service = new OrganizationPermissionGrantGuardService($authorization, $roleRepository, $this->neverDispatchingEventDispatcher());
 
     $service->assertCanAssignRoles(self::ACTOR_ID, self::ORG_ID, [self::ROLE_ID]);
+  }
+
+  #[Test]
+  public function testHistoricalAliasIsGrantableOnlyWhileItsCanonicalPermissionIsHeld(): void
+  {
+    $roles = $this->createStub(OrganizationRoleRepositoryPort::class);
+    $roles->method('findById')->willReturn($this->role(['facility.read']));
+    new OrganizationPermissionGrantGuardService($this->canonicalAuthorization(['organization.facilities.read']), $roles, $this->neverDispatchingEventDispatcher())->assertCanAssignRoles(self::ACTOR_ID, self::ORG_ID, [self::ROLE_ID]);
+    $service = new OrganizationPermissionGrantGuardService($this->canonicalAuthorization(['organization.roles.manage']), $roles, $this->expectsDeniedEventDispatch('facility.read', 'assign_roles'));
+    $this->expectException(OrganizationAccessDeniedException::class);
+    $service->assertCanAssignRoles(self::ACTOR_ID, self::ORG_ID, [self::ROLE_ID]);
+  }
+
+  #[Test]
+  public function testHistoricalWildcardRequiresTheFullOrganizationWildcard(): void
+  {
+    $roles = $this->createStub(OrganizationRoleRepositoryPort::class);
+    $roles->method('findById')->willReturn($this->role(['*']));
+    new OrganizationPermissionGrantGuardService($this->canonicalAuthorization(['organization.*']), $roles, $this->neverDispatchingEventDispatcher())->assertCanAssignRoles(self::ACTOR_ID, self::ORG_ID, [self::ROLE_ID]);
+    $service = new OrganizationPermissionGrantGuardService($this->canonicalAuthorization(['organization.facilities.read', 'organization.roles.manage']), $roles, $this->expectsDeniedEventDispatch('*', 'assign_roles'));
+    $this->expectException(OrganizationAccessDeniedException::class);
+    $service->assertCanAssignRoles(self::ACTOR_ID, self::ORG_ID, [self::ROLE_ID]);
+  }
+
+  #[Test]
+  public function testUnknownHistoricalPermissionStillCannotBeDelegatedByAWildcardHolder(): void
+  {
+    $roles = $this->createStub(OrganizationRoleRepositoryPort::class);
+    $roles->method('findById')->willReturn($this->role(['retired.unknown.read']));
+    $service = new OrganizationPermissionGrantGuardService($this->canonicalAuthorization(['organization.*']), $roles, $this->expectsDeniedEventDispatch('retired.unknown.read', 'assign_roles'));
+    $this->expectException(OrganizationAccessDeniedException::class);
+    $service->assertCanAssignRoles(self::ACTOR_ID, self::ORG_ID, [self::ROLE_ID]);
+  }
+
+  /**
+   * @param list<string> $permissions current effective permissions
+   */
+  private function canonicalAuthorization(array $permissions): OrganizationAuthorizationPort
+  {
+    $members = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $members->method('getPermissionNamesForUserInOrganization')->willReturn($permissions);
+    $organizations = $this->createStub(OrganizationRepositoryPort::class);
+    $organizations->method('statusOf')->willReturn(OrganizationStatus::ACTIVE);
+
+    return new OrganizationAuthorizationService($members, $organizations, \Tests\Support\OrganizationCatalogTestFactory::permissions());
   }
 
   private function authorization(bool $grants): OrganizationAuthorizationPort

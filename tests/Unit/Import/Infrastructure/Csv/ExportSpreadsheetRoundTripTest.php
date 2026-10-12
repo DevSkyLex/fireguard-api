@@ -5,10 +5,11 @@ declare(strict_types=1);
 namespace Tests\Unit\Import\Infrastructure\Csv;
 
 use Equipment\Application\Contract\Export\EquipmentExportRow;
+use Equipment\Infrastructure\Import\EquipmentImportRowFactory;
 use Equipment\Presentation\Api\Service\EquipmentCsvWriter;
 use Facility\Application\Contract\Export\FacilityExportRow;
+use Facility\Infrastructure\Import\FacilityImportRowFactory;
 use Facility\Presentation\Api\Service\FacilityCsvWriter;
-use Import\Application\Service\{EquipmentRowFactory, FacilityRowFactory};
 use Import\Infrastructure\Csv\CsvRowStreamer;
 use Intervention\Application\Contract\Export\InterventionExportRow;
 use Intervention\Presentation\Api\Service\InterventionCsvWriter;
@@ -107,7 +108,7 @@ final class ExportSpreadsheetRoundTripTest extends TestCase
     foreach (['brand', 'model', 'serialNumber', 'locationLabel', 'facilityCode', 'facilityName'] as $column) {
       self::assertSame($value, $imported[$column]);
     }
-    $request = new EquipmentRowFactory()->map('organization-1', $imported);
+    $request = new EquipmentImportRowFactory()->map('organization-1', $imported);
     self::assertSame(trim($value), $request->brand);
     self::assertSame(trim($value), $request->facilityCode);
   }
@@ -152,7 +153,7 @@ final class ExportSpreadsheetRoundTripTest extends TestCase
     foreach (['name', 'code', 'address', 'parentCode'] as $column) {
       self::assertSame($value, $imported[$column]);
     }
-    $request = new FacilityRowFactory()->map('organization-1', $imported);
+    $request = new FacilityImportRowFactory()->map('organization-1', $imported);
     self::assertSame(trim($value), $request->name);
     self::assertSame(trim($value), $request->code);
     self::assertSame(-48.8566, $request->latitude);

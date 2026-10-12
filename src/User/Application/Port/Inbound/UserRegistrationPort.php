@@ -20,7 +20,23 @@ interface UserRegistrationPort
 
   public function usernameExists(string $username): bool;
 
-  public function register(string $username, string $email, string $password, string $firstName, string $lastName): string;
+  /**
+   * Method register
+   *
+   * Enforces owner password policy; an explicit verification waiver activates without asserting mailbox proof.
+   *
+   * @access public
+   *
+   * @param string $username available username
+   * @param string $email account email
+   * @param string $password proposed credential
+   * @param string $firstName profile first name
+   * @param string $lastName profile last name
+   * @param bool $requireEmailVerification trusted project registration choice
+   *
+   * @return string created account identity
+   */
+  public function register(string $username, string $email, string $password, string $firstName, string $lastName, bool $requireEmailVerification = true): string;
 
   public function confirm(string $userId, string $verifiedRecipient): ?UserView;
 }
