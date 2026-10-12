@@ -529,6 +529,9 @@ same behavior.
 Configuration uses `GOOGLE_OIDC_*` and `MICROSOFT_OIDC_*`. The backend derives login and link callback
 URLs from `APP_FRONTEND_URL`; the browser cannot supply a redirect URI. Provider availability is
 public, while connection and password-setup endpoints require an authenticated user.
+Both legacy providers default to disabled with empty credentials when their optional
+environment variables are absent. Explicit enablement and both credentials are required
+before either provider is available; existing deployment values override these defaults.
 
 Generic OIDC providers are registered only in `config/packages/federated_providers.yaml`.
 A stable provider key contains at most twenty lowercase letters, digits, underscores or

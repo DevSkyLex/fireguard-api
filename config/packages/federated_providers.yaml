@@ -1,4 +1,13 @@
 parameters:
+  # Legacy providers are optional. Explicit environment configuration overrides
+  # these disabled defaults in every composition, including applications without .env.
+  env(GOOGLE_OIDC_ENABLED): 'false'
+  env(GOOGLE_OIDC_CLIENT_ID): ''
+  env(GOOGLE_OIDC_CLIENT_SECRET): ''
+  env(MICROSOFT_OIDC_ENABLED): 'false'
+  env(MICROSOFT_OIDC_CLIENT_ID): ''
+  env(MICROSOFT_OIDC_CLIENT_SECRET): ''
+
   # Register generic OIDC providers here using server-owned HTTPS endpoints.
   # Every entry is keyed by a stable lowercase identifier of at most 20 characters.
   # Fields: label, enabled, issuer, authorization_endpoint, token_endpoint,
