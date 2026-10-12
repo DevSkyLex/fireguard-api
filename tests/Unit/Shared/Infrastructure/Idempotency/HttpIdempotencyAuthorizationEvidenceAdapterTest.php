@@ -74,6 +74,16 @@ final class HttpIdempotencyAuthorizationEvidenceAdapterTest extends TestCase
   }
 
   #[Test]
+  public function corruptRequestEvidenceCannotBecomeAuthorizationProof(): void
+  {
+    [$adapter, $request] = $this->fixture();
+    $request->attributes->set('_fireguard_http_authorization_evidence', 'corrupt');
+    $this->expectException(IdempotencyDeniedException::class);
+    $this->expectExceptionMessage('authorization_unavailable');
+    $adapter->snapshot();
+  }
+
+  #[Test]
   public function nativeRolePredicatesAreRetainedAsRolesAndDuplicateChecksDoNotGrowTheReceipt(): void
   {
     [$adapter] = $this->fixture();

@@ -16,6 +16,7 @@ use function explode;
 use function hash;
 use function implode;
 use function str_repeat;
+use function strtr;
 
 /**
  * Test SignedFederatedBrowserBindingAdapterTest
@@ -61,6 +62,27 @@ final class SignedFederatedBrowserBindingAdapterTest extends TestCase
     $first = new SignedFederatedBrowserBindingAdapter(new HmacIdempotencyFingerprintAdapter(base64_encode(str_repeat('b', 32))), $clock);
     $other = new SignedFederatedBrowserBindingAdapter(new HmacIdempotencyFingerprintAdapter(base64_encode(str_repeat('c', 32))), $clock);
     self::assertNull($other->verify($first->create()));
+  }
+
+  /**
+   * Method ticketDeadlineAcceptsOnlyAsciiDigits
+   *
+   * Keeps the ticket's persisted timestamp alphabet independent of Unicode numeral characters.
+   *
+   * @access public
+   *
+   * @return void
+   */
+  #[Test]
+  public function ticketDeadlineAcceptsOnlyAsciiDigits(): void
+  {
+    $clock = $this->createStub(ClockPort::class);
+    $clock->method('now')->willReturn(new DateTimeImmutable('2026-10-12T00:00:00+00:00'));
+    $adapter = new SignedFederatedBrowserBindingAdapter(new HmacIdempotencyFingerprintAdapter(base64_encode(str_repeat('b', 32))), $clock);
+    $parts = explode('.', $adapter->create());
+    $parts[2] = strtr($parts[2], ['0' => '٠', '1' => '١', '2' => '٢', '3' => '٣', '4' => '٤', '5' => '٥', '6' => '٦', '7' => '٧', '8' => '٨', '9' => '٩']);
+
+    self::assertNull($adapter->verify(implode('.', $parts)));
   }
 
   #[Test]

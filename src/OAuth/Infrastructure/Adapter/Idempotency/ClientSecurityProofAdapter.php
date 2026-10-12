@@ -54,23 +54,39 @@ final readonly class ClientSecurityProofAdapter implements ClientSecurityProofPo
     if (1 !== preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i', $clientId)) {
       return null;
     }
-    $row = $this->entityManager->getConnection()->fetchAssociative(
-      'SELECT id, secret, is_active, deleted_at, security_revision, grant_types, scopes, redirect_uris FROM clients WHERE id = ?',
-      [$clientId],
-    );
-    if (false === $row || !is_string($row['secret'] ?? null) || !password_verify($clientSecret, $row['secret']) || null !== ($row['deleted_at'] ?? null)) {
-      return null;
-    }
-    if (!in_array($row['is_active'] ?? null, [true, 1, '1'], true)) {
-      return null;
-    }
+    $row = $this->authenticatedClientRow($clientId, $clientSecret);
     $revision = $row['security_revision'] ?? null;
     $grantTypes = array_map(strtolower(...), $this->strings($row['grant_types'] ?? null));
-    if ((!is_int($revision) && !is_numeric($revision)) || (int) $revision < 1 || !in_array($grantType, $grantTypes, true)) {
+    if (null === $row || (!is_int($revision) && !is_numeric($revision)) || (int) $revision < 1 || !in_array($grantType, $grantTypes, true)) {
       return null;
     }
 
     return new ClientSecurityProof($clientId, (int) $revision, $grantTypes, $this->strings($row['scopes'] ?? null), $this->strings($row['redirect_uris'] ?? null));
+  }
+
+  /**
+   * Method authenticatedClientRow
+   *
+   * Checks the current secret and active client state without consulting managed entity caches.
+   *
+   * @access private
+   *
+   * @param string $clientId validated native client identifier
+   * @param string $clientSecret current credential, never retained
+   *
+   * @return array<string, mixed>|null active client row after secret verification
+   */
+  private function authenticatedClientRow(string $clientId, string $clientSecret): ?array
+  {
+    $row = $this->entityManager->getConnection()->fetchAssociative(
+      'SELECT id, secret, is_active, deleted_at, security_revision, grant_types, scopes, redirect_uris FROM clients WHERE id = ?',
+      [$clientId],
+    );
+    if (false === $row || !is_string($row['secret'] ?? null) || !password_verify($clientSecret, $row['secret']) || null !== ($row['deleted_at'] ?? null) || !in_array($row['is_active'] ?? null, [true, 1, '1'], true)) {
+      return null;
+    }
+
+    return $row;
   }
 
   /**

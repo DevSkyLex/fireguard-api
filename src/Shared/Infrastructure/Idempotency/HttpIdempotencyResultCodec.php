@@ -172,38 +172,64 @@ final readonly class HttpIdempotencyResultCodec
     if ($depth > 32) {
       throw new IdempotencyDeniedException('result_unavailable');
     }
-    if ($value instanceof DateTimeImmutable) {
-      return ['kind' => 'date', 'instant' => $value->format('Y-m-d\TH:i:s.uP'), 'timezone' => $value->getTimezone()->getName()];
-    }
-    if (is_array($value)) {
-      $entries = [];
-      foreach ($value as $key => $item) {
-        $entries[] = [$key, $this->encodeValue($item, $operation, $depth + 1)];
-      }
 
-      return ['kind' => 'array', 'entries' => $entries];
-    }
-    if (is_object($value)) {
-      $class = $this->declaredClass($value::class, $operation);
-      if ($value instanceof BackedEnum) {
-        return ['kind' => 'enum', 'class' => $class, 'value' => $value->value];
-      }
-      $reflection = new ReflectionClass($class);
-      if (!$reflection->isReadOnly()) {
-        throw new IdempotencyDeniedException('result_unavailable');
-      }
-      $fields = [];
-      foreach (get_object_vars($value) as $name => $field) {
-        $fields[$name] = $this->encodeValue($field, $operation, $depth + 1);
-      }
+    return match (true) {
+      $value instanceof DateTimeImmutable => ['kind' => 'date', 'instant' => $value->format('Y-m-d\TH:i:s.uP'), 'timezone' => $value->getTimezone()->getName()],
+      is_array($value) => $this->encodeArray($value, $operation, $depth),
+      is_object($value) => $this->encodeObject($value, $operation, $depth),
+      null === $value || is_string($value) || is_int($value) || is_float($value) || is_bool($value) => $value,
+      default => throw new IdempotencyDeniedException('result_unavailable'),
+    };
+  }
 
-      return ['kind' => 'object', 'class' => $class, 'fields' => $fields];
-    }
-    if (null === $value || is_string($value) || is_int($value) || is_float($value) || is_bool($value)) {
-      return $value;
+  /**
+   * Method encodeArray
+   *
+   * @access private
+   *
+   * @param array<array-key, mixed> $value the ordered application collection
+   * @param HttpIdempotencyOperation $operation the declared result schema
+   * @param int $depth current recursive depth
+   *
+   * @return array{kind: string, entries: list<array{array-key, mixed}>} typed collection encoding
+   */
+  private function encodeArray(array $value, HttpIdempotencyOperation $operation, int $depth): array
+  {
+    $entries = [];
+    foreach ($value as $key => $item) {
+      $entries[] = [$key, $this->encodeValue($item, $operation, $depth + 1)];
     }
 
-    throw new IdempotencyDeniedException('result_unavailable');
+    return ['kind' => 'array', 'entries' => $entries];
+  }
+
+  /**
+   * Method encodeObject
+   *
+   * @access private
+   *
+   * @param object $value the immutable declared application value
+   * @param HttpIdempotencyOperation $operation the declared result schema
+   * @param int $depth current recursive depth
+   *
+   * @return array<string, mixed> typed declared object encoding
+   */
+  private function encodeObject(object $value, HttpIdempotencyOperation $operation, int $depth): array
+  {
+    $class = $this->declaredClass($value::class, $operation);
+    if ($value instanceof BackedEnum) {
+      return ['kind' => 'enum', 'class' => $class, 'value' => $value->value];
+    }
+    $reflection = new ReflectionClass($class);
+    if (!$reflection->isReadOnly()) {
+      throw new IdempotencyDeniedException('result_unavailable');
+    }
+    $fields = [];
+    foreach (get_object_vars($value) as $name => $field) {
+      $fields[$name] = $this->encodeValue($field, $operation, $depth + 1);
+    }
+
+    return ['kind' => 'object', 'class' => $class, 'fields' => $fields];
   }
 
   /**
@@ -226,24 +252,71 @@ final readonly class HttpIdempotencyResultCodec
       return $value;
     }
     $kind = $value['kind'] ?? null;
-    if ('array' === $kind && is_array($value['entries'] ?? null)) {
-      $result = [];
-      foreach ($value['entries'] as $entry) {
-        if (!is_array($entry) || !array_key_exists(0, $entry) || !array_key_exists(1, $entry) || (!is_int($entry[0]) && !is_string($entry[0])) || array_key_exists($entry[0], $result)) {
-          throw new IdempotencyDeniedException('result_unavailable');
-        }
-        $result[$entry[0]] = $this->decodeValue($entry[1], $operation, $depth + 1);
-      }
 
-      return $result;
-    }
-    if ('date' === $kind && is_string($value['instant'] ?? null) && is_string($value['timezone'] ?? null)) {
-      try {
-        return new DateTimeImmutable($value['instant'])->setTimezone(new DateTimeZone($value['timezone']));
-      } catch (Throwable) {
+    return match (true) {
+      'array' === $kind && is_array($value['entries'] ?? null) => $this->decodeArray($value['entries'], $operation, $depth),
+      'date' === $kind && is_string($value['instant'] ?? null) && is_string($value['timezone'] ?? null) => $this->decodeDate($value['instant'], $value['timezone']),
+      default => $this->decodeObject($value, $operation, $depth),
+    };
+  }
+
+  /**
+   * Method decodeArray
+   *
+   * @access private
+   *
+   * @param array<array-key, mixed> $entries the encoded ordered entries
+   * @param HttpIdempotencyOperation $operation the declared result schema
+   * @param int $depth current recursive depth
+   *
+   * @return array<array-key, mixed> the restored collection
+   */
+  private function decodeArray(array $entries, HttpIdempotencyOperation $operation, int $depth): array
+  {
+    $result = [];
+    foreach ($entries as $entry) {
+      if (!is_array($entry) || !array_key_exists(0, $entry) || !array_key_exists(1, $entry) || (!is_int($entry[0]) && !is_string($entry[0])) || array_key_exists($entry[0], $result)) {
         throw new IdempotencyDeniedException('result_unavailable');
       }
+      $result[$entry[0]] = $this->decodeValue($entry[1], $operation, $depth + 1);
     }
+
+    return $result;
+  }
+
+  /**
+   * Method decodeDate
+   *
+   * @access private
+   *
+   * @param string $instant the encoded immutable instant
+   * @param string $timezone the encoded timezone
+   *
+   * @return DateTimeImmutable the restored date
+   */
+  private function decodeDate(string $instant, string $timezone): DateTimeImmutable
+  {
+    try {
+      return new DateTimeImmutable($instant)->setTimezone(new DateTimeZone($timezone));
+    } catch (Throwable) {
+      throw new IdempotencyDeniedException('result_unavailable');
+    }
+  }
+
+  /**
+   * Method decodeObject
+   *
+   * @access private
+   *
+   * @param array<array-key, mixed> $value the encoded declared value
+   * @param HttpIdempotencyOperation $operation the declared result schema
+   * @param int $depth current recursive depth
+   *
+   * @return object the declared immutable value
+   */
+  private function decodeObject(array $value, HttpIdempotencyOperation $operation, int $depth): object
+  {
+    $kind = $value['kind'] ?? null;
     $class = $value['class'] ?? null;
     if (!is_string($class)) {
       throw new IdempotencyDeniedException('result_unavailable');
@@ -260,8 +333,26 @@ final readonly class HttpIdempotencyResultCodec
     if ('object' !== $kind || !$reflection->isReadOnly() || !is_array($value['fields'] ?? null)) {
       throw new IdempotencyDeniedException('result_unavailable');
     }
+
+    return $this->decodeFields($reflection, $value['fields'], $operation, $depth);
+  }
+
+  /**
+   * Method decodeFields
+   *
+   * @access private
+   *
+   * @param ReflectionClass<object> $reflection the declared readonly class
+   * @param array<array-key, mixed> $values encoded constructor values
+   * @param HttpIdempotencyOperation $operation the declared result schema
+   * @param int $depth current recursive depth
+   *
+   * @return object the reconstructed application value
+   */
+  private function decodeFields(ReflectionClass $reflection, array $values, HttpIdempotencyOperation $operation, int $depth): object
+  {
     $fields = [];
-    foreach ($value['fields'] as $name => $field) {
+    foreach ($values as $name => $field) {
       if (!is_string($name)) {
         throw new IdempotencyDeniedException('result_unavailable');
       }

@@ -39,6 +39,7 @@ final class AuditSubscriberSet
     \Messaging\Infrastructure\Adapter\Audit\AuditRecordEventAdapter::class,
     \OAuth\Infrastructure\Adapter\Audit\AuditRecordEventAdapter::class,
     \Organization\Infrastructure\Adapter\Audit\AuditRecordEventAdapter::class,
+    \Organization\Infrastructure\Adapter\Audit\OrganizationMembershipAuditRecordEventAdapter::class,
     \Otp\Infrastructure\Adapter\Audit\AuditRecordEventAdapter::class,
     \User\Infrastructure\Adapter\Audit\AuditRecordEventAdapter::class,
     \Webhook\Infrastructure\Adapter\Audit\AuditRecordEventAdapter::class,

@@ -53,7 +53,8 @@ final readonly class PasswordPolicyConfigurationPass implements CompilerPassInte
       throw new TypeError('Password policy configuration requires integer bounds, boolean requirements and a string alphabet.');
     }
 
-    new ConfiguredPasswordPolicyAdapter($minimum, $maximum, $uppercase, $lowercase, $digit, $special);
+    $policy = new ConfiguredPasswordPolicyAdapter($minimum, $maximum, $uppercase, $lowercase, $digit, $special);
+    $policy->describe();
   }
   // #endregion
 }

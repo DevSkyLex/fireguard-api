@@ -60,17 +60,56 @@ final readonly class InspectionHttpIdempotencyReplayAuthorizationAdapter impleme
       $this->requirePermissions($request, $organization, ['organization.inspection.read']);
     }
     if (null !== $storedProof) {
-      $currentIntervention = $this->value($row, 'intervention_id');
-      if (null !== $currentIntervention && isset($facts['interventionId']) && $currentIntervention !== $facts['interventionId']) {
-        $this->deny();
-      }
-      $intervention = $this->value($row, 'intervention_id') ?? $facts['interventionId'] ?? null;
-      if (null !== $intervention && ($facts['interventionPermission'] ?? '') === 'organization.interventions.execute') {
-        $this->interventions->assertExecutionAccess($organization, $intervention, $request->principalId);
-      }
+      $this->authorizeStoredIntervention($request, $row, $facts, $organization);
 
       return $facts;
     }
+
+    return $this->authorizeMutation($request, $row, $facts, $organization);
+  }
+
+  /**
+   * Method authorizeStoredIntervention
+   *
+   * Rechecks the original assignment against current owner facts before a committed result can be read.
+   *
+   * @access private
+   *
+   * @param HttpIdempotencyAuthorizationRequest $request current verified caller
+   * @param array<string, mixed>|null $row freshly resolved inspection scope
+   * @param array<string, string> $facts verified original authorization evidence
+   * @param string $organization current organization scope
+   *
+   * @return void
+   */
+  private function authorizeStoredIntervention(HttpIdempotencyAuthorizationRequest $request, ?array $row, array $facts, string $organization): void
+  {
+    $currentIntervention = $this->value($row, 'intervention_id');
+    if (null !== $currentIntervention && isset($facts['interventionId']) && $currentIntervention !== $facts['interventionId']) {
+      $this->deny();
+    }
+    $intervention = $currentIntervention ?? $facts['interventionId'] ?? null;
+    if (null !== $intervention && ($facts['interventionPermission'] ?? '') === 'organization.interventions.execute') {
+      $this->interventions->assertExecutionAccess($organization, $intervention, $request->principalId);
+    }
+  }
+
+  /**
+   * Method authorizeMutation
+   *
+   * Captures the permission selected by the current intervention owner for a first execution.
+   *
+   * @access private
+   *
+   * @param HttpIdempotencyAuthorizationRequest $request current verified caller
+   * @param array<string, mixed>|null $row freshly resolved inspection scope
+   * @param array<string, string> $facts verified current authorization evidence
+   * @param string $organization current organization scope
+   *
+   * @return array<string, string> authorized mutation evidence
+   */
+  private function authorizeMutation(HttpIdempotencyAuthorizationRequest $request, ?array $row, array $facts, string $organization): array
+  {
     $permission = 'organization.inspection.write';
     $intervention = $this->bodyId($request, 'intervention', 'interventions');
     if (null === $intervention && ('draft' === $this->value($row, 'record_status') || 'inspection_response' === $request->operation->resourceKind || null === $row)) {
@@ -124,47 +163,111 @@ final readonly class InspectionHttpIdempotencyReplayAuthorizationAdapter impleme
   {
     $kind = $request->operation->resourceKind;
     $saved = $proof?->metadata['resourceId'] ?? null;
-    if ('checklist' === $kind) {
-      $id = $saved ?? $this->route($request, 'checklistId');
-      if (null === $id) {
-        return null;
-      }
-      $row = $this->connection->fetchAssociative('SELECT organization_id FROM checklists WHERE id = :id', ['id' => $id]);
 
-      return false === $row ? null : $row;
+    return match ($kind) {
+      'checklist' => $this->checklistTarget($saved ?? $this->route($request, 'checklistId')),
+      'inspection_response' => $this->responseTarget($request, $saved),
+      'non_conformity', 'inspection_attachment' => $this->childInspectionTarget($request, $saved),
+      default => $this->inspectionTarget($saved ?? $this->route($request, 'inspectionId') ?? $this->route($request, 'id')),
+    };
+  }
+
+  /**
+   * Method checklistTarget
+   *
+   * Resolves the checklist's current organization, retaining null for a missing or deleted target.
+   *
+   * @access private
+   *
+   * @param string|null $id saved or route checklist identity
+   *
+   * @return array<string, mixed>|null current owner scope
+   */
+  private function checklistTarget(?string $id): ?array
+  {
+    if (null === $id) {
+      return null;
     }
-    if ('inspection_response' === $kind) {
-      $id = $saved ?? $this->route($request, 'id');
-      if (null !== $id) {
-        $row = $this->connection->fetchAssociative('SELECT organization_id, intervention_id, record_status FROM inspection_responses WHERE id = :id OR client_id = :id', ['id' => $id]);
-        if (false !== $row) {
-          return $row;
-        }
-      }
-      $id = $this->bodyId($request, 'inspection', 'inspections');
-    } elseif ('non_conformity' === $kind || 'inspection_attachment' === $kind) {
-      $attachment = 'inspection_attachment' === $kind ? ($saved ?? $this->route($request, 'id')) : null;
-      if (null !== $attachment) {
-        $row = $this->connection->fetchAssociative('SELECT i.id, i.organization_id, i.intervention_id, i.record_status FROM inspection_attachments a JOIN inspections i ON i.id = a.inspection_id WHERE a.id = :id', ['id' => $attachment]);
-        if (false !== $row) {
-          $this->assertParent($request, $row);
+    $row = $this->connection->fetchAssociative('SELECT organization_id FROM checklists WHERE id = :id', ['id' => $id]);
 
-          return $row;
-        }
-      }
-      $finding = $this->route($request, 'nonConformityId') ?? ('non_conformity' === $kind ? $saved : null);
-      if (null !== $finding) {
-        $row = $this->connection->fetchAssociative('SELECT i.id, i.organization_id, i.intervention_id, i.record_status FROM non_conformities n JOIN inspections i ON i.id = n.inspection_id WHERE n.id = :id', ['id' => $finding]);
-        if (false !== $row) {
-          $this->assertParent($request, $row);
+    return false === $row ? null : $row;
+  }
 
-          return $row;
-        }
+  /**
+   * Method responseTarget
+   *
+   * Uses the response's live scope when present and its requested inspection for a first creation.
+   *
+   * @access private
+   *
+   * @param HttpIdempotencyAuthorizationRequest $request current verified route and input
+   * @param string|null $saved original committed response identity
+   *
+   * @return array<string, mixed>|null current owner scope
+   */
+  private function responseTarget(HttpIdempotencyAuthorizationRequest $request, ?string $saved): ?array
+  {
+    $id = $saved ?? $this->route($request, 'id');
+    if (null !== $id) {
+      $row = $this->connection->fetchAssociative('SELECT organization_id, intervention_id, record_status FROM inspection_responses WHERE id = :id OR client_id = :id', ['id' => $id]);
+      if (false !== $row) {
+        return $row;
       }
-      $id = $this->route($request, 'inspectionId');
-    } else {
-      $id = $saved ?? $this->route($request, 'inspectionId') ?? $this->route($request, 'id');
     }
+
+    return $this->inspectionTarget($this->bodyId($request, 'inspection', 'inspections'));
+  }
+
+  /**
+   * Method childInspectionTarget
+   *
+   * Resolves attachments and findings through their live parent and rejects a mismatched parent route.
+   *
+   * @access private
+   *
+   * @param HttpIdempotencyAuthorizationRequest $request current verified route and input
+   * @param string|null $saved original committed child identity
+   *
+   * @return array<string, mixed>|null current parent scope
+   */
+  private function childInspectionTarget(HttpIdempotencyAuthorizationRequest $request, ?string $saved): ?array
+  {
+    $kind = $request->operation->resourceKind;
+    $attachment = 'inspection_attachment' === $kind ? ($saved ?? $this->route($request, 'id')) : null;
+    if (null !== $attachment) {
+      $row = $this->connection->fetchAssociative('SELECT i.id, i.organization_id, i.intervention_id, i.record_status FROM inspection_attachments a JOIN inspections i ON i.id = a.inspection_id WHERE a.id = :id', ['id' => $attachment]);
+      if (false !== $row) {
+        $this->assertParent($request, $row);
+
+        return $row;
+      }
+    }
+    $finding = $this->route($request, 'nonConformityId') ?? ('non_conformity' === $kind ? $saved : null);
+    if (null !== $finding) {
+      $row = $this->connection->fetchAssociative('SELECT i.id, i.organization_id, i.intervention_id, i.record_status FROM non_conformities n JOIN inspections i ON i.id = n.inspection_id WHERE n.id = :id', ['id' => $finding]);
+      if (false !== $row) {
+        $this->assertParent($request, $row);
+
+        return $row;
+      }
+    }
+
+    return $this->inspectionTarget($this->route($request, 'inspectionId'));
+  }
+
+  /**
+   * Method inspectionTarget
+   *
+   * Resolves persisted and offline inspection identifiers on the owning main connection.
+   *
+   * @access private
+   *
+   * @param string|null $id trusted target identity
+   *
+   * @return array<string, mixed>|null current owner scope
+   */
+  private function inspectionTarget(?string $id): ?array
+  {
     if (null === $id) {
       return null;
     }
@@ -216,7 +319,11 @@ final readonly class InspectionHttpIdempotencyReplayAuthorizationAdapter impleme
     $fields = $body['fields'] ?? (is_array($body['value'] ?? null) ? $body['value']['fields'] ?? null : null);
     $value = is_array($fields) ? $fields[$key] ?? null : null;
 
-    return is_string($value) && '' !== $value ? (str_starts_with($value, '/api/') ? ResourceIriParser::id($value, $collection) : $value) : null;
+    if (!is_string($value) || '' === $value) {
+      return null;
+    }
+
+    return str_starts_with($value, '/api/') ? ResourceIriParser::id($value, $collection) : $value;
   }
 
   /**

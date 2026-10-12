@@ -57,7 +57,7 @@ final readonly class SignedFederatedBrowserBindingAdapter implements FederatedBr
    */
   public function verify(string $ticket): ?FederatedBrowserBinding
   {
-    if (1 !== preg_match('/^v1\.([A-Za-z0-9_-]{43})\.([0-9]{10})\.([a-f0-9]{64})$/D', $ticket, $parts)) {
+    if (1 !== preg_match('/^v1\.([A-Za-z0-9_-]{43})\.(\d{10})\.([a-f0-9]{64})$/D', $ticket, $parts)) {
       return null;
     }
     $expiry = (int) $parts[2];

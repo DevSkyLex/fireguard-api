@@ -16,6 +16,15 @@ use InvalidArgumentException;
  */
 final readonly class ApprovalActionDescriptor
 {
+  // #region Properties
+  /**
+   * Property value
+   *
+   * The representation validated by the owner's open key contract.
+   */
+  public string $value;
+  // #endregion
+
   // #region Constructor
   /**
    * Constructor
@@ -27,11 +36,11 @@ final readonly class ApprovalActionDescriptor
    * @param ?string $defaultMinSeverity the threshold when an enabled rule omits it
    */
   public function __construct(
-    public string $value,
+    string $value,
     public string $label,
     public ?string $defaultMinSeverity = null,
   ) {
-    new ApprovalActionKey($value);
+    $this->value = new ApprovalActionKey($value)->value;
     if ('' === $label) {
       throw new InvalidArgumentException('An approval action label is required.');
     }

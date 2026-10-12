@@ -159,6 +159,22 @@ final readonly class UserHttpIdempotencyOperationContributionAdapter implements 
         resultClass: UpdatePresencePreferenceResult::class,
         requiredKey: true,
       ),
+      ...self::emailChangeDefinitions(),
+    ];
+  }
+
+  /**
+   * Method emailChangeDefinitions
+   *
+   * Declares mailbox lifecycle mutations under the same auth receipt ownership.
+   *
+   * @access private
+   *
+   * @return list<HttpIdempotencyOperation> request, confirmation and cancellation in published order
+   */
+  private static function emailChangeDefinitions(): array
+  {
+    return [
       new HttpIdempotencyOperation(
         name: 'user_email_change_request',
         database: 'auth',

@@ -7,7 +7,7 @@ namespace Tests\Unit\Shared\Application\Service\Idempotency;
 use DateTimeImmutable;
 use DateTimeZone;
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Contract\Idempotency\{IdempotencyDeniedException, IdempotencyLease, IdempotencyProof, IdempotencyReceipt, IdempotencyScope, IdempotencySnapshot};
+use Shared\Application\Contract\Idempotency\{IdempotencyCompletion, IdempotencyDeniedException, IdempotencyLease, IdempotencyProof, IdempotencyReceipt, IdempotencyScope, IdempotencySnapshot};
 use Shared\Application\Port\Outbound\ClockPort;
 use Shared\Application\Port\Outbound\Crypto\AuthenticatedEncryptionPort;
 use Shared\Application\Port\Outbound\Idempotency\IdempotencyReceiptPort;
@@ -104,13 +104,12 @@ final class DurableHttpIdempotencyServiceTest extends TestCase
     $receipts = $this->createMock(IdempotencyReceiptPort::class);
     $lease = $this->lease();
     $saved = null;
-    $receipts->expects(self::once())->method('complete')->willReturnCallback(function (IdempotencyLease $candidate, string $payload, bool $secret, DateTimeImmutable $completed, DateTimeImmutable $expires, array $proof, string $proofMac) use (&$saved): void {
-      self::assertTrue($secret);
-      self::assertEquals($this->now, $completed);
-      self::assertEquals($completed->modify('+5 minutes'), $expires);
-      self::assertStringNotContainsString('one-time-recovery', $payload);
-      /** @var array<string, string> $proof */
-      $saved = new IdempotencyReceipt($candidate->fingerprint, $candidate->ownerToken, 'completed', $candidate->expiresAt, $payload, true, $expires, $proof, $proofMac);
+    $receipts->expects(self::once())->method('complete')->willReturnCallback(function (IdempotencyLease $candidate, IdempotencyCompletion $completion) use (&$saved): void {
+      self::assertTrue($completion->secret);
+      self::assertEquals($this->now, $completion->completedAt);
+      self::assertEquals($completion->completedAt->modify('+5 minutes'), $completion->expiresAt);
+      self::assertStringNotContainsString('one-time-recovery', $completion->payload);
+      $saved = new IdempotencyReceipt($candidate->fingerprint, $candidate->ownerToken, 'completed', $candidate->expiresAt, $completion->payload, true, $completion->expiresAt, $completion->proof, $completion->proofMac);
     });
     $receipts->method('find')->willReturnCallback(static function () use (&$saved): ?IdempotencyReceipt { return $saved; });
     $engine = $this->engine($receipts);
@@ -274,8 +273,8 @@ final class DurableHttpIdempotencyServiceTest extends TestCase
   {
     $this->now = new DateTimeImmutable('2026-10-25 01:30:00', new DateTimeZone('Europe/Paris'));
     $receipts = $this->createMock(IdempotencyReceiptPort::class);
-    $receipts->expects(self::once())->method('complete')->willReturnCallback(static function (IdempotencyLease $lease, string $payload, bool $secret, DateTimeImmutable $completedAt, DateTimeImmutable $expiresAt): void {
-      self::assertSame(86400, $expiresAt->getTimestamp() - $completedAt->getTimestamp());
+    $receipts->expects(self::once())->method('complete')->willReturnCallback(static function (IdempotencyLease $lease, IdempotencyCompletion $completion): void {
+      self::assertSame(86400, $completion->expiresAt->getTimestamp() - $completion->completedAt->getTimestamp());
     });
     $this->engine($receipts)->beforeCommit($this->lease(), new IdempotencySnapshot(200, 'result'));
   }

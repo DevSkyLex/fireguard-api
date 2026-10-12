@@ -330,6 +330,11 @@ consumers are untouched: `Equipment` attachment add/delete, `User`
 
 ## Attachment Kernel (R11b — generalized per-module attachments)
 
+`AttachmentDownloadPort` publishes a framework-independent `AttachmentDownload` containing
+authorized bytes and download headers. Module-owned responders create their HTTP response
+from this contract. The shared adapter keeps the existing attachment disposition, Unicode
+filename fallback, MIME fallback, byte length, `nosniff` and private no-store policy in one place.
+
 Media commands that couple bytes to SQL use `RootTransactionManagerPort` on their
 explicit owning connection: main for attachments and signatures, auth for avatars.
 They call `assertCanStart()` before writing bytes and
@@ -518,6 +523,9 @@ their own transaction and capture their typed result inside its callback.
 The receipt adapter lives at
 `Infrastructure/Persistence/Doctrine/Repository/DoctrineIdempotencyReceiptRepository.php`
 and is explicitly bound to the owning main or auth database.
+`IdempotencyReceiptPort::complete` accepts its claimed lease and an immutable
+`IdempotencyCompletion` carrying the opaque bytes, encryption marker, original
+deadlines and authenticated proof together in that same owning transaction.
 Explicit query projections preserve the original consumed precondition and
 final output without caching a kernel response. Multipart fingerprints bind
 logical fields and file bytes independently of transport boundaries.

@@ -77,52 +77,19 @@ final readonly class MaintenanceExportHttpIdempotencyReplayAuthorizationAdapter 
     $this->permission($request, $organization, 'confirm_maintenance_export' === $operation ? 'organization.maintenance_exports.confirm' : 'organization.maintenance_exports.manage');
     $fields = $this->body($request);
     $target = null;
+    $parent = null;
     $financial = false;
     if ('write_maintenance_export_reference' === $operation) {
-      $type = $request->uriVariables['resourceType'] ?? null;
-      $resource = $this->identifier($request->uriVariables['resourceId'] ?? null);
-      if (!is_string($type) || !in_array($type, ['customer', 'site', 'equipment'], true) || !$this->identities->exists($organization, $type, $resource)) {
-        $this->notFound();
-      }
-      if (null !== $storedProof) {
-        $target = $this->identifier($storedProof->metadata['resourceId'] ?? null);
-        if (($storedProof->metadata['resourceKind'] ?? null) !== 'maintenance_reference') {
-          $this->deny();
-        }
-        $row = $this->connection->fetchAssociative('SELECT organization_id, resource_type, resource_id FROM maintenance_external_references WHERE id = :id', ['id' => $target]);
-        if (false === $row || ($row['organization_id'] ?? null) !== $organization || ($row['resource_type'] ?? null) !== $type || ($row['resource_id'] ?? null) !== $resource) {
-          $this->notFound();
-        }
-      }
+      $target = $this->referenceTarget($request, $storedProof, $organization);
     } else {
-      if ('create_maintenance_export' === $operation) {
-        $financial = true === ($fields['includeInternalCosts'] ?? false);
-      } else {
-        $parent = $this->identifier($request->uriVariables['id'] ?? null);
-        $parentRow = $this->document($parent, $organization);
-        $financial = $this->financialFlag($parentRow['include_internal_costs'] ?? null);
-        if (null !== $storedProof && ($storedProof->metadata['maintenanceExportParentId'] ?? null) !== $parent) {
-          $this->deny();
-        }
-      }
-      if (null !== $storedProof) {
-        $target = $this->identifier($storedProof->metadata['resourceId'] ?? null);
-        if (($storedProof->metadata['resourceKind'] ?? null) !== 'maintenance_export') {
-          $this->deny();
-        }
-        $saved = $this->document($target, $organization);
-        $financial = $this->financialFlag($saved['include_internal_costs'] ?? null);
-        if (($storedProof->metadata['maintenanceExportFinancial'] ?? null) !== ($financial ? '1' : '0')) {
-          $this->deny();
-        }
-      }
+      [$target, $parent, $financial] = $this->documentContext($request, $storedProof, $organization, $fields);
     }
     if ($financial) {
       $this->permission($request, $organization, 'organization.maintenance_cost.read');
     }
     $facts = $this->ordinary->authorize($request, $storedProof, $organization);
     $facts['maintenanceExportFinancial'] = $financial ? '1' : '0';
-    if (isset($parent)) {
+    if (null !== $parent) {
       $facts['maintenanceExportParentId'] = $parent;
     }
     if (null !== $target) {
@@ -130,6 +97,84 @@ final readonly class MaintenanceExportHttpIdempotencyReplayAuthorizationAdapter 
     }
 
     return $facts;
+  }
+
+  /**
+   * Method referenceTarget
+   *
+   * Binds an external reference to its live scoped resource and original result.
+   *
+   * @access private
+   *
+   * @param HttpIdempotencyAuthorizationRequest $request the current owner operation
+   * @param IdempotencyProof|null $storedProof authenticated original reference
+   * @param string $organization the active owner scope
+   *
+   * @return string|null the retained reference identity
+   */
+  private function referenceTarget(HttpIdempotencyAuthorizationRequest $request, ?IdempotencyProof $storedProof, string $organization): ?string
+  {
+    $type = $request->uriVariables['resourceType'] ?? null;
+    $resource = $this->identifier($request->uriVariables['resourceId'] ?? null);
+    if (!is_string($type) || !in_array($type, ['customer', 'site', 'equipment'], true) || !$this->identities->exists($organization, $type, $resource)) {
+      $this->notFound();
+    }
+    $target = null;
+    if (null !== $storedProof) {
+      $target = $this->identifier($storedProof->metadata['resourceId'] ?? null);
+      if (($storedProof->metadata['resourceKind'] ?? null) !== 'maintenance_reference') {
+        $this->deny();
+      }
+      $row = $this->connection->fetchAssociative('SELECT organization_id, resource_type, resource_id FROM maintenance_external_references WHERE id = :id', ['id' => $target]);
+      if (false === $row || ($row['organization_id'] ?? null) !== $organization || ($row['resource_type'] ?? null) !== $type || ($row['resource_id'] ?? null) !== $resource) {
+        $this->notFound();
+      }
+    }
+
+    return $target;
+  }
+
+  /**
+   * Method documentContext
+   *
+   * Retains the artifact lineage and original financial inclusion after current row checks.
+   *
+   * @access private
+   *
+   * @param HttpIdempotencyAuthorizationRequest $request the current owner operation
+   * @param IdempotencyProof|null $storedProof authenticated original artifact
+   * @param string $organization the active owner scope
+   * @param array<array-key, mixed> $fields the submitted canonical fields
+   *
+   * @return array{string|null, string|null, bool} result identity, parent identity and financial inclusion
+   */
+  private function documentContext(HttpIdempotencyAuthorizationRequest $request, ?IdempotencyProof $storedProof, string $organization, array $fields): array
+  {
+    $parent = null;
+    $target = null;
+    if ('create_maintenance_export' === $request->operation->name) {
+      $financial = true === ($fields['includeInternalCosts'] ?? false);
+    } else {
+      $parent = $this->identifier($request->uriVariables['id'] ?? null);
+      $parentRow = $this->document($parent, $organization);
+      $financial = $this->financialFlag($parentRow['include_internal_costs'] ?? null);
+      if (null !== $storedProof && ($storedProof->metadata['maintenanceExportParentId'] ?? null) !== $parent) {
+        $this->deny();
+      }
+    }
+    if (null !== $storedProof) {
+      $target = $this->identifier($storedProof->metadata['resourceId'] ?? null);
+      if (($storedProof->metadata['resourceKind'] ?? null) !== 'maintenance_export') {
+        $this->deny();
+      }
+      $saved = $this->document($target, $organization);
+      $financial = $this->financialFlag($saved['include_internal_costs'] ?? null);
+      if (($storedProof->metadata['maintenanceExportFinancial'] ?? null) !== ($financial ? '1' : '0')) {
+        $this->deny();
+      }
+    }
+
+    return [$target, $parent, $financial];
   }
 
   /**

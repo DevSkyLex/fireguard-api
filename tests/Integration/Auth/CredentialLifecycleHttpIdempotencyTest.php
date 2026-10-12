@@ -42,7 +42,7 @@ use Shared\Application\Port\Outbound\ClockPort;
 use Shared\Application\Port\Outbound\Idempotency\{HttpIdempotencyAccountPort, HttpIdempotencyPlatformAuthorityPort, HttpIdempotencyPrincipalPort, SensitiveIdempotencyProofPort};
 use Shared\Application\Service\Idempotency\DurableHttpIdempotencyService;
 use Shared\Infrastructure\Crypto\VersionedAesGcmAdapter;
-use Shared\Infrastructure\Idempotency\{HmacIdempotencyFingerprintAdapter, HttpIdempotencyExecutionContext};
+use Shared\Infrastructure\Idempotency\{HmacIdempotencyFingerprintAdapter, HttpIdempotencyExecutionContext, HttpIdempotencySensitiveExecutionProof};
 use Shared\Infrastructure\Persistence\Doctrine\Repository\DoctrineIdempotencyReceiptRepository;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
@@ -545,7 +545,7 @@ final class CredentialLifecycleHttpIdempotencyTest extends KernelTestCase
       $authorization = $policy->authorize($command, $stored);
     }
     $begin = $this->engine->begin($scope, $key, $authorization->canonicalInput);
-    $this->execution->activate($operation, $this->engine, $begin, $authorization->receiptProof, $policy, $command, $stored);
+    $this->execution->activate($operation, $this->engine, $begin, $authorization->receiptProof, new HttpIdempotencySensitiveExecutionProof($policy, $command, $stored));
 
     return $this->execution->dispatchPrimary($command, static fn (): ResultMessage => $handler($command));
   }

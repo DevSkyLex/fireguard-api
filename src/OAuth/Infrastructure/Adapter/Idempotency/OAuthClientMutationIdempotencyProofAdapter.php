@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OAuth\Infrastructure\Adapter\Idempotency;
 
+use OAuth\Application\Contract\Client\ClientLifecycleProof;
 use OAuth\Application\Port\Inbound\ClientLifecycleProofPort;
 use OAuth\Application\UseCase\Command\Client\ActivateClient\ActivateClientCommand;
 use OAuth\Application\UseCase\Command\Client\DeactivateClient\DeactivateClientCommand;
@@ -62,19 +63,7 @@ final readonly class OAuthClientMutationIdempotencyProofAdapter implements Sensi
       $this->deny();
     }
     if (null !== $storedProof) {
-      if (null === $current
-        || ($storedProof->metadata['resourceKind'] ?? null) !== 'oauth_client'
-        || ($storedProof->metadata['resourceId'] ?? null) !== $current->clientId
-        || ($storedProof->metadata['client_after_revision'] ?? null) !== (string) $current->securityRevision
-        || ($storedProof->metadata['client_after_secret'] ?? null) !== $current->secretFingerprint
-        || ($storedProof->metadata['client_after_active'] ?? null) !== ($current->active ? '1' : '0')
-        || ($storedProof->metadata['client_after_deleted'] ?? null) !== ($current->deleted ? '1' : '0')
-        || !isset($storedProof->metadata['client_before_revision'])) {
-        $this->deny();
-      }
-      if ($operation->secret && $current->deleted) {
-        $this->deny();
-      }
+      $this->assertClientReplay($current, $storedProof, $operation);
     } elseif (null !== $current && $current->deleted && !$message instanceof DeleteClientCommand) {
       $this->deny();
     }
@@ -98,13 +87,11 @@ final readonly class OAuthClientMutationIdempotencyProofAdapter implements Sensi
     if (null === $current) {
       $this->deny();
     }
-    if ($operation->secret) {
-      if ((!$result instanceof RegisterClientResult && !$result instanceof RegenerateClientSecretResult)
+    if ($operation->secret && ((!$result instanceof RegisterClientResult && !$result instanceof RegenerateClientSecretResult)
         || $current->deleted
         || $result->clientId !== $clientId
-        || !$this->clients->matchesSecret($clientId, $result->clientSecret)) {
-        $this->deny();
-      }
+        || !$this->clients->matchesSecret($clientId, $result->clientSecret))) {
+      $this->deny();
     }
 
     return [
@@ -120,16 +107,51 @@ final readonly class OAuthClientMutationIdempotencyProofAdapter implements Sensi
 
   public function replayResult(ResultMessage $result, IdempotencyProof $proof): ResultMessage
   {
-    if ($result instanceof RegisterClientResult || $result instanceof RegenerateClientSecretResult) {
-      if (($proof->metadata['resourceId'] ?? null) !== $result->clientId || !$this->clients->matchesSecret($result->clientId, $result->clientSecret)) {
-        $this->deny();
-      }
+    if (($result instanceof RegisterClientResult || $result instanceof RegenerateClientSecretResult)
+      && (($proof->metadata['resourceId'] ?? null) !== $result->clientId || !$this->clients->matchesSecret($result->clientId, $result->clientSecret))) {
+      $this->deny();
     }
 
     return $result;
   }
 
   /**
+   * Method assertClientReplay
+   *
+   * Binds replay to the exact post-mutation client epoch, secret fingerprint and lifecycle state.
+   *
+   * @access private
+   *
+   * @param ClientLifecycleProof|null $current fresh client epoch and secret fingerprint
+   * @param IdempotencyProof $storedProof authenticated original mutation receipt
+   * @param HttpIdempotencyOperation $operation current published mutation contract
+   *
+   * @return void
+   */
+  private function assertClientReplay(?ClientLifecycleProof $current, IdempotencyProof $storedProof, HttpIdempotencyOperation $operation): void
+  {
+    if (null === $current
+      || ($storedProof->metadata['resourceKind'] ?? null) !== 'oauth_client'
+      || ($storedProof->metadata['resourceId'] ?? null) !== $current->clientId
+      || ($storedProof->metadata['client_after_revision'] ?? null) !== (string) $current->securityRevision
+      || ($storedProof->metadata['client_after_secret'] ?? null) !== $current->secretFingerprint
+      || ($storedProof->metadata['client_after_active'] ?? null) !== ($current->active ? '1' : '0')
+      || ($storedProof->metadata['client_after_deleted'] ?? null) !== ($current->deleted ? '1' : '0')
+      || !isset($storedProof->metadata['client_before_revision'])) {
+      $this->deny();
+    }
+    if ($operation->secret && $current->deleted) {
+      $this->deny();
+    }
+  }
+
+  /**
+   * Method operation
+   *
+   * Keeps the current owner proof checks at their original boundary.
+   *
+   * @access private
+   *
    * @return array{HttpIdempotencyOperation, ?string}
    */
   private function operation(CommandMessage $message): array
@@ -171,6 +193,12 @@ final readonly class OAuthClientMutationIdempotencyProofAdapter implements Sensi
   }
 
   /**
+   * Method input
+   *
+   * Keeps the current owner proof checks at their original boundary.
+   *
+   * @access private
+   *
    * @return array<string, mixed>
    */
   private function input(CommandMessage $message): array

@@ -28,9 +28,46 @@ final readonly class InterventionHttpIdempotencyOperationContributionAdapter imp
   public static function definitions(): array
   {
     return [
+      ...self::exportDefinitions(),
+      ...self::activityDefinitions(),
+      ...self::changeDefinitions(),
+      ...self::catalogDefinitions(),
+      ...self::interventionDefinitions(),
+      ...self::templateDefinitions(),
+      ...self::timeDefinitions(),
+      ...self::workItemDefinitions(),
+    ];
+  }
+
+  /**
+   * Method exportDefinitions
+   *
+   * Declares owner operations for this cohesive Intervention capability.
+   *
+   * @access private
+   *
+   * @return list<HttpIdempotencyOperation> immutable operation definitions in their original order
+   */
+  private static function exportDefinitions(): array
+  {
+    return [
       new HttpIdempotencyOperation(name: 'intervention_export', database: 'main', transactionMode: 'bus_owner', primaryCommand: \Intervention\Application\UseCase\Command\Export\ExportInterventionsDocument\ExportInterventionsDocumentCommand::class, resultClass: \Intervention\Application\Contract\Export\InterventionExportDocument::class, statusCode: 200, requiredKey: true),
       new HttpIdempotencyOperation(name: 'intervention_export_report', database: 'main', transactionMode: 'bus_owner', primaryCommand: \Intervention\Application\UseCase\Command\Export\ExportInterventionReportDocument\ExportInterventionReportDocumentCommand::class, resultClass: \Intervention\Application\Contract\Export\InterventionExportDocument::class, statusCode: 200, requiredKey: true, resultIdentifierProperty: 'resourceId', resourceKind: 'intervention'),
+    ];
+  }
 
+  /**
+   * Method activityDefinitions
+   *
+   * Declares owner operations for this cohesive Intervention capability.
+   *
+   * @access private
+   *
+   * @return list<HttpIdempotencyOperation> immutable operation definitions in their original order
+   */
+  private static function activityDefinitions(): array
+  {
+    return [
       new HttpIdempotencyOperation(
         name: 'intervention_comment_create',
         database: 'main',
@@ -69,6 +106,21 @@ final readonly class InterventionHttpIdempotencyOperationContributionAdapter imp
           new HttpIdempotencyQueryProjection(\Intervention\Application\UseCase\Query\Attachment\ResolveInterventionMedia\ResolveInterventionMediaQuery::class, \Intervention\Application\UseCase\Query\Attachment\ResolveInterventionMedia\ResolveInterventionMediaResult::class, [\Intervention\Application\Contract\Attachment\InterventionAttachmentView::class], captureBeforePrimary: true, refreshBeforeCommit: false),
         ],
       ),
+    ];
+  }
+
+  /**
+   * Method changeDefinitions
+   *
+   * Declares owner operations for this cohesive Intervention capability.
+   *
+   * @access private
+   *
+   * @return list<HttpIdempotencyOperation> immutable operation definitions in their original order
+   */
+  private static function changeDefinitions(): array
+  {
+    return [
       new HttpIdempotencyOperation(
         name: 'intervention_change_create',
         database: 'main',
@@ -115,6 +167,21 @@ final readonly class InterventionHttpIdempotencyOperationContributionAdapter imp
         requiredKey: true,
         resourceKind: 'intervention_change',
       ),
+    ];
+  }
+
+  /**
+   * Method catalogDefinitions
+   *
+   * Declares owner operations for this cohesive Intervention capability.
+   *
+   * @access private
+   *
+   * @return list<HttpIdempotencyOperation> immutable operation definitions in their original order
+   */
+  private static function catalogDefinitions(): array
+  {
+    return [
       new HttpIdempotencyOperation(
         name: 'intervention_label_create',
         database: 'main',
@@ -181,6 +248,21 @@ final readonly class InterventionHttpIdempotencyOperationContributionAdapter imp
         requiredKey: true,
         resourceKind: 'intervention_recurrence',
       ),
+    ];
+  }
+
+  /**
+   * Method interventionDefinitions
+   *
+   * Declares owner operations for this cohesive Intervention capability.
+   *
+   * @access private
+   *
+   * @return list<HttpIdempotencyOperation> immutable operation definitions in their original order
+   */
+  private static function interventionDefinitions(): array
+  {
+    return [
       new HttpIdempotencyOperation(
         name: 'intervention_create',
         database: 'main',
@@ -238,6 +320,21 @@ final readonly class InterventionHttpIdempotencyOperationContributionAdapter imp
         requiredKey: true,
         resourceKind: 'intervention',
       ),
+    ];
+  }
+
+  /**
+   * Method templateDefinitions
+   *
+   * Declares owner operations for this cohesive Intervention capability.
+   *
+   * @access private
+   *
+   * @return list<HttpIdempotencyOperation> immutable operation definitions in their original order
+   */
+  private static function templateDefinitions(): array
+  {
+    return [
       new HttpIdempotencyOperation(
         name: 'intervention_template_create',
         database: 'main',
@@ -282,6 +379,21 @@ final readonly class InterventionHttpIdempotencyOperationContributionAdapter imp
         resultIdentifierProperty: 'interventionId',
         resourceKind: 'intervention',
       ),
+    ];
+  }
+
+  /**
+   * Method timeDefinitions
+   *
+   * Declares owner operations for this cohesive Intervention capability.
+   *
+   * @access private
+   *
+   * @return list<HttpIdempotencyOperation> immutable operation definitions in their original order
+   */
+  private static function timeDefinitions(): array
+  {
+    return [
       new HttpIdempotencyOperation(
         name: 'intervention_time_create',
         database: 'main',
@@ -316,6 +428,21 @@ final readonly class InterventionHttpIdempotencyOperationContributionAdapter imp
         requiredKey: true,
         resourceKind: 'intervention_time_entry',
       ),
+    ];
+  }
+
+  /**
+   * Method workItemDefinitions
+   *
+   * Declares owner operations for this cohesive Intervention capability.
+   *
+   * @access private
+   *
+   * @return list<HttpIdempotencyOperation> immutable operation definitions in their original order
+   */
+  private static function workItemDefinitions(): array
+  {
+    return [
       new HttpIdempotencyOperation(
         name: 'intervention_work_item_create',
         database: 'main',
@@ -376,5 +503,6 @@ final readonly class InterventionHttpIdempotencyOperationContributionAdapter imp
       ),
     ];
   }
+
   // #endregion
 }

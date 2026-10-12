@@ -51,14 +51,7 @@ final readonly class AuthorizationGrantCompletion
     $complete = function () use ($request, $userId, $completion): Response {
       return $this->grantLifecycle->transactional(function () use ($request, $userId, $completion): Response {
         $this->grantLifecycle->lockUser($userId);
-        $tokenId = $request->attributes->get('_fireguard_verified_token_id');
-        $family = $request->attributes->get('_fireguard_verified_token_use');
-        $active = is_string($tokenId) && '' !== $tokenId && match ($family) {
-          'auth_session' => null !== $this->sessionStatus->activeSessionId($tokenId, $userId),
-          'oauth' => $this->grantLifecycle->isAccessTokenUsable($tokenId, $userId),
-          default => false,
-        };
-        if (!$active) {
+        if (!$this->isActive($request, $userId)) {
           return AuthorizationResponseSupport::buildOidcError(error: 'login_required', description: 'Authentication is no longer active.', status: Response::HTTP_UNAUTHORIZED);
         }
 

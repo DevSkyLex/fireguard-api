@@ -41,7 +41,7 @@ final readonly class OAuthFormDecoder implements DecoderInterface
         continue;
       }
       $name = urldecode(explode('=', $pair, 2)[0]);
-      if (1 !== preg_match('/^[a-zA-Z][a-zA-Z0-9_]*$/D', $name) || isset($names[$name])) {
+      if (1 !== preg_match('/^(?=[\x00-\x7F]*$)[a-zA-Z]\w*$/D', $name) || isset($names[$name])) {
         throw AuthorizationException::invalidRequest('OAuth form parameters must have unique scalar names.');
       }
       $names[$name] = true;

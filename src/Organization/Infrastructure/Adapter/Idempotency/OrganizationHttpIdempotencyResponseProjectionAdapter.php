@@ -58,26 +58,16 @@ final readonly class OrganizationHttpIdempotencyResponseProjectionAdapter implem
     if (!$this->supports($operation)) {
       throw new LogicException('Organization response projection operation is not declared.');
     }
-    if ($command instanceof CreatePlanCommand && $result instanceof CreatePlanResult) {
-      return [new GetPlanQuery($result->planId)];
-    }
-    if ($command instanceof UpdatePlanCommand) {
-      return [new GetPlanQuery($command->planId)];
-    }
-    if ($command instanceof UpdateTeamCommand) {
-      return [new GetTeamQuery($command->organizationId, $command->teamId)];
-    }
-    if ($command instanceof UpdateOrganizationSettingsCommand) {
-      return [new GetOrganizationQuery($command->organizationId, $this->actor->userId())];
-    }
-    if ($command instanceof SuspendOrganizationCommand || $command instanceof RestoreOrganizationCommand || $command instanceof TransferOrganizationOwnershipCommand) {
-      return [new GetOrganizationQuery($command->organizationId, $command->actingUserId)];
-    }
-    if ($command instanceof ChangeSelfServiceOrganizationPlanCommand || $command instanceof UploadOrganizationLogoCommand) {
-      return [new GetOrganizationQuery($command->organizationId)];
-    }
 
-    throw new LogicException('Organization response projection command is not declared.');
+    return match (true) {
+      $command instanceof CreatePlanCommand && $result instanceof CreatePlanResult => [new GetPlanQuery($result->planId)],
+      $command instanceof UpdatePlanCommand => [new GetPlanQuery($command->planId)],
+      $command instanceof UpdateTeamCommand => [new GetTeamQuery($command->organizationId, $command->teamId)],
+      $command instanceof UpdateOrganizationSettingsCommand => [new GetOrganizationQuery($command->organizationId, $this->actor->userId())],
+      $command instanceof SuspendOrganizationCommand, $command instanceof RestoreOrganizationCommand, $command instanceof TransferOrganizationOwnershipCommand => [new GetOrganizationQuery($command->organizationId, $command->actingUserId)],
+      $command instanceof ChangeSelfServiceOrganizationPlanCommand, $command instanceof UploadOrganizationLogoCommand => [new GetOrganizationQuery($command->organizationId)],
+      default => throw new LogicException('Organization response projection command is not declared.'),
+    };
   }
   // #endregion
 }

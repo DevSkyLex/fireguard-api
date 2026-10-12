@@ -56,7 +56,7 @@ final readonly class WebhookEventTypeProvider implements ProviderInterface
    */
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): array
   {
-    return array_map(self::toOutput(...), $this->eventCatalog->descriptors());
+    return array_map(static fn (WebhookEventDescriptor $descriptor): WebhookEventTypeOutput => self::toOutput($descriptor), $this->eventCatalog->descriptors());
   }
 
   /**

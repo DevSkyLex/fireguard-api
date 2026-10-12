@@ -40,7 +40,7 @@ use Symfony\Component\HttpFoundation\Response;
     new Post(
       name: FederatedAuthOperations::LOGIN_START,
       uriTemplate: '/{provider}/start',
-      requirements: ['provider' => '[a-z][a-z0-9_-]{0,19}'],
+      requirements: ['provider' => self::PROVIDER_REQUIREMENT],
       status: Response::HTTP_OK,
       read: false,
       input: FederatedStartInput::class,
@@ -51,7 +51,7 @@ use Symfony\Component\HttpFoundation\Response;
     new Post(
       name: FederatedAuthOperations::LOGIN_COMPLETE,
       uriTemplate: '/{provider}/complete',
-      requirements: ['provider' => '[a-z][a-z0-9_-]{0,19}'],
+      requirements: ['provider' => self::PROVIDER_REQUIREMENT],
       status: Response::HTTP_OK,
       read: false,
       input: FederatedCompleteInput::class,
@@ -71,7 +71,7 @@ use Symfony\Component\HttpFoundation\Response;
     new Post(
       name: FederatedAuthOperations::LINK_START,
       uriTemplate: '/connections/{provider}/start',
-      requirements: ['provider' => '[a-z][a-z0-9_-]{0,19}'],
+      requirements: ['provider' => self::PROVIDER_REQUIREMENT],
       status: Response::HTTP_OK,
       read: false,
       input: FederatedStartInput::class,
@@ -83,7 +83,7 @@ use Symfony\Component\HttpFoundation\Response;
     new Post(
       name: FederatedAuthOperations::LINK_COMPLETE,
       uriTemplate: '/connections/{provider}/complete',
-      requirements: ['provider' => '[a-z][a-z0-9_-]{0,19}'],
+      requirements: ['provider' => self::PROVIDER_REQUIREMENT],
       status: Response::HTTP_OK,
       read: false,
       input: FederatedCompleteInput::class,
@@ -95,7 +95,7 @@ use Symfony\Component\HttpFoundation\Response;
     new Delete(
       name: FederatedAuthOperations::DISCONNECT,
       uriTemplate: '/connections/{provider}',
-      requirements: ['provider' => '[a-z][a-z0-9_-]{0,19}'],
+      requirements: ['provider' => self::PROVIDER_REQUIREMENT],
       status: Response::HTTP_OK,
       read: false,
       input: false,
@@ -108,6 +108,13 @@ use Symfony\Component\HttpFoundation\Response;
 )]
 final class FederatedAuthResource
 {
+  /**
+   * Constant PROVIDER_REQUIREMENT
+   *
+   * Retains the published ASCII provider identifier syntax for every route.
+   */
+  private const string PROVIDER_REQUIREMENT = '[a-z][a-z0-9_-]{0,19}';
+
   /**
    * Constant USER_SECURITY
    */

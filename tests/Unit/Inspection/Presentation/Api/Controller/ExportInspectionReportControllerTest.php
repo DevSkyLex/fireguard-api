@@ -276,6 +276,21 @@ final class ExportInspectionReportControllerTest extends TestCase
     $this->createController($queryBus)->__invoke($this->request());
   }
 
+  #[Test]
+  public function testItRejectsAnInvalidCommittedDocumentAsAnExportRuntimeFailure(): void
+  {
+    $documents = $this->createStub(\Shared\Application\Port\Inbound\CommandBusPort::class);
+    $documents->method('dispatch')->willReturn(new \Inspection\Application\Contract\Export\InspectionExportDocument('!', 'report.pdf', 'application/pdf', self::ORGANIZATION_ID));
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn(new SecurityUser(id: self::USER_ID, email: 'inspector@example.com', password: 'hashed-password', roles: ['ROLE_USER'], scopes: [], isActive: true));
+    $controller = new ExportInspectionReportController($documents, $security);
+
+    $this->expectException(\Inspection\Application\Contract\Export\InspectionExportFailureException::class);
+    $this->expectExceptionMessage('The committed export document is invalid.');
+
+    $controller->__invoke($this->request());
+  }
+
   // #region Fixtures
 
   /**

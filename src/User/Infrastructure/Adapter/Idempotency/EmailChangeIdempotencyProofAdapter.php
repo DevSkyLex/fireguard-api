@@ -10,6 +10,7 @@ use Shared\Application\Contract\Idempotency\{IdempotencyDeniedException, Idempot
 use Shared\Application\Message\{CommandMessage, ResultMessage};
 use Shared\Application\Port\Outbound\Idempotency\{HttpIdempotencyPrincipalPort, IdempotencyFingerprintPort, SensitiveIdempotencyProofPort};
 use Symfony\Component\HttpKernel\Exception\{BadRequestHttpException, UnauthorizedHttpException};
+use User\Application\Contract\User\UserSecurityProof;
 use User\Application\Port\Inbound\{UserCredentialProofPort, UserSecurityRevisionPort};
 use User\Application\Service\EmailChangeTokenHasher;
 use User\Application\UseCase\Command\EmailChange\ConfirmEmailChange\{ConfirmEmailChangeCommand, ConfirmEmailChangeResult};
@@ -49,42 +50,11 @@ final readonly class EmailChangeIdempotencyProofAdapter implements SensitiveIdem
    */
   public function authorize(CommandMessage $message, ?IdempotencyProof $storedProof): SensitiveIdempotencyAuthorization
   {
-    $requestId = null;
-    if ($message instanceof RequestEmailChangeCommand) {
-      if ($this->principals->current()?->principalId !== $message->userId) {
-        throw new UnauthorizedHttpException('Bearer', 'Authentication required.');
-      }
-      $email = $this->entityManager->getConnection()->fetchOne('SELECT email FROM users WHERE id = ?', [$message->userId]);
-      $credential = is_string($email) ? $this->credentials->verify($email, $message->currentPassword) : null;
-      $user = $this->users->current($message->userId);
-      if (null !== $storedProof && '1' !== ($storedProof->metadata['failed_receipt'] ?? null) && null === $credential) {
-        throw new UnauthorizedHttpException('Bearer', 'Invalid email change proof.');
-      }
-      $canonical = ['user_id' => $message->userId, 'new_email' => $message->newEmail, 'current_password' => $message->currentPassword];
-    } elseif ($message instanceof ConfirmEmailChangeCommand) {
-      $row = $this->request($message->token);
-      $principal = 'email-change:' . $this->fingerprints->digest('email-change.principal', $message->token);
-      if (null === $row || !is_string($row['expires_at']) || new DateTimeImmutable($row['expires_at'])->getTimestamp() <= time()) {
-        if (null !== $storedProof && '1' !== ($storedProof->metadata['failed_receipt'] ?? null)) {
-          throw new BadRequestHttpException('Invalid or expired email change token.');
-        }
-
-        return new SensitiveIdempotencyAuthorization($principal, ['mailbox_token' => $message->token], []);
-      }
-      $requestId = $row['id'];
-      $user = $this->users->current($row['user_id']);
-      $canonical = ['mailbox_token' => $message->token];
-      if (null !== $storedProof && (($storedProof->metadata['email_request_id'] ?? null) !== $requestId || ('1' === ($storedProof->metadata['success'] ?? null) && (!is_string($row['confirmed_at']) || ($storedProof->metadata['confirmed_at'] ?? null) !== $row['confirmed_at'])))) {
-        throw new BadRequestHttpException('Invalid or expired email change token.');
-      }
-    } else {
-      throw new IdempotencyDeniedException('result_unavailable');
-    }
-    if (null === $user || !$user->active || (null !== $storedProof && (($storedProof->metadata['user_id'] ?? null) !== $user->userId || ($storedProof->metadata['security_revision_after'] ?? null) !== (string) $user->securityRevision))) {
-      throw new UnauthorizedHttpException('Bearer', 'Invalid or expired email change proof.');
-    }
-
-    return new SensitiveIdempotencyAuthorization($message instanceof ConfirmEmailChangeCommand ? 'email-change:' . $this->fingerprints->digest('email-change.principal', $message->token) : $user->userId, $canonical, ['user_id' => $user->userId, 'security_revision_before' => (string) $user->securityRevision] + (null === $requestId ? [] : ['email_request_id' => $requestId]));
+    return match (true) {
+      $message instanceof RequestEmailChangeCommand => $this->authorizeRequest($message, $storedProof),
+      $message instanceof ConfirmEmailChangeCommand => $this->authorizeConfirmation($message, $storedProof),
+      default => throw new IdempotencyDeniedException('result_unavailable'),
+    };
   }
 
   /**
@@ -116,6 +86,91 @@ final readonly class EmailChangeIdempotencyProofAdapter implements SensitiveIdem
   public function replayResult(ResultMessage $result, IdempotencyProof $proof): ResultMessage
   {
     return $result;
+  }
+
+  /**
+   * Method authorizeRequest
+   *
+   * Revalidates the signed caller and current password before a request receipt is selected.
+   *
+   * @access private
+   *
+   * @param RequestEmailChangeCommand $message current account and proposed mailbox
+   * @param IdempotencyProof|null $storedProof original authenticated request receipt
+   *
+   * @return SensitiveIdempotencyAuthorization fresh request authorization
+   */
+  private function authorizeRequest(RequestEmailChangeCommand $message, ?IdempotencyProof $storedProof): SensitiveIdempotencyAuthorization
+  {
+    if ($this->principals->current()?->principalId !== $message->userId) {
+      throw new UnauthorizedHttpException('Bearer', 'Authentication required.');
+    }
+    $email = $this->entityManager->getConnection()->fetchOne('SELECT email FROM users WHERE id = ?', [$message->userId]);
+    $credential = is_string($email) ? $this->credentials->verify($email, $message->currentPassword) : null;
+    $user = $this->users->current($message->userId);
+    if (null !== $storedProof && '1' !== ($storedProof->metadata['failed_receipt'] ?? null) && null === $credential) {
+      throw new UnauthorizedHttpException('Bearer', 'Invalid email change proof.');
+    }
+    $canonical = ['user_id' => $message->userId, 'new_email' => $message->newEmail, 'current_password' => $message->currentPassword];
+
+    return $this->currentAuthorization(null, $user, $storedProof, $canonical, null);
+  }
+
+  /**
+   * Method authorizeConfirmation
+   *
+   * Binds the presented mailbox token to its current request and committed confirmation epoch.
+   *
+   * @access private
+   *
+   * @param ConfirmEmailChangeCommand $message presented mailbox credential
+   * @param IdempotencyProof|null $storedProof authenticated confirmation receipt
+   *
+   * @return SensitiveIdempotencyAuthorization verified mailbox authorization or original failed-attempt scope
+   */
+  private function authorizeConfirmation(ConfirmEmailChangeCommand $message, ?IdempotencyProof $storedProof): SensitiveIdempotencyAuthorization
+  {
+    $row = $this->request($message->token);
+    $principal = 'email-change:' . $this->fingerprints->digest('email-change.principal', $message->token);
+    if (null === $row || !is_string($row['expires_at']) || new DateTimeImmutable($row['expires_at'])->getTimestamp() <= time()) {
+      if (null !== $storedProof && '1' !== ($storedProof->metadata['failed_receipt'] ?? null)) {
+        throw new BadRequestHttpException('Invalid or expired email change token.');
+      }
+
+      return new SensitiveIdempotencyAuthorization($principal, ['mailbox_token' => $message->token], []);
+    }
+    $requestId = $row['id'];
+    $user = $this->users->current($row['user_id']);
+    $canonical = ['mailbox_token' => $message->token];
+    if (null !== $storedProof && (($storedProof->metadata['email_request_id'] ?? null) !== $requestId || ('1' === ($storedProof->metadata['success'] ?? null) && (!is_string($row['confirmed_at']) || ($storedProof->metadata['confirmed_at'] ?? null) !== $row['confirmed_at'])))) {
+      throw new BadRequestHttpException('Invalid or expired email change token.');
+    }
+
+    return $this->currentAuthorization($principal, $user, $storedProof, $canonical, $requestId);
+  }
+
+  /**
+   * Method currentAuthorization
+   *
+   * Rejects changed account epochs before either kind of email-change result can be decoded.
+   *
+   * @access private
+   *
+   * @param string|null $principal verified mailbox-token scope, or null for the current account
+   * @param UserSecurityProof|null $user fresh owner state
+   * @param IdempotencyProof|null $storedProof authenticated original receipt
+   * @param array<string, mixed> $canonical owning request input for protected fingerprinting
+   * @param string|null $requestId native mailbox request identity when confirmed
+   *
+   * @return SensitiveIdempotencyAuthorization current owner proof
+   */
+  private function currentAuthorization(?string $principal, ?UserSecurityProof $user, ?IdempotencyProof $storedProof, array $canonical, ?string $requestId): SensitiveIdempotencyAuthorization
+  {
+    if (null === $user || !$user->active || (null !== $storedProof && (($storedProof->metadata['user_id'] ?? null) !== $user->userId || ($storedProof->metadata['security_revision_after'] ?? null) !== (string) $user->securityRevision))) {
+      throw new UnauthorizedHttpException('Bearer', 'Invalid or expired email change proof.');
+    }
+
+    return new SensitiveIdempotencyAuthorization($principal ?? $user->userId, $canonical, ['user_id' => $user->userId, 'security_revision_before' => (string) $user->securityRevision] + (null === $requestId ? [] : ['email_request_id' => $requestId]));
   }
 
   /**

@@ -118,11 +118,10 @@ final readonly class HttpIdempotencyRequestInput
     if ('' === $body) {
       return ['kind' => 'absent'];
     }
-    if ('application/json' === $mediaType || 'application/merge-patch+json' === $mediaType || 'application/ld+json' === $mediaType) {
-      return ['kind' => 'json', 'value' => $this->jsonValue(json_decode($body, false, 64, JSON_THROW_ON_ERROR))];
-    }
 
-    return ['kind' => 'opaque', 'digest' => $this->fingerprints->digest('http.body', ['sha256' => hash('sha256', $body), 'size' => strlen($body)])];
+    return 'application/json' === $mediaType || 'application/merge-patch+json' === $mediaType || 'application/ld+json' === $mediaType
+      ? ['kind' => 'json', 'value' => $this->jsonValue(json_decode($body, false, 64, JSON_THROW_ON_ERROR))]
+      : ['kind' => 'opaque', 'digest' => $this->fingerprints->digest('http.body', ['sha256' => hash('sha256', $body), 'size' => strlen($body)])];
   }
 
   /**

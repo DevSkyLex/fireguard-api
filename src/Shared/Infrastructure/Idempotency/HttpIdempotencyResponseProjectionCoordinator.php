@@ -6,7 +6,7 @@ namespace Shared\Infrastructure\Idempotency;
 
 use JsonException;
 use LogicException;
-use Shared\Application\Contract\Http\HttpIdempotencyOperation;
+use Shared\Application\Contract\Http\{HttpIdempotencyOperation, HttpIdempotencyQueryProjection};
 use Shared\Application\Contract\Idempotency\IdempotencyDeniedException;
 use Shared\Application\Message\{CommandMessage, QueryMessage, ResultMessage};
 use Shared\Application\Port\Outbound\Idempotency\HttpIdempotencyResponseProjectionPort;
@@ -177,18 +177,14 @@ final readonly class HttpIdempotencyResponseProjectionCoordinator
     $queryBytes = $this->codec->encodeQuery($query, $schema);
     $key = hash('sha256', $queryBytes);
     if ($state->replay || 'after' === $state->phase) {
-      $entry = 'before' === $state->phase ? ($state->before[$key] ?? null) : ($state->after[$key] ?? null);
-      if (null === $entry || $entry['class'] !== $query::class || $entry['query'] !== $queryBytes) {
-        throw new IdempotencyDeniedException('result_unavailable');
+      $result = $this->decodeCapturedQuery($state, $query, $key, $queryBytes, $schema);
+    } else {
+      $result = $dispatch();
+      if ($schema->captureBeforePrimary) {
+        $this->assertBudget($state->before, $key);
+        $state->observed[$key] = $query;
+        $state->before[$key] = ['class' => $query::class, 'query' => $queryBytes, 'result' => $this->codec->encodeResult($result, $schema)];
       }
-
-      return $this->codec->decodeResult($entry['result'], $schema);
-    }
-    $result = $dispatch();
-    if ($schema->captureBeforePrimary) {
-      $this->assertBudget($state->before, $key);
-      $state->observed[$key] = $query;
-      $state->before[$key] = ['class' => $query::class, 'query' => $queryBytes, 'result' => $this->codec->encodeResult($result, $schema)];
     }
 
     return $result;
@@ -236,26 +232,7 @@ final readonly class HttpIdempotencyResponseProjectionCoordinator
         $queries[$key] = $query;
       }
     }
-    $owner = null;
-    foreach ($this->contributors as $contributor) {
-      if (!$contributor->supports($state->operation->name)) {
-        continue;
-      }
-      if (null !== $owner) {
-        throw new LogicException('HTTP response projection operation ownership is duplicated.');
-      }
-      $owner = $contributor;
-      $contributed = $contributor->queries($state->operation->name, $state->command, $result);
-      if (count($contributed) > self::MAX_QUERIES) {
-        throw new IdempotencyDeniedException('result_unavailable');
-      }
-      foreach ($contributed as $query) {
-        $schema = $state->schemas[$query::class] ?? throw new IdempotencyDeniedException('result_unavailable');
-        $key = hash('sha256', $this->codec->encodeQuery($query, $schema));
-        $this->assertBudget($queries, $key);
-        $queries[$key] = $query;
-      }
-    }
+    $queries = $this->withContributedQueries($queries, $state, $state->command, $result);
     foreach ($queries as $key => $query) {
       $schema = $state->schemas[$query::class];
       $envelope = $this->queryBus->dispatch($query);
@@ -298,6 +275,71 @@ final readonly class HttpIdempotencyResponseProjectionCoordinator
   public function deactivate(): void
   {
     $this->requests->getCurrentRequest()?->attributes->remove(self::ATTRIBUTE);
+  }
+
+  /**
+   * Method withContributedQueries
+   *
+   * Adds the unique owner's declared reads without exceeding the same receipt budget.
+   *
+   * @access private
+   *
+   * @param array<string, QueryMessage> $queries observed reads to refresh
+   * @param HttpIdempotencyResponseProjectionState $state the authorized projection state
+   * @param CommandMessage $command the exact executing primary command
+   * @param ResultMessage $result the primary application result
+   *
+   * @return array<string, QueryMessage> the exact reads to capture before commit
+   */
+  private function withContributedQueries(array $queries, HttpIdempotencyResponseProjectionState $state, CommandMessage $command, ResultMessage $result): array
+  {
+    $owner = null;
+    foreach ($this->contributors as $contributor) {
+      if (!$contributor->supports($state->operation->name)) {
+        continue;
+      }
+      if (null !== $owner) {
+        throw new LogicException('HTTP response projection operation ownership is duplicated.');
+      }
+      $owner = $contributor;
+      $contributed = $contributor->queries($state->operation->name, $command, $result);
+      if (count($contributed) > self::MAX_QUERIES) {
+        throw new IdempotencyDeniedException('result_unavailable');
+      }
+      foreach ($contributed as $query) {
+        $schema = $state->schemas[$query::class] ?? throw new IdempotencyDeniedException('result_unavailable');
+        $key = hash('sha256', $this->codec->encodeQuery($query, $schema));
+        $this->assertBudget($queries, $key);
+        $queries[$key] = $query;
+      }
+    }
+
+    return $queries;
+  }
+
+  /**
+   * Method decodeCapturedQuery
+   *
+   * Restores only the exact query identity captured in the current authorized phase.
+   *
+   * @access private
+   *
+   * @param HttpIdempotencyResponseProjectionState $state the authorized projection state
+   * @param QueryMessage $query the current processor read
+   * @param string $key its canonical query digest
+   * @param string $queryBytes its encoded query identity
+   * @param HttpIdempotencyQueryProjection $schema the owner's explicit result whitelist
+   *
+   * @return ResultMessage the originally captured read result
+   */
+  private function decodeCapturedQuery(HttpIdempotencyResponseProjectionState $state, QueryMessage $query, string $key, string $queryBytes, HttpIdempotencyQueryProjection $schema): ResultMessage
+  {
+    $entry = 'before' === $state->phase ? ($state->before[$key] ?? null) : ($state->after[$key] ?? null);
+    if (null === $entry || $entry['class'] !== $query::class || $entry['query'] !== $queryBytes) {
+      throw new IdempotencyDeniedException('result_unavailable');
+    }
+
+    return $this->codec->decodeResult($entry['result'], $schema);
   }
 
   /**

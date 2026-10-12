@@ -5,10 +5,9 @@ declare(strict_types=1);
 namespace Intervention\Presentation\Api\Controller;
 
 use Auth\Application\Contract\User\AuthenticatedUser;
-use Intervention\Application\Contract\Export\InterventionExportDocument;
+use Intervention\Application\Contract\Export\{InterventionExportDocument, InterventionExportFailureException};
 use Intervention\Application\UseCase\Command\Export\ExportInterventionReportDocument\ExportInterventionReportDocumentCommand;
 use Intervention\Presentation\Api\Trait\InterventionWorkflowExceptionMapperTrait;
-use RuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -51,7 +50,7 @@ final class ExportInterventionReportController extends AbstractController
     }
     $bytes = base64_decode($result->documentBase64, true);
     if (false === $bytes) {
-      throw new RuntimeException('The committed export document is invalid.');
+      throw new InterventionExportFailureException('The committed export document is invalid.');
     }
 
     return new Response($bytes, Response::HTTP_OK, [

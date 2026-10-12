@@ -101,6 +101,23 @@ final readonly class RegisterUserHandler implements CommandHandler
       requireEmailVerification: $this->authenticationPolicy->emailVerificationRequired(),
     );
 
+    return $this->registrationResult($userId, $email->value);
+  }
+
+  /**
+   * Method registrationResult
+   *
+   * Applies the configured verification requirement after the account has been registered.
+   *
+   * @access private
+   *
+   * @param string $userId the newly registered account identifier
+   * @param string $email the normalized mailbox for the verification challenge
+   *
+   * @return RegisterUserResult the account creation result and optional challenge
+   */
+  private function registrationResult(string $userId, string $email): RegisterUserResult
+  {
     if (!$this->authenticationPolicy->emailVerificationRequired()) {
       return new RegisterUserResult(success: true, message: 'Your account has been created. You can now sign in.');
     }
@@ -109,7 +126,7 @@ final readonly class RegisterUserHandler implements CommandHandler
       userId: $userId,
       purpose: OtpPurpose::EMAIL_VERIFICATION,
       channel: OtpChannel::EMAIL,
-      recipient: $email->value,
+      recipient: $email,
     );
 
     return RegisterUserResult::success(

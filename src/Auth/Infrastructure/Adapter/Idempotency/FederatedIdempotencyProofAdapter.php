@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Auth\Infrastructure\Adapter\Idempotency;
 
-use Auth\Application\Contract\Federation\FederatedLogin;
+use Auth\Application\Contract\Federation\{FederatedFlow, FederatedLogin};
 use Auth\Application\Contract\Token\AuthenticationSession;
 use Auth\Application\Port\Outbound\Federation\{FederatedFlowRepositoryPort, FederatedProviderClientPort};
 use Auth\Application\Port\Outbound\{JwtTokenServicePort, SessionAuthorizationProofPort};
@@ -28,6 +28,15 @@ use function time;
  */
 final readonly class FederatedIdempotencyProofAdapter implements SensitiveIdempotencyProofPort
 {
+  // #region Constants
+  /**
+   * Constant ACCOUNT_UNAVAILABLE_MESSAGE
+   *
+   * Keeps current account and replay denials indistinguishable.
+   */
+  private const string ACCOUNT_UNAVAILABLE_MESSAGE = 'This account cannot sign in.';
+  // #endregion
+
   // #region Constructor
   /**
    * Method __construct
@@ -77,20 +86,7 @@ final readonly class FederatedIdempotencyProofAdapter implements SensitiveIdempo
     }
     $facts = ['state_hash' => $flow->stateHash, 'browser_binding_hash' => $flow->browserBindingHash, 'provider' => $message->provider->value, 'intent' => $intent];
     if (null !== $storedProof) {
-      $proof = $storedProof->metadata;
-      if ('completed' !== $flow->stage || ($proof['state_hash'] ?? null) !== $flow->stateHash || ($proof['browser_binding_hash'] ?? null) !== $flow->browserBindingHash || ($proof['provider'] ?? null) !== $message->provider->value || ($proof['intent'] ?? null) !== $intent || null === $flow->completedUserId || ($proof['user_id'] ?? null) !== $flow->completedUserId) {
-        throw new FederatedAuthException('invalid_flow', 'This connection request is no longer valid.');
-      }
-      $current = $this->users->current($flow->completedUserId);
-      if (null === $current || !$current->active || ($proof['security_revision'] ?? null) !== (string) $current->securityRevision) {
-        throw new FederatedAuthException('account_unavailable', 'This account cannot sign in.');
-      }
-      if (($proof['authorization_fingerprint'] ?? null) !== $this->grants->currentFingerprint($current->userId)) {
-        throw new FederatedAuthException('account_unavailable', 'This account cannot sign in.');
-      }
-      if (isset($proof['session_id']) && $this->sessions->currentSessionId($current->userId, $proof['access_token_id'] ?? '', $proof['refresh_token_id'] ?? '') !== $proof['session_id']) {
-        throw new FederatedAuthException('account_unavailable', 'This account cannot sign in.');
-      }
+      $this->assertReplayFlow($message, $flow, $intent, $storedProof);
     }
 
     return new SensitiveIdempotencyAuthorization('federation:' . $flow->stateHash, [
@@ -122,24 +118,13 @@ final readonly class FederatedIdempotencyProofAdapter implements SensitiveIdempo
     }
     $current = $this->users->current($userId);
     if (null === $current || !$current->active) {
-      throw new FederatedAuthException('account_unavailable', 'This account cannot sign in.');
+      throw new FederatedAuthException('account_unavailable', self::ACCOUNT_UNAVAILABLE_MESSAGE);
     }
     $proof = $authorization->receiptProof + ['user_id' => $userId, 'security_revision' => (string) $current->securityRevision, 'security_revision_after' => (string) $current->securityRevision];
     $login = $result->login?->login;
     $proof['authorization_fingerprint'] = null === $login?->accessToken ? $this->grants->currentFingerprint($userId) : $this->grants->issuedFingerprint($userId, $login->accessToken);
     if (null !== $login) {
-      $proof['access_expires_at'] = (string) (time() + $login->expiresIn);
-      if (null !== $login->refreshToken) {
-        $payload = $this->tokens->decodeRefreshToken($login->refreshToken);
-        $sessionId = null === $payload ? null : $this->sessions->currentSessionId($userId, $payload['access_token_id'], $payload['refresh_token_id']);
-        if (null === $payload || null === $sessionId) {
-          throw new IdempotencyDeniedException('result_unavailable');
-        }
-        $proof['session_id'] = $sessionId;
-        $proof['access_token_id'] = $payload['access_token_id'];
-        $proof['refresh_token_id'] = $payload['refresh_token_id'];
-        $proof['refresh_expires_at'] = (string) $payload['expires_at'];
-      }
+      $proof += $this->issuedSessionProof($userId, $login);
     }
 
     return $proof;
@@ -161,6 +146,68 @@ final readonly class FederatedIdempotencyProofAdapter implements SensitiveIdempo
     $replayed = new AuthenticationSession($session->authenticated, $session->userId, $session->email, $session->accessToken, $session->refreshToken, $session->tokenType, max(0, (int) ($proof->metadata['access_expires_at'] ?? 0) - time()), $session->scopes, $session->mfaRequired, $session->mfaToken, $session->challengeToken, $session->mfaMethod, $session->mfaDestination, $session->errorMessage, $session->errorCode, $session->rateLimitRetryAfter);
 
     return new CompleteFederationResult(login: new FederatedLogin($replayed, $login->returnUrl, $login->newAccount, $login->browserProofExpiresAt), connections: $result->connections);
+  }
+
+  /**
+   * Method assertReplayFlow
+   *
+   * Rechecks completed browser flow facts before current account, claims and session ownership.
+   *
+   * @access private
+   *
+   * @param CompleteFederationCommand $message original browser-bound callback
+   * @param FederatedFlow $flow freshly inspected flow
+   * @param string $intent login or link
+   * @param IdempotencyProof $storedProof authenticated receipt envelope
+   *
+   * @return void
+   */
+  private function assertReplayFlow(CompleteFederationCommand $message, FederatedFlow $flow, string $intent, IdempotencyProof $storedProof): void
+  {
+    $proof = $storedProof->metadata;
+    if ('completed' !== $flow->stage || ($proof['state_hash'] ?? null) !== $flow->stateHash || ($proof['browser_binding_hash'] ?? null) !== $flow->browserBindingHash || ($proof['provider'] ?? null) !== $message->provider->value || ($proof['intent'] ?? null) !== $intent || null === $flow->completedUserId || ($proof['user_id'] ?? null) !== $flow->completedUserId) {
+      throw new FederatedAuthException('invalid_flow', 'This connection request is no longer valid.');
+    }
+    $current = $this->users->current($flow->completedUserId);
+    if (null === $current || !$current->active || ($proof['security_revision'] ?? null) !== (string) $current->securityRevision) {
+      throw new FederatedAuthException('account_unavailable', self::ACCOUNT_UNAVAILABLE_MESSAGE);
+    }
+    if (($proof['authorization_fingerprint'] ?? null) !== $this->grants->currentFingerprint($current->userId)) {
+      throw new FederatedAuthException('account_unavailable', self::ACCOUNT_UNAVAILABLE_MESSAGE);
+    }
+    if (isset($proof['session_id']) && $this->sessions->currentSessionId($current->userId, $proof['access_token_id'] ?? '', $proof['refresh_token_id'] ?? '') !== $proof['session_id']) {
+      throw new FederatedAuthException('account_unavailable', self::ACCOUNT_UNAVAILABLE_MESSAGE);
+    }
+  }
+
+  /**
+   * Method issuedSessionProof
+   *
+   * Records absolute expiry and the live issued pair without repeating a provider exchange.
+   *
+   * @access private
+   *
+   * @param string $userId verified account owner
+   * @param AuthenticationSession $login issued interactive session
+   *
+   * @return array<string, string> non-secret session facts
+   */
+  private function issuedSessionProof(string $userId, AuthenticationSession $login): array
+  {
+    $proof = ['access_expires_at' => (string) (time() + $login->expiresIn)];
+    if (null !== $login->refreshToken) {
+      $payload = $this->tokens->decodeRefreshToken($login->refreshToken);
+      $sessionId = null === $payload ? null : $this->sessions->currentSessionId($userId, $payload['access_token_id'], $payload['refresh_token_id']);
+      if (null === $payload || null === $sessionId) {
+        throw new IdempotencyDeniedException('result_unavailable');
+      }
+      $proof['session_id'] = $sessionId;
+      $proof['access_token_id'] = $payload['access_token_id'];
+      $proof['refresh_token_id'] = $payload['refresh_token_id'];
+      $proof['refresh_expires_at'] = (string) $payload['expires_at'];
+    }
+
+    return $proof;
   }
   // #endregion
 }

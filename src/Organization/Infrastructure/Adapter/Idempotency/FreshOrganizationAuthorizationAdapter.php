@@ -53,10 +53,7 @@ final readonly class FreshOrganizationAuthorizationAdapter implements FreshOrgan
   public function hasPermission(string $userId, string $organizationId, string $permission): bool
   {
     $permission = $this->catalog->canonicalName($permission);
-    if (null === $permission) {
-      return false;
-    }
-    if (!$this->catalog->contains($permission) || !$this->exercisable($organizationId, $permission)) {
+    if (null === $permission || !$this->catalog->contains($permission) || !$this->exercisable($organizationId, $permission)) {
       return false;
     }
     foreach ($this->getUserPermissions($userId, $organizationId) as $grant) {
@@ -74,9 +71,11 @@ final readonly class FreshOrganizationAuthorizationAdapter implements FreshOrgan
    */
   public function resolveAccess(string $userId, string $organizationId, string $permission): OrganizationAccessDecision
   {
-    return $this->hasPermission($userId, $organizationId, $permission)
-      ? OrganizationAccessDecision::GRANTED
-      : ($this->isMemberOf($userId, $organizationId) ? OrganizationAccessDecision::MISSING_PERMISSION : OrganizationAccessDecision::OUTSIDE_SCOPE);
+    if ($this->hasPermission($userId, $organizationId, $permission)) {
+      return OrganizationAccessDecision::GRANTED;
+    }
+
+    return $this->isMemberOf($userId, $organizationId) ? OrganizationAccessDecision::MISSING_PERMISSION : OrganizationAccessDecision::OUTSIDE_SCOPE;
   }
 
   /**
@@ -172,7 +171,10 @@ final readonly class FreshOrganizationAuthorizationAdapter implements FreshOrgan
     if (OrganizationPermissionCatalog::isRead($permission)) {
       return true;
     }
-    $status = '' === $row['status'] ? (true === $row['is_active'] || 't' === $row['is_active'] || 1 === $row['is_active'] ? 'active' : 'suspended') : $row['status'];
+    $status = $row['status'];
+    if ('' === $status) {
+      $status = true === $row['is_active'] || 't' === $row['is_active'] || 1 === $row['is_active'] ? 'active' : 'suspended';
+    }
 
     return match ($status) {
       'active' => true,
@@ -205,10 +207,14 @@ final readonly class FreshOrganizationAuthorizationAdapter implements FreshOrgan
     $matches = count($segments) === count($requirements);
     foreach ($segments as $index => $segment) {
       if ('*' === $segment && $index === count($segments) - 1) {
-        return true;
+        $matches = true;
+
+        break;
       }
       if (!isset($requirements[$index]) || ('*' !== $segment && $segment !== $requirements[$index])) {
-        return false;
+        $matches = false;
+
+        break;
       }
     }
 

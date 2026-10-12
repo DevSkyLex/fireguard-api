@@ -75,6 +75,35 @@ final readonly class UserHttpIdempotencyReplayAuthorizationAdapter implements Ht
       throw new IdempotencyDeniedException('access_denied');
     }
     $name = $request->operation->name;
+    $target = $this->target($request, $storedProof);
+    if (!is_string($target) || '' === $target) {
+      if ('user_create' !== $name || null !== $storedProof) {
+        throw new IdempotencyDeniedException('access_denied');
+      }
+
+      return $this->authorizer->authorize($request, null, null);
+    }
+    $this->assertStoredTarget($storedProof, $target);
+    $this->assertTargetRow($request, $storedProof, $target);
+
+    return array_replace($this->authorizer->authorize($request, $storedProof, null), ['targetUserId' => $target, 'user_id' => $target]);
+  }
+
+  /**
+   * Method target
+   *
+   * Resolves the owner or URI target and validates creation tenant scope before authorization.
+   *
+   * @access private
+   *
+   * @param HttpIdempotencyAuthorizationRequest $request current HTTP mutation facts
+   * @param IdempotencyProof|null $storedProof authenticated creation receipt when replaying
+   *
+   * @return mixed untrusted target identifier, checked by the caller before database access
+   */
+  private function target(HttpIdempotencyAuthorizationRequest $request, ?IdempotencyProof $storedProof): mixed
+  {
+    $name = $request->operation->name;
     $self = in_array($name, ['user_update_current_profile', 'user_upload_current_avatar', 'user_deactivate_current', 'user_update_presence_preference', 'user_email_change_cancel'], true);
     $target = $self ? $request->principalId : ($request->uriVariables['id'] ?? null);
     if ('user_create' === $name) {
@@ -87,16 +116,44 @@ final readonly class UserHttpIdempotencyReplayAuthorizationAdapter implements Ht
       }
       $target = $storedProof?->metadata['resourceId'] ?? null;
     }
-    if (!is_string($target) || '' === $target) {
-      if ('user_create' !== $name || null !== $storedProof) {
-        throw new IdempotencyDeniedException('access_denied');
-      }
 
-      return $this->authorizer->authorize($request, null, null);
-    }
+    return $target;
+  }
+
+  /**
+   * Method assertStoredTarget
+   *
+   * Keeps the selected receipt bound to the same target before any historical result opens.
+   *
+   * @access private
+   *
+   * @param IdempotencyProof|null $storedProof authenticated original ownership facts
+   * @param string $target current validated target account
+   *
+   * @return void
+   */
+  private function assertStoredTarget(?IdempotencyProof $storedProof, string $target): void
+  {
     if (null !== $storedProof && ((isset($storedProof->metadata['targetUserId']) && $storedProof->metadata['targetUserId'] !== $target) || (isset($storedProof->metadata['user_id']) && $storedProof->metadata['user_id'] !== $target))) {
       throw new IdempotencyDeniedException('access_denied');
     }
+  }
+
+  /**
+   * Method assertTargetRow
+   *
+   * Rechecks current tenant ownership or the signed target retained for a deleted account.
+   *
+   * @access private
+   *
+   * @param HttpIdempotencyAuthorizationRequest $request current caller and tenant scope
+   * @param IdempotencyProof|null $storedProof authenticated deleted-target ownership facts
+   * @param string $target validated current URI or creation target
+   *
+   * @return void
+   */
+  private function assertTargetRow(HttpIdempotencyAuthorizationRequest $request, ?IdempotencyProof $storedProof, string $target): void
+  {
     $row = $this->connection->fetchAssociative('SELECT id, tenant_id FROM users WHERE id = ?', [$target]);
     if (false === $row) {
       if (null === $storedProof) {
@@ -110,8 +167,6 @@ final readonly class UserHttpIdempotencyReplayAuthorizationAdapter implements Ht
     } elseif (($row['id'] ?? null) !== $target || ($row['tenant_id'] ?? null) !== $request->tenantId) {
       throw new IdempotencyDeniedException('access_denied');
     }
-
-    return array_replace($this->authorizer->authorize($request, $storedProof, null), ['targetUserId' => $target, 'user_id' => $target]);
   }
   // #endregion
 }

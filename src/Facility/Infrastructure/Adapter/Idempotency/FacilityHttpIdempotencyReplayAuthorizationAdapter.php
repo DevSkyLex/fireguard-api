@@ -60,17 +60,56 @@ final readonly class FacilityHttpIdempotencyReplayAuthorizationAdapter implement
       $this->requirePermissions($request, $organization, ['organization.facilities.read']);
     }
     if (null !== $storedProof) {
-      $currentIntervention = $this->value($row, 'intervention_id');
-      if (null !== $currentIntervention && isset($facts['interventionId']) && $currentIntervention !== $facts['interventionId']) {
-        $this->deny();
-      }
-      $intervention = $this->value($row, 'intervention_id') ?? $facts['interventionId'] ?? null;
-      if (null !== $intervention && ($facts['interventionPermission'] ?? '') === 'organization.interventions.execute') {
-        $this->interventions->assertExecutionAccess($organization, $intervention, $request->principalId);
-      }
+      $this->assertStoredInterventionAccess($request, $row, $organization, $facts);
 
       return $facts;
     }
+
+    return $this->authorizeMutation($request, $row, $organization, $facts);
+  }
+
+  /**
+   * Method assertStoredInterventionAccess
+   *
+   * Retains the original facility intervention scope and rechecks current execution access.
+   *
+   * @access private
+   *
+   * @param HttpIdempotencyAuthorizationRequest $request the verified current caller
+   * @param array<string, mixed>|null $row current facility scope, absent after deletion
+   * @param string $organization the freshly authorized owning organization
+   * @param array<string, string> $facts the authenticated original scope and grants
+   *
+   * @return void
+   */
+  private function assertStoredInterventionAccess(HttpIdempotencyAuthorizationRequest $request, ?array $row, string $organization, array $facts): void
+  {
+    $currentIntervention = $this->value($row, 'intervention_id');
+    if (null !== $currentIntervention && isset($facts['interventionId']) && $currentIntervention !== $facts['interventionId']) {
+      $this->deny();
+    }
+    $intervention = $currentIntervention ?? $facts['interventionId'] ?? null;
+    if (null !== $intervention && ($facts['interventionPermission'] ?? '') === 'organization.interventions.execute') {
+      $this->interventions->assertExecutionAccess($organization, $intervention, $request->principalId);
+    }
+  }
+
+  /**
+   * Method authorizeMutation
+   *
+   * Captures the original hierarchy-write grant, including canonical detail read and intervention requirements.
+   *
+   * @access private
+   *
+   * @param HttpIdempotencyAuthorizationRequest $request the verified logical mutation
+   * @param array<string, mixed>|null $row the current facility scope
+   * @param string $organization the authorized owning organization
+   * @param array<string, string> $facts the common caller and organization evidence
+   *
+   * @return array<string, string> complete evidence for the first execution
+   */
+  private function authorizeMutation(HttpIdempotencyAuthorizationRequest $request, ?array $row, string $organization, array $facts): array
+  {
     $permission = 'organization.facilities.write';
     $intervention = $this->bodyId($request, 'intervention', 'interventions');
     if (null === $intervention && ('draft' === $this->value($row, 'record_status') || null === $row)) {
@@ -94,32 +133,82 @@ final readonly class FacilityHttpIdempotencyReplayAuthorizationAdapter implement
   {
     $kind = $request->operation->resourceKind;
     $saved = $proof?->metadata['resourceId'] ?? null;
-    if ('facility_metadata_field' === $kind || 'facility_model' === $kind) {
-      $id = $saved ?? $this->route($request, 'id');
-      if (null !== $id) {
-        $sql = 'facility_model' === $kind ? 'SELECT organization_id FROM facility_models WHERE id = :id' : 'SELECT organization_id FROM facility_metadata_fields WHERE id = :id';
-        $row = $this->connection->fetchAssociative($sql, ['id' => $id]);
 
-        return false === $row ? null : $row;
-      }
-      $id = $this->route($request, 'buildingId');
-    } elseif ('facility_attachment' === $kind) {
-      $attachment = $saved ?? $this->route($request, 'id');
-      if (null !== $attachment) {
-        $row = $this->connection->fetchAssociative('SELECT f.id, f.organization_id, f.intervention_id, f.record_status FROM facility_attachments a JOIN facilities f ON f.id = a.facility_id WHERE a.id = :id', ['id' => $attachment]);
-        if (false !== $row) {
-          $parent = $this->route($request, 'facilityId');
-          if (null !== $parent && $this->value($row, 'id') !== $parent) {
-            $this->deny();
-          }
+    return match ($kind) {
+      'facility_metadata_field', 'facility_model' => $this->auxiliaryTarget($request, $saved),
+      'facility_attachment' => $this->attachmentTarget($request, $saved),
+      default => $this->facilityTarget($saved ?? $this->route($request, 'facilityId') ?? $this->route($request, 'id')),
+    };
+  }
 
-          return $row;
-        }
-      }
-      $id = $this->route($request, 'facilityId');
-    } else {
-      $id = $saved ?? $this->route($request, 'facilityId') ?? $this->route($request, 'id');
+  /**
+   * Method auxiliaryTarget
+   *
+   * Reads an existing metadata field or model owner, or resolves the building for a new upload.
+   *
+   * @access private
+   *
+   * @param HttpIdempotencyAuthorizationRequest $request the verified model or metadata route
+   * @param string|null $saved the original created resource identifier
+   *
+   * @return array<string, mixed>|null current owner scope, absent when the resource is gone
+   */
+  private function auxiliaryTarget(HttpIdempotencyAuthorizationRequest $request, ?string $saved): ?array
+  {
+    $id = $saved ?? $this->route($request, 'id');
+    if (null !== $id) {
+      $sql = 'facility_model' === $request->operation->resourceKind ? 'SELECT organization_id FROM facility_models WHERE id = :id' : 'SELECT organization_id FROM facility_metadata_fields WHERE id = :id';
+      $row = $this->connection->fetchAssociative($sql, ['id' => $id]);
+
+      return false === $row ? null : $row;
     }
+
+    return $this->facilityTarget($this->route($request, 'buildingId'));
+  }
+
+  /**
+   * Method attachmentTarget
+   *
+   * Resolves the actual attachment owner and fails closed when the route names another facility.
+   *
+   * @access private
+   *
+   * @param HttpIdempotencyAuthorizationRequest $request the verified attachment route
+   * @param string|null $saved the original attachment identifier when replaying
+   *
+   * @return array<string, mixed>|null current facility scope, absent after deletion
+   */
+  private function attachmentTarget(HttpIdempotencyAuthorizationRequest $request, ?string $saved): ?array
+  {
+    $attachment = $saved ?? $this->route($request, 'id');
+    if (null !== $attachment) {
+      $row = $this->connection->fetchAssociative('SELECT f.id, f.organization_id, f.intervention_id, f.record_status FROM facility_attachments a JOIN facilities f ON f.id = a.facility_id WHERE a.id = :id', ['id' => $attachment]);
+      if (false !== $row) {
+        $parent = $this->route($request, 'facilityId');
+        if (null !== $parent && $this->value($row, 'id') !== $parent) {
+          $this->deny();
+        }
+
+        return $row;
+      }
+    }
+
+    return $this->facilityTarget($this->route($request, 'facilityId'));
+  }
+
+  /**
+   * Method facilityTarget
+   *
+   * Reads the current main-database owner for a persisted or offline facility identifier.
+   *
+   * @access private
+   *
+   * @param string|null $id the trusted route or saved facility identifier
+   *
+   * @return array<string, mixed>|null current facility scope, absent after deletion
+   */
+  private function facilityTarget(?string $id): ?array
+  {
     if (null === $id) {
       return null;
     }
@@ -160,7 +249,11 @@ final readonly class FacilityHttpIdempotencyReplayAuthorizationAdapter implement
     $fields = $body['fields'] ?? (is_array($body['value'] ?? null) ? $body['value']['fields'] ?? null : null);
     $value = is_array($fields) ? $fields[$key] ?? null : null;
 
-    return is_string($value) && '' !== $value ? (str_starts_with($value, '/api/') ? ResourceIriParser::id($value, $collection) : $value) : null;
+    if (!is_string($value) || '' === $value) {
+      return null;
+    }
+
+    return str_starts_with($value, '/api/') ? ResourceIriParser::id($value, $collection) : $value;
   }
 
   /**

@@ -87,6 +87,34 @@ final readonly class AssistantHttpIdempotencyReplayAuthorizationAdapter implemen
     if (!$this->settings->isEnabledFor($organization)) {
       throw AssistantDisabledException::forOrganization();
     }
+    $thread = $this->thread($request, $storedProof, $organization);
+    $this->assertMessageScope($request, $storedProof, $organization, $thread);
+    if (null !== $storedProof && null !== $thread && 'startAssistantThread' !== $request->operation->name && ($storedProof->metadata['assistantThreadId'] ?? null) !== $thread) {
+      $this->deny();
+    }
+    $facts = $this->ordinary->authorize($request, $storedProof, $organization);
+    if (null !== $thread) {
+      $facts['assistantThreadId'] = $thread;
+    }
+
+    return $facts;
+  }
+
+  /**
+   * Method thread
+   *
+   * Resolves the current creator-owned thread before any result is decoded.
+   *
+   * @access private
+   *
+   * @param HttpIdempotencyAuthorizationRequest $request the current owner operation
+   * @param IdempotencyProof|null $storedProof authenticated original identity
+   * @param string $organization the active organization
+   *
+   * @return string|null the retained thread identity
+   */
+  private function thread(HttpIdempotencyAuthorizationRequest $request, ?IdempotencyProof $storedProof, string $organization): ?string
+  {
     $thread = null;
     if ('startAssistantThread' !== $request->operation->name || null !== $storedProof) {
       $thread = $this->identifier('startAssistantThread' === $request->operation->name ? ($storedProof?->metadata['resourceId'] ?? null) : ($request->uriVariables['threadId'] ?? null));
@@ -95,6 +123,26 @@ final readonly class AssistantHttpIdempotencyReplayAuthorizationAdapter implemen
         $this->notFound($thread);
       }
     }
+
+    return $thread;
+  }
+
+  /**
+   * Method assertMessageScope
+   *
+   * Checks the retained message kind, identity and current parent scope.
+   *
+   * @access private
+   *
+   * @param HttpIdempotencyAuthorizationRequest $request the current owner operation
+   * @param IdempotencyProof|null $storedProof authenticated original identity
+   * @param string $organization the active organization
+   * @param string|null $thread the creator-owned parent
+   *
+   * @return void
+   */
+  private function assertMessageScope(HttpIdempotencyAuthorizationRequest $request, ?IdempotencyProof $storedProof, string $organization, ?string $thread): void
+  {
     $message = $request->uriVariables['messageId'] ?? null;
     if (null !== $storedProof) {
       if (($storedProof->metadata['resourceKind'] ?? null) !== $request->operation->resourceKind) {
@@ -115,15 +163,6 @@ final readonly class AssistantHttpIdempotencyReplayAuthorizationAdapter implemen
         $this->notFound($message);
       }
     }
-    if (null !== $storedProof && null !== $thread && 'startAssistantThread' !== $request->operation->name && ($storedProof->metadata['assistantThreadId'] ?? null) !== $thread) {
-      $this->deny();
-    }
-    $facts = $this->ordinary->authorize($request, $storedProof, $organization);
-    if (null !== $thread) {
-      $facts['assistantThreadId'] = $thread;
-    }
-
-    return $facts;
   }
 
   /**

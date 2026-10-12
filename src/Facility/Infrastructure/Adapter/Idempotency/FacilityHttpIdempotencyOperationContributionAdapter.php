@@ -28,6 +28,25 @@ final readonly class FacilityHttpIdempotencyOperationContributionAdapter impleme
   public static function definitions(): array
   {
     return [
+      ...self::canonicalOperations(),
+      ...self::attachmentOperations(),
+      ...self::metadataAndModelOperations(),
+      ...self::facilityOperations(),
+    ];
+  }
+
+  /**
+   * Method canonicalOperations
+   *
+   * Declares the export and canonical facility mutations with their original response schemas.
+   *
+   * @access private
+   *
+   * @return list<HttpIdempotencyOperation> explicit owner mutations in their existing declaration order
+   */
+  private static function canonicalOperations(): array
+  {
+    return [
       new HttpIdempotencyOperation(
         name: 'facility_export',
         database: 'main',
@@ -87,6 +106,21 @@ final readonly class FacilityHttpIdempotencyOperationContributionAdapter impleme
           new HttpIdempotencyQueryProjection(\Facility\Application\UseCase\Query\Facility\GetCanonicalFacility\GetCanonicalFacilityQuery::class, \Facility\Application\UseCase\Query\Facility\GetCanonicalFacility\GetCanonicalFacilityResult::class, [\Facility\Application\Contract\Facility\CanonicalFacilityView::class], captureBeforePrimary: true, refreshBeforeCommit: false),
         ],
       ),
+    ];
+  }
+
+  /**
+   * Method attachmentOperations
+   *
+   * Declares attachment creation, deletion, calibration and primary-plan mutations.
+   *
+   * @access private
+   *
+   * @return list<HttpIdempotencyOperation> explicit owner mutations in their existing declaration order
+   */
+  private static function attachmentOperations(): array
+  {
+    return [
       new HttpIdempotencyOperation(
         name: 'facility_attachment_set_calibration',
         database: 'main',
@@ -137,6 +171,21 @@ final readonly class FacilityHttpIdempotencyOperationContributionAdapter impleme
           new HttpIdempotencyQueryProjection(\Facility\Application\UseCase\Query\Attachment\GetFacilityMediaContext\GetFacilityMediaContextQuery::class, \Facility\Application\UseCase\Query\Attachment\GetFacilityMediaContext\GetFacilityMediaContextResult::class, [\Facility\Application\Contract\Attachment\FacilityAttachmentView::class], captureBeforePrimary: true, refreshBeforeCommit: true),
         ],
       ),
+    ];
+  }
+
+  /**
+   * Method metadataAndModelOperations
+   *
+   * Declares metadata-field and model writes with their owning transaction boundaries.
+   *
+   * @access private
+   *
+   * @return list<HttpIdempotencyOperation> explicit owner mutations in their existing declaration order
+   */
+  private static function metadataAndModelOperations(): array
+  {
+    return [
       new HttpIdempotencyOperation(
         name: 'facility_metadata_field_create',
         database: 'main',
@@ -212,6 +261,21 @@ final readonly class FacilityHttpIdempotencyOperationContributionAdapter impleme
         requiredKey: true,
         resourceKind: 'facility_model',
       ),
+    ];
+  }
+
+  /**
+   * Method facilityOperations
+   *
+   * Declares hierarchy and lifecycle mutations with their immutable detail projections.
+   *
+   * @access private
+   *
+   * @return list<HttpIdempotencyOperation> explicit owner mutations in their existing declaration order
+   */
+  private static function facilityOperations(): array
+  {
+    return [
       new HttpIdempotencyOperation(
         name: 'facility_create',
         database: 'main',

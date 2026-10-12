@@ -73,6 +73,15 @@ use function sprintf;
  */
 final readonly class AddInterventionAttachmentHandler implements CommandHandler
 {
+  // #region Constants
+  /**
+   * Constant ATTACHMENT_NOT_FOUND
+   *
+   * Keeps the hidden attachment response identical for acknowledgements and replay scope denial.
+   */
+  private const string ATTACHMENT_NOT_FOUND = 'Attachment not found.';
+  // #endregion
+
   // #region Constructor
   /**
    * Method __construct
@@ -191,7 +200,7 @@ final readonly class AddInterventionAttachmentHandler implements CommandHandler
       return $this->result($existing);
     }
     if ($command->acknowledgementOnly) {
-      throw new InterventionNotFoundException('Attachment not found.');
+      throw new InterventionNotFoundException(self::ATTACHMENT_NOT_FOUND);
     }
     $this->authorizeAttachment($command, $context);
     $kind = InterventionAttachmentKind::tryFrom($command->kind);
@@ -220,11 +229,11 @@ final readonly class AddInterventionAttachmentHandler implements CommandHandler
   {
     $existingContext = $this->interventionResourceManager->interventionContext($existing->interventionId());
     if (null === $existingContext || !$this->authorization->isMemberOf($command->userId, $context->organizationId)) {
-      throw new InterventionNotFoundException('Attachment not found.');
+      throw new InterventionNotFoundException(self::ATTACHMENT_NOT_FOUND);
     }
     $decision = $this->authorization->resolveAccess($command->userId, $existingContext->organizationId, 'organization.interventions.read');
     if ($decision->isOutsideScope()) {
-      throw new InterventionNotFoundException('Attachment not found.');
+      throw new InterventionNotFoundException(self::ATTACHMENT_NOT_FOUND);
     }
     if (!$decision->isGranted()) {
       throw new InterventionAccessDeniedException('Missing organization.interventions.read permission.');

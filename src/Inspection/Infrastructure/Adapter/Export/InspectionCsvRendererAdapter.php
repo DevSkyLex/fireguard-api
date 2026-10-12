@@ -4,9 +4,8 @@ declare(strict_types=1);
 
 namespace Inspection\Infrastructure\Adapter\Export;
 
-use Inspection\Application\Contract\Export\InspectionExportRow;
+use Inspection\Application\Contract\Export\{InspectionExportFailureException, InspectionExportRow};
 use Inspection\Application\Port\Outbound\InspectionCsvRendererPort;
-use RuntimeException;
 
 use function fclose;
 use function fopen;
@@ -61,7 +60,7 @@ final readonly class InspectionCsvRendererAdapter implements InspectionCsvRender
   {
     $handle = fopen('php://temp', 'w+b');
     if (false === $handle) {
-      throw new RuntimeException('Unable to open the export buffer.');
+      throw new InspectionExportFailureException('Unable to open the export buffer.');
     }
 
     try {
@@ -69,7 +68,7 @@ final readonly class InspectionCsvRendererAdapter implements InspectionCsvRender
       rewind($handle);
       $bytes = stream_get_contents($handle);
       if (false === $bytes) {
-        throw new RuntimeException('Unable to read the export buffer.');
+        throw new InspectionExportFailureException('Unable to read the export buffer.');
       }
 
       return $bytes;

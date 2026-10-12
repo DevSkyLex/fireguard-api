@@ -77,25 +77,7 @@ final readonly class WorkloadHttpIdempotencyReplayAuthorizationAdapter implement
     if (null !== $member && ($this->members->organizationId($member) !== $organization || !$this->members->isActive($member, $organization))) {
       $this->notFound();
     }
-    $exception = in_array($request->operation->name, ['workload_exception_create', 'workload_exception_cancel'], true);
-    $target = null;
-    if ('workload_exception_cancel' === $request->operation->name || null !== $storedProof) {
-      $target = $this->identifier('workload_exception_cancel' === $request->operation->name ? ($request->uriVariables['exceptionId'] ?? null) : ($storedProof?->metadata['resourceId'] ?? null));
-      $kind = $exception ? 'workload_exception' : 'workload_week';
-      if (null !== $storedProof && (($storedProof->metadata['resourceId'] ?? null) !== $target || ($storedProof->metadata['resourceKind'] ?? null) !== $kind)) {
-        $this->deny();
-      }
-      $row = $exception
-        ? $this->connection->fetchAssociative('SELECT organization_id, member_id AS scope_id FROM workload_capacity_exceptions WHERE id = :id', ['id' => $target])
-        : $this->connection->fetchAssociative('SELECT organization_id, scope_id FROM workload_capacity_weeks WHERE id = :id', ['id' => $target]);
-      if (false === $row) {
-        if ('workload_exception_cancel' !== $request->operation->name || null === $storedProof || ($storedProof->metadata['organizationId'] ?? null) !== $organization || ($storedProof->metadata['workloadMemberId'] ?? null) !== $member) {
-          $this->notFound();
-        }
-      } elseif (($row['organization_id'] ?? null) !== $organization || ($row['scope_id'] ?? null) !== ($member ?? $organization)) {
-        $this->notFound();
-      }
-    }
+    $target = $this->target($request, $storedProof, $organization, $member);
     $facts = $this->ordinary->authorize($request, $storedProof, $organization);
     $facts['workloadMemberId'] = $member ?? '';
     if (null !== $target) {
@@ -103,6 +85,65 @@ final readonly class WorkloadHttpIdempotencyReplayAuthorizationAdapter implement
     }
 
     return $facts;
+  }
+
+  /**
+   * Method target
+   *
+   * Binds current capacity rows to the original result and active member scope.
+   *
+   * @access private
+   *
+   * @param HttpIdempotencyAuthorizationRequest $request the current owner operation
+   * @param IdempotencyProof|null $storedProof authenticated original capacity identity
+   * @param string $organization the active owner scope
+   * @param string|null $member the current member or organization-wide scope
+   *
+   * @return string|null the retained result identity
+   */
+  private function target(HttpIdempotencyAuthorizationRequest $request, ?IdempotencyProof $storedProof, string $organization, ?string $member): ?string
+  {
+    if ('workload_exception_cancel' !== $request->operation->name && null === $storedProof) {
+      return null;
+    }
+    $exception = in_array($request->operation->name, ['workload_exception_create', 'workload_exception_cancel'], true);
+    $target = $this->identifier('workload_exception_cancel' === $request->operation->name ? ($request->uriVariables['exceptionId'] ?? null) : ($storedProof?->metadata['resourceId'] ?? null));
+    $kind = $exception ? 'workload_exception' : 'workload_week';
+    if (null !== $storedProof && (($storedProof->metadata['resourceId'] ?? null) !== $target || ($storedProof->metadata['resourceKind'] ?? null) !== $kind)) {
+      $this->deny();
+    }
+    $row = $exception
+      ? $this->connection->fetchAssociative('SELECT organization_id, member_id AS scope_id FROM workload_capacity_exceptions WHERE id = :id', ['id' => $target])
+      : $this->connection->fetchAssociative('SELECT organization_id, scope_id FROM workload_capacity_weeks WHERE id = :id', ['id' => $target]);
+    $this->assertCurrentRow($request, $storedProof, $organization, $member, $row);
+
+    return $target;
+  }
+
+  /**
+   * Method assertCurrentRow
+   *
+   * Allows a missing cancelled exception only with authenticated original scope.
+   *
+   * @access private
+   *
+   * @param HttpIdempotencyAuthorizationRequest $request the current owner operation
+   * @param IdempotencyProof|null $storedProof authenticated original deletion scope
+   * @param string $organization the active owner scope
+   * @param string|null $member the current member or organization-wide scope
+   * @param array<string, mixed>|false $row the fresh scalar capacity row
+   *
+   * @return void
+   */
+  private function assertCurrentRow(HttpIdempotencyAuthorizationRequest $request, ?IdempotencyProof $storedProof, string $organization, ?string $member, array|false $row): void
+  {
+    if (false === $row) {
+      if ('workload_exception_cancel' !== $request->operation->name || null === $storedProof || ($storedProof->metadata['organizationId'] ?? null) !== $organization || ($storedProof->metadata['workloadMemberId'] ?? null) !== $member) {
+        $this->notFound();
+      }
+    } elseif (($row['organization_id'] ?? null) !== $organization || ($row['scope_id'] ?? null) !== ($member ?? $organization)) {
+      $this->notFound();
+    }
   }
 
   /**

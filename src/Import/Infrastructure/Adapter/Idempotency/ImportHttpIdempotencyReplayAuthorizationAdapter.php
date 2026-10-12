@@ -81,7 +81,7 @@ final readonly class ImportHttpIdempotencyReplayAuthorizationAdapter implements 
     $body = $request->canonicalInput['body'] ?? null;
     $fields = is_array($body) && 'multipart' === ($body['kind'] ?? null) && is_array($body['fields'] ?? null) ? $body['fields'] : [];
     $source = $created ? null : $this->job($this->identifier($request->uriVariables['id'] ?? null));
-    $organization = null === $source ? $this->identifier(is_string($fields['organization'] ?? null) ? ResourceIriParser::id($fields['organization'], 'organizations') : null) : $this->identifier($source['organization_id'] ?? null);
+    $organization = $this->sourceOrganization($source, $fields);
     $kind = null === $source ? ($fields['kind'] ?? null) : ($source['kind'] ?? null);
     if (!is_string($kind) || !$this->organizations->isMemberOf($request->principalId, $organization)) {
       throw ImportJobNotFoundException::forOrganizationScope($organization);
@@ -96,13 +96,7 @@ final readonly class ImportHttpIdempotencyReplayAuthorizationAdapter implements 
     }
     $this->evidence->record($request->principalId, $organization, [$permission]);
     if (null !== $storedProof) {
-      if (($storedProof->metadata['resourceKind'] ?? null) !== 'import_job' || ($storedProof->metadata['importKind'] ?? null) !== $kind || (!$created && ($storedProof->metadata['importSourceId'] ?? null) !== ($request->uriVariables['id'] ?? null))) {
-        $this->deny();
-      }
-      $result = $this->job($this->identifier($storedProof->metadata['resourceId'] ?? null));
-      if (($result['organization_id'] ?? null) !== $organization || ($result['kind'] ?? null) !== $kind) {
-        throw ImportJobNotFoundException::forOrganizationScope($organization);
-      }
+      $this->assertOriginalJob($request, $storedProof, $created, $organization, $kind);
     }
     $facts = $this->ordinary->authorize($request, $storedProof, $organization);
     $facts['importKind'] = $kind;
@@ -111,6 +105,54 @@ final readonly class ImportHttpIdempotencyReplayAuthorizationAdapter implements 
     }
 
     return $facts;
+  }
+
+  /**
+   * Method sourceOrganization
+   *
+   * Resolves the owning organization from the current job or declared multipart scope.
+   *
+   * @access private
+   *
+   * @param array<string, mixed>|null $source the fresh source job
+   * @param array<array-key, mixed> $fields the canonical multipart fields
+   *
+   * @return string the validated owner organization
+   */
+  private function sourceOrganization(?array $source, array $fields): string
+  {
+    if (null !== $source) {
+      return $this->identifier($source['organization_id'] ?? null);
+    }
+    $organization = $fields['organization'] ?? null;
+
+    return $this->identifier(is_string($organization) ? ResourceIriParser::id($organization, 'organizations') : null);
+  }
+
+  /**
+   * Method assertOriginalJob
+   *
+   * Keeps the queued result bound to its source, kind and current organization.
+   *
+   * @access private
+   *
+   * @param HttpIdempotencyAuthorizationRequest $request the current owner operation
+   * @param IdempotencyProof $storedProof authenticated original job identity
+   * @param bool $created whether this operation creates the initial job
+   * @param string $organization the current owner scope
+   * @param string $kind the selected contributor kind
+   *
+   * @return void
+   */
+  private function assertOriginalJob(HttpIdempotencyAuthorizationRequest $request, IdempotencyProof $storedProof, bool $created, string $organization, string $kind): void
+  {
+    if (($storedProof->metadata['resourceKind'] ?? null) !== 'import_job' || ($storedProof->metadata['importKind'] ?? null) !== $kind || (!$created && ($storedProof->metadata['importSourceId'] ?? null) !== ($request->uriVariables['id'] ?? null))) {
+      $this->deny();
+    }
+    $result = $this->job($this->identifier($storedProof->metadata['resourceId'] ?? null));
+    if (($result['organization_id'] ?? null) !== $organization || ($result['kind'] ?? null) !== $kind) {
+      throw ImportJobNotFoundException::forOrganizationScope($organization);
+    }
   }
 
   /**

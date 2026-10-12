@@ -9,7 +9,7 @@ use DateTimeZone;
 use InvalidArgumentException;
 use JsonException;
 use Shared\Application\Contract\Crypto\CiphertextRejectedException;
-use Shared\Application\Contract\Idempotency\{IdempotencyBegin, IdempotencyDeniedException, IdempotencyLease, IdempotencyProof, IdempotencyReceipt, IdempotencyScope, IdempotencySnapshot};
+use Shared\Application\Contract\Idempotency\{IdempotencyBegin, IdempotencyCompletion, IdempotencyDeniedException, IdempotencyLease, IdempotencyProof, IdempotencyReceipt, IdempotencyScope, IdempotencySnapshot};
 use Shared\Application\Port\Outbound\ClockPort;
 use Shared\Application\Port\Outbound\Crypto\AuthenticatedEncryptionPort;
 use Shared\Application\Port\Outbound\Idempotency\{HttpIdempotencyPort, IdempotencyFingerprintPort, IdempotencyReceiptPort};
@@ -148,7 +148,7 @@ final readonly class DurableHttpIdempotencyService implements HttpIdempotencyPor
     if (null !== $lease->organizationHash && null !== $organizationHash && !hash_equals($lease->organizationHash, $organizationHash)) {
       throw new IdempotencyDeniedException('owner_lost');
     }
-    $this->receipts->complete($lease, $payload, $snapshot->secret, $now, $expiresAt, $snapshot->proof, $proofMac, $organizationHash);
+    $this->receipts->complete($lease, new IdempotencyCompletion($payload, $snapshot->secret, $now, $expiresAt, $snapshot->proof, $proofMac, $organizationHash));
   }
 
   /**

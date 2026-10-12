@@ -23,6 +23,29 @@ final readonly class OrganizationHttpIdempotencyOperationContributionAdapter imp
   public static function definitions(): array
   {
     return [
+      ...self::invitationDefinitions(),
+      ...self::joinPolicyDefinitions(),
+      ...self::joinRequestDefinitions(),
+      ...self::memberDefinitions(),
+      ...self::organizationDefinitions(),
+      ...self::roleDefinitions(),
+      ...self::planDefinitions(),
+      ...self::teamDefinitions(),
+    ];
+  }
+
+  /**
+   * Method invitationDefinitions
+   *
+   * Preserves the declared owner operations and their original replay metadata.
+   *
+   * @access private
+   *
+   * @return list<HttpIdempotencyOperation> ordered owner operation definitions
+   */
+  private static function invitationDefinitions(): array
+  {
+    return [
       new HttpIdempotencyOperation(
         name: 'listOrganizationInvitations',
         database: 'main',
@@ -77,6 +100,21 @@ final readonly class OrganizationHttpIdempotencyOperationContributionAdapter imp
         requiredKey: true,
         resourceKind: 'organization_invitation',
       ),
+    ];
+  }
+
+  /**
+   * Method joinPolicyDefinitions
+   *
+   * Preserves the declared owner operations and their original replay metadata.
+   *
+   * @access private
+   *
+   * @return list<HttpIdempotencyOperation> ordered owner operation definitions
+   */
+  private static function joinPolicyDefinitions(): array
+  {
+    return [
       new HttpIdempotencyOperation(
         name: 'organization_join_update_access_policy',
         database: 'main',
@@ -118,6 +156,21 @@ final readonly class OrganizationHttpIdempotencyOperationContributionAdapter imp
         requiredKey: true,
         resourceKind: 'organization_domain',
       ),
+    ];
+  }
+
+  /**
+   * Method joinRequestDefinitions
+   *
+   * Preserves the declared owner operations and their original replay metadata.
+   *
+   * @access private
+   *
+   * @return list<HttpIdempotencyOperation> ordered owner operation definitions
+   */
+  private static function joinRequestDefinitions(): array
+  {
+    return [
       new HttpIdempotencyOperation(
         name: 'organization_join_join',
         database: 'main',
@@ -180,6 +233,21 @@ final readonly class OrganizationHttpIdempotencyOperationContributionAdapter imp
         requiredKey: true,
         resourceKind: 'organization',
       ),
+    ];
+  }
+
+  /**
+   * Method memberDefinitions
+   *
+   * Preserves the declared owner operations and their original replay metadata.
+   *
+   * @access private
+   *
+   * @return list<HttpIdempotencyOperation> ordered owner operation definitions
+   */
+  private static function memberDefinitions(): array
+  {
+    return [
       new HttpIdempotencyOperation(
         name: 'addOrganizationMember',
         database: 'main',
@@ -231,6 +299,21 @@ final readonly class OrganizationHttpIdempotencyOperationContributionAdapter imp
         requiredKey: true,
         resourceKind: 'organization_member',
       ),
+    ];
+  }
+
+  /**
+   * Method organizationDefinitions
+   *
+   * Preserves the declared owner operations and their original replay metadata.
+   *
+   * @access private
+   *
+   * @return list<HttpIdempotencyOperation> ordered owner operation definitions
+   */
+  private static function organizationDefinitions(): array
+  {
+    return [
       new HttpIdempotencyOperation(
         name: 'createOrganization',
         database: 'main',
@@ -365,6 +448,21 @@ final readonly class OrganizationHttpIdempotencyOperationContributionAdapter imp
         requiredKey: true,
         resourceKind: 'organization',
       ),
+    ];
+  }
+
+  /**
+   * Method roleDefinitions
+   *
+   * Preserves the declared owner operations and their original replay metadata.
+   *
+   * @access private
+   *
+   * @return list<HttpIdempotencyOperation> ordered owner operation definitions
+   */
+  private static function roleDefinitions(): array
+  {
+    return [
       new HttpIdempotencyOperation(
         name: 'createOrganizationRole',
         database: 'main',
@@ -426,6 +524,21 @@ final readonly class OrganizationHttpIdempotencyOperationContributionAdapter imp
         requiredKey: true,
         resourceKind: 'organization_role',
       ),
+    ];
+  }
+
+  /**
+   * Method planDefinitions
+   *
+   * Preserves the declared owner operations and their original replay metadata.
+   *
+   * @access private
+   *
+   * @return list<HttpIdempotencyOperation> ordered owner operation definitions
+   */
+  private static function planDefinitions(): array
+  {
+    return [
       new HttpIdempotencyOperation(
         name: 'createPlan',
         database: 'main',
@@ -471,6 +584,21 @@ final readonly class OrganizationHttpIdempotencyOperationContributionAdapter imp
         requiredKey: true,
         resourceKind: 'plan',
       ),
+    ];
+  }
+
+  /**
+   * Method teamDefinitions
+   *
+   * Preserves the declared owner operations and their original replay metadata.
+   *
+   * @access private
+   *
+   * @return list<HttpIdempotencyOperation> ordered owner operation definitions
+   */
+  private static function teamDefinitions(): array
+  {
+    return [
       new HttpIdempotencyOperation(
         name: 'createTeam',
         database: 'main',

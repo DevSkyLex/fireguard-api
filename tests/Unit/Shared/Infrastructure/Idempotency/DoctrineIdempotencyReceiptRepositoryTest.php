@@ -8,7 +8,7 @@ use DateTimeImmutable;
 use Doctrine\DBAL\Connection;
 use LogicException;
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Contract\Idempotency\IdempotencyLease;
+use Shared\Application\Contract\Idempotency\{IdempotencyCompletion, IdempotencyLease};
 use Shared\Infrastructure\Persistence\Doctrine\Repository\DoctrineIdempotencyReceiptRepository;
 
 use function str_repeat;
@@ -50,7 +50,7 @@ final class DoctrineIdempotencyReceiptRepositoryTest extends TestCase
     $write->expects(self::never())->method('executeStatement');
     $this->expectException(LogicException::class);
     $now = new DateTimeImmutable();
-    new DoctrineIdempotencyReceiptRepository($write)->complete($this->lease(), 'result', false, $now, $now->modify('+24 hours'));
+    new DoctrineIdempotencyReceiptRepository($write)->complete($this->lease(), new IdempotencyCompletion('result', false, $now, $now->modify('+24 hours')));
   }
 
   public function testRefusesRollbackReleaseWhileWriteTransactionStillActive(): void

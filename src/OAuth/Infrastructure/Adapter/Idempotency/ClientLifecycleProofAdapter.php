@@ -32,11 +32,8 @@ final readonly class ClientLifecycleProofAdapter implements ClientLifecycleProof
       return null;
     }
     $row = $this->connection->fetchAssociative('SELECT id, security_revision, secret, is_active, deleted_at FROM clients WHERE id = ?', [$clientId]);
-    if (false === $row || !is_string($row['id'] ?? null) || !is_string($row['secret'] ?? null)) {
-      return null;
-    }
-    $revision = $row['security_revision'] ?? null;
-    if ((!is_int($revision) && (!is_string($revision) || 1 !== preg_match('/^[1-9][0-9]*$/D', $revision))) || (int) $revision < 1) {
+    $revision = false === $row ? null : ($row['security_revision'] ?? null);
+    if (false === $row || !is_string($row['id'] ?? null) || !is_string($row['secret'] ?? null) || !$this->validRevision($revision)) {
       return null;
     }
 
@@ -51,5 +48,23 @@ final readonly class ClientLifecycleProofAdapter implements ClientLifecycleProof
     }
 
     return $this->hashing->verify($plainSecret, new HashedSecret($row['secret']));
+  }
+
+  /**
+   * Method validRevision
+   *
+   * Accepts only positive integer epochs represented by the auth driver.
+   *
+   * @access private
+   *
+   * @param mixed $revision auth driver scalar epoch
+   *
+   * @return bool whether the epoch is a positive ASCII decimal integer
+   *
+   * @phpstan-assert-if-true int|string $revision
+   */
+  private function validRevision(mixed $revision): bool
+  {
+    return (is_int($revision) || (is_string($revision) && 1 === preg_match('/^[1-9]\d*$/D', $revision))) && (int) $revision >= 1;
   }
 }

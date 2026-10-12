@@ -185,52 +185,12 @@ final readonly class GenericOidcProviderAdapter implements FederatedProviderClie
         'max_duration' => 10,
         'max_redirects' => 0,
       ])->toArray();
-      $idToken = $response['id_token'] ?? null;
-      if (!is_string($idToken) || '' === $idToken || strlen($idToken) > 65536) {
-        throw $this->invalidIdentity();
-      }
-      $token = new Parser(new JoseEncoder())->parse($idToken);
-      if (!$token instanceof Plain || 'RS256' !== $token->headers()->get('alg') || $token->headers()->has('crit') || false === $token->headers()->get('b64', true)) {
-        throw $this->invalidIdentity();
-      }
-      $kid = $token->headers()->get('kid');
-      if (!is_string($kid) || '' === $kid) {
-        throw $this->invalidIdentity();
-      }
-      $pem = $this->verificationKey($configuration, $kid);
-      if (!new Sha256()->verify($token->signature()->hash(), $token->payload(), InMemory::plainText($pem))) {
-        throw $this->invalidIdentity();
-      }
-      $claims = $token->claims()->all();
-      $this->validateClaims($claims, $configuration, $nonceHash);
+      $claims = $this->verifiedClaims($response, $configuration, $nonceHash);
       $subject = $this->stringClaim($claims, 'sub');
       if ('' === trim($subject) || strlen($subject) > 255) {
         throw $this->invalidIdentity();
       }
-      if (null !== $configuration->userinfoEndpoint) {
-        $accessToken = $response['access_token'] ?? null;
-        if (!is_string($accessToken) || '' === $accessToken) {
-          throw $this->invalidIdentity();
-        }
-        $userinfo = $this->httpClient->request('GET', $configuration->userinfoEndpoint, [
-          'auth_bearer' => $accessToken,
-          'headers' => ['Accept' => 'application/json'],
-          'timeout' => 10,
-          'max_duration' => 10,
-          'max_redirects' => 0,
-        ])->toArray();
-        if ($this->stringClaim($userinfo, 'sub') !== $subject) {
-          throw $this->invalidIdentity();
-        }
-        if (array_key_exists('email', $userinfo) && $userinfo['email'] !== ($claims['email'] ?? null)) {
-          // Verification belongs to the address; UserInfo must prove its replacement.
-          $claims['email_verified'] = false;
-        }
-        if (!array_key_exists('email', $userinfo) && true === ($userinfo['email_verified'] ?? false)) {
-          unset($userinfo['email_verified']);
-        }
-        $claims = array_merge($claims, $userinfo);
-      }
+      $claims = $this->userinfoClaims($claims, $response, $configuration, $subject);
       $email = trim($this->stringClaim($claims, 'email'));
       if (strlen($email) > 320 || false === filter_var($email, FILTER_VALIDATE_EMAIL)) {
         throw new FederatedAuthException('email_missing', 'The identity provider did not return a usable email address.');
@@ -242,6 +202,87 @@ final readonly class GenericOidcProviderAdapter implements FederatedProviderClie
     } catch (Throwable $exception) {
       throw new FederatedAuthException('provider_failed', 'The sign-in provider could not verify this connection.', $exception);
     }
+  }
+
+  /**
+   * Method verifiedClaims
+   *
+   * Verifies the configured signing key before validating or exposing any ID token claim.
+   *
+   * @access private
+   *
+   * @param array<array-key, mixed> $response the token endpoint response
+   * @param OidcProviderConfiguration $configuration the server-owned issuer and signing key endpoint
+   * @param string $nonceHash the retained browser flow nonce proof
+   *
+   * @return array<string, mixed> signature-verified and claim-validated identity data
+   */
+  private function verifiedClaims(array $response, OidcProviderConfiguration $configuration, string $nonceHash): array
+  {
+    $idToken = $response['id_token'] ?? null;
+    if (!is_string($idToken) || '' === $idToken || strlen($idToken) > 65536) {
+      throw $this->invalidIdentity();
+    }
+    $token = new Parser(new JoseEncoder())->parse($idToken);
+    if (!$token instanceof Plain || 'RS256' !== $token->headers()->get('alg') || $token->headers()->has('crit') || false === $token->headers()->get('b64', true)) {
+      throw $this->invalidIdentity();
+    }
+    $kid = $token->headers()->get('kid');
+    if (!is_string($kid) || '' === $kid) {
+      throw $this->invalidIdentity();
+    }
+    $pem = $this->verificationKey($configuration, $kid);
+    if (!new Sha256()->verify($token->signature()->hash(), $token->payload(), InMemory::plainText($pem))) {
+      throw $this->invalidIdentity();
+    }
+    $claims = $token->claims()->all();
+    $this->validateClaims($claims, $configuration, $nonceHash);
+
+    return $claims;
+  }
+
+  /**
+   * Method userinfoClaims
+   *
+   * Merges optional UserInfo only after its subject matches the verified ID token, retaining mailbox proof ownership.
+   *
+   * @access private
+   *
+   * @param array<string, mixed> $claims the verified ID token claims
+   * @param array<array-key, mixed> $response the token endpoint response
+   * @param OidcProviderConfiguration $configuration the optional server-owned UserInfo endpoint
+   * @param string $subject the verified non-empty subject
+   *
+   * @return array<array-key, mixed> verified identity claims with subject-matched UserInfo
+   */
+  private function userinfoClaims(array $claims, array $response, OidcProviderConfiguration $configuration, string $subject): array
+  {
+    if (null === $configuration->userinfoEndpoint) {
+      return $claims;
+    }
+    $accessToken = $response['access_token'] ?? null;
+    if (!is_string($accessToken) || '' === $accessToken) {
+      throw $this->invalidIdentity();
+    }
+    $userinfo = $this->httpClient->request('GET', $configuration->userinfoEndpoint, [
+      'auth_bearer' => $accessToken,
+      'headers' => ['Accept' => 'application/json'],
+      'timeout' => 10,
+      'max_duration' => 10,
+      'max_redirects' => 0,
+    ])->toArray();
+    if ($this->stringClaim($userinfo, 'sub') !== $subject) {
+      throw $this->invalidIdentity();
+    }
+    if (array_key_exists('email', $userinfo) && $userinfo['email'] !== ($claims['email'] ?? null)) {
+      // Verification belongs to the address; UserInfo must prove its replacement.
+      $claims['email_verified'] = false;
+    }
+    if (!array_key_exists('email', $userinfo) && true === ($userinfo['email_verified'] ?? false)) {
+      unset($userinfo['email_verified']);
+    }
+
+    return array_merge($claims, $userinfo);
   }
 
   /**

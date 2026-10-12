@@ -31,6 +31,15 @@ use function trim;
  */
 final readonly class LoginIdempotencyProofAdapter implements SensitiveIdempotencyProofPort
 {
+  // #region Constants
+  /**
+   * Constant INVALID_CREDENTIALS_MESSAGE
+   *
+   * Keeps credential and replay denials indistinguishable.
+   */
+  private const string INVALID_CREDENTIALS_MESSAGE = 'Invalid credentials';
+  // #endregion
+
   // #region Constructor
   /**
    * Method __construct
@@ -75,15 +84,15 @@ final readonly class LoginIdempotencyProofAdapter implements SensitiveIdempotenc
     $current = $this->credentials->verify($message->email, $message->password, $this->policy->emailVerificationRequired());
     $failedReceipt = null !== $storedProof && '1' === ($storedProof->metadata['failed_login'] ?? null);
     if (null !== $storedProof && !$failedReceipt && (null === $current || !$current->active || ($storedProof->metadata['user_id'] ?? null) !== $current->userId || ($storedProof->metadata['security_revision'] ?? null) !== (string) $current->securityRevision)) {
-      throw new UnauthorizedHttpException('Bearer', 'Invalid credentials');
+      throw new UnauthorizedHttpException('Bearer', self::INVALID_CREDENTIALS_MESSAGE);
     }
     if (null !== $storedProof && !$failedReceipt && null !== $current && ($storedProof->metadata['authorization_fingerprint'] ?? null) !== $this->grants->currentFingerprint($current->userId)) {
-      throw new UnauthorizedHttpException('Bearer', 'Invalid credentials');
+      throw new UnauthorizedHttpException('Bearer', self::INVALID_CREDENTIALS_MESSAGE);
     }
     if (null !== $storedProof && null !== $current && isset($storedProof->metadata['session_id'])) {
       $sessionId = $this->sessions->currentSessionId($current->userId, $storedProof->metadata['access_token_id'] ?? '', $storedProof->metadata['refresh_token_id'] ?? '');
       if ($sessionId !== $storedProof->metadata['session_id']) {
-        throw new UnauthorizedHttpException('Bearer', 'Invalid credentials');
+        throw new UnauthorizedHttpException('Bearer', self::INVALID_CREDENTIALS_MESSAGE);
       }
     }
 
@@ -113,7 +122,7 @@ final readonly class LoginIdempotencyProofAdapter implements SensitiveIdempotenc
     }
     $current = null === $result->userId ? $this->credentials->verify($message->email, $message->password, $this->policy->emailVerificationRequired()) : $this->revisions->current($result->userId);
     if (null === $current || !$current->active) {
-      throw new UnauthorizedHttpException('Bearer', 'Invalid credentials');
+      throw new UnauthorizedHttpException('Bearer', self::INVALID_CREDENTIALS_MESSAGE);
     }
     $proof = ['user_id' => $current->userId, 'security_revision' => (string) $current->securityRevision, 'security_revision_after' => (string) $current->securityRevision];
     $proof['authorization_fingerprint'] = null === $result->accessToken ? $this->grants->currentFingerprint($current->userId) : $this->grants->issuedFingerprint($current->userId, $result->accessToken);

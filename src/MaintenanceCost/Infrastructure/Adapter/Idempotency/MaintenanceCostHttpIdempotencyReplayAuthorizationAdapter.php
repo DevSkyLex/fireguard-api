@@ -86,20 +86,7 @@ final readonly class MaintenanceCostHttpIdempotencyReplayAuthorizationAdapter im
         $this->deny();
       }
     } elseif ('maintenance_cost_rates_create' === $request->operation->name) {
-      $member = $this->identifier($this->body($request)['memberId'] ?? null);
-      if ($this->members->organizationId($member) !== $organization) {
-        $this->notFound();
-      }
-      if (null !== $storedProof) {
-        $target = $this->identifier($storedProof->metadata['resourceId'] ?? null);
-        if (($storedProof->metadata['resourceKind'] ?? null) !== 'maintenance_rate') {
-          $this->deny();
-        }
-        $row = $this->connection->fetchAssociative('SELECT organization_id, member_id FROM maintenance_cost_hourly_rates WHERE id = :id', ['id' => $target]);
-        if (false === $row || ($row['organization_id'] ?? null) !== $organization || ($row['member_id'] ?? null) !== $member) {
-          $this->notFound();
-        }
-      }
+      $target = $this->rateTarget($request, $storedProof, $organization);
     }
     $facts = $this->ordinary->authorize($request, $storedProof, $organization);
     if (null !== $target) {
@@ -107,6 +94,40 @@ final readonly class MaintenanceCostHttpIdempotencyReplayAuthorizationAdapter im
     }
 
     return $facts;
+  }
+
+  /**
+   * Method rateTarget
+   *
+   * Keeps retained rates bound to their current member and organization.
+   *
+   * @access private
+   *
+   * @param HttpIdempotencyAuthorizationRequest $request the current owner operation
+   * @param IdempotencyProof|null $storedProof authenticated original rate identity
+   * @param string $organization the active organization
+   *
+   * @return string|null the retained rate identity
+   */
+  private function rateTarget(HttpIdempotencyAuthorizationRequest $request, ?IdempotencyProof $storedProof, string $organization): ?string
+  {
+    $member = $this->identifier($this->body($request)['memberId'] ?? null);
+    if ($this->members->organizationId($member) !== $organization) {
+      $this->notFound();
+    }
+    $target = null;
+    if (null !== $storedProof) {
+      $target = $this->identifier($storedProof->metadata['resourceId'] ?? null);
+      if (($storedProof->metadata['resourceKind'] ?? null) !== 'maintenance_rate') {
+        $this->deny();
+      }
+      $row = $this->connection->fetchAssociative('SELECT organization_id, member_id FROM maintenance_cost_hourly_rates WHERE id = :id', ['id' => $target]);
+      if (false === $row || ($row['organization_id'] ?? null) !== $organization || ($row['member_id'] ?? null) !== $member) {
+        $this->notFound();
+      }
+    }
+
+    return $target;
   }
 
   /**

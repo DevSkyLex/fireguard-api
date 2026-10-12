@@ -7,7 +7,7 @@ namespace Audit\Infrastructure\Adapter\Export;
 use Audit\Application\Contract\AuditExportSizeLimitException;
 use Audit\Application\Port\Outbound\Export\AuditCsvEncodingPort;
 use Audit\Application\Service\AuditCsvLayout;
-use RuntimeException;
+use Audit\Infrastructure\Exception\AuditCsvSpoolException;
 
 use function fclose;
 use function fopen;
@@ -31,7 +31,7 @@ final readonly class AuditCsvEncodingAdapter implements AuditCsvEncodingPort
   {
     $handle = fopen('php://temp/maxmemory:2097152', 'w+b');
     if (false === $handle) {
-      throw new RuntimeException('The audit CSV spool could not be opened.');
+      throw new AuditCsvSpoolException('The audit CSV spool could not be opened.');
     }
 
     try {
@@ -45,7 +45,7 @@ final readonly class AuditCsvEncodingAdapter implements AuditCsvEncodingPort
       rewind($handle);
       $csv = stream_get_contents($handle);
       if (false === $csv) {
-        throw new RuntimeException('The audit CSV spool could not be read.');
+        throw new AuditCsvSpoolException('The audit CSV spool could not be read.');
       }
 
       return $csv;
@@ -64,7 +64,7 @@ final readonly class AuditCsvEncodingAdapter implements AuditCsvEncodingPort
   {
     $written = fputcsv($handle, $row, escape: '\\');
     if (false === $written) {
-      throw new RuntimeException('The audit CSV row could not be written.');
+      throw new AuditCsvSpoolException('The audit CSV row could not be written.');
     }
 
     return $written;

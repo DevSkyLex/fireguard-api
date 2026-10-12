@@ -6,6 +6,7 @@ namespace Tests\Unit\Shared\Presentation\Api\Attachment;
 
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
+use Shared\Infrastructure\Adapter\Attachment\AttachmentDownloadAdapter;
 use Shared\Presentation\Api\Attachment\AttachmentDownloadResponder;
 
 use function strlen;
@@ -18,12 +19,13 @@ use function strlen;
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 #[CoversClass(AttachmentDownloadResponder::class)]
+#[CoversClass(AttachmentDownloadAdapter::class)]
 final class AttachmentDownloadResponderTest extends TestCase
 {
   #[Test]
   public function testDownloadForcesAttachmentDispositionAndHardenedHeaders(): void
   {
-    $response = new AttachmentDownloadResponder()->download('PDF-BYTES', 'report.pdf', 'application/pdf');
+    $response = new AttachmentDownloadResponder(new AttachmentDownloadAdapter())->download('PDF-BYTES', 'report.pdf', 'application/pdf');
 
     self::assertSame('PDF-BYTES', $response->getContent());
     self::assertSame('application/pdf', $response->headers->get('Content-Type'));
@@ -43,7 +45,7 @@ final class AttachmentDownloadResponderTest extends TestCase
   #[Test]
   public function testDownloadFallsBackToOctetStreamWhenMimeTypeIsBlank(): void
   {
-    $response = new AttachmentDownloadResponder()->download('bytes', 'data.bin', '   ');
+    $response = new AttachmentDownloadResponder(new AttachmentDownloadAdapter())->download('bytes', 'data.bin', '   ');
 
     self::assertSame('application/octet-stream', $response->headers->get('Content-Type'));
   }
@@ -51,7 +53,7 @@ final class AttachmentDownloadResponderTest extends TestCase
   #[Test]
   public function testDownloadEncodesNonAsciiFileNamesWithoutThrowing(): void
   {
-    $response = new AttachmentDownloadResponder()->download('bytes', 'rapport-é.pdf', 'application/pdf');
+    $response = new AttachmentDownloadResponder(new AttachmentDownloadAdapter())->download('bytes', 'rapport-é.pdf', 'application/pdf');
 
     $disposition = (string) $response->headers->get('Content-Disposition');
     self::assertStringStartsWith('attachment;', $disposition);
@@ -62,7 +64,7 @@ final class AttachmentDownloadResponderTest extends TestCase
   #[Test]
   public function testDownloadFallsBackToGenericNameWhenFileNameIsBlank(): void
   {
-    $response = new AttachmentDownloadResponder()->download('bytes', '   ', 'application/pdf');
+    $response = new AttachmentDownloadResponder(new AttachmentDownloadAdapter())->download('bytes', '   ', 'application/pdf');
 
     $disposition = (string) $response->headers->get('Content-Disposition');
     self::assertStringContainsString('download', $disposition);

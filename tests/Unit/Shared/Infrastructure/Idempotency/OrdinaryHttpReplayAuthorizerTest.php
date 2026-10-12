@@ -86,6 +86,8 @@ final class OrdinaryHttpReplayAuthorizerTest extends TestCase
     $this->member = false;
     $this->organizations->expects(self::once())->method('isMemberOf')->with('actor', 'org');
     $this->organizations->expects(self::never())->method('hasPermission');
+    $this->platform->expects(self::never())->method('hasPermission');
+    $this->platform->expects(self::never())->method('hasRole');
     $this->assertDenied(self::request(), self::proof(), null);
   }
 
@@ -213,6 +215,8 @@ final class OrdinaryHttpReplayAuthorizerTest extends TestCase
     $this->organizations->expects(self::never())->method('isMemberOf');
     $this->organizations->expects(self::never())->method('hasPermission');
     $this->assertDenied(self::request(['organizationId' => 'org']), null, 'foreign-org', 'scope_not_found');
+    $this->authorizer = new OrdinaryHttpReplayAuthorizer($this->accounts, $this->platform);
+    $this->assertDenied(self::request(['organizationId' => 'org']), null, 'foreign-org');
   }
 
   #[Test]
@@ -229,6 +233,7 @@ final class OrdinaryHttpReplayAuthorizerTest extends TestCase
   #[DataProvider('identityMismatches')]
   public function signedOriginalActorTenantRevisionAndRouteFactsMustMatch(string $field, string $value): void
   {
+    $this->platform->expects(self::once())->method('permitsKey')->with(self::isInstanceOf(HttpIdempotencyAccount::class), '');
     $this->organizations->expects(self::never())->method('isMemberOf');
     $this->assertDenied(self::request(), self::proof([$field => $value]), 'org');
   }
@@ -265,13 +270,28 @@ final class OrdinaryHttpReplayAuthorizerTest extends TestCase
   }
 
   #[Test]
-  public function aDeactivatedAccountIsDeniedBeforePlatformOrOrganizationChecks(): void
+  #[DataProvider('invalidCurrentAccounts')]
+  public function anInvalidCurrentAccountIsDeniedBeforePlatformOrOrganizationChecks(?HttpIdempotencyAccount $account): void
   {
     $accounts = $this->createMock(HttpIdempotencyAccountPort::class);
-    $accounts->expects(self::once())->method('current')->with('actor')->willReturn(new HttpIdempotencyAccount('actor', 'tenant', 7, false, true));
+    $accounts->expects(self::once())->method('current')->with('actor')->willReturn($account);
     $this->platform->expects(self::never())->method('permitsKey');
+    $this->organizations->expects(self::never())->method('isMemberOf');
+    $this->organizations->expects(self::never())->method('hasPermission');
     $this->authorizer = new OrdinaryHttpReplayAuthorizer($accounts, $this->platform, $this->organizations);
     $this->assertDenied(self::request(), self::proof(), 'org');
+  }
+
+  /**
+   * @return iterable<string, array{HttpIdempotencyAccount|null}>
+   */
+  public static function invalidCurrentAccounts(): iterable
+  {
+    yield 'missing' => [null];
+    yield 'inactive' => [new HttpIdempotencyAccount('actor', 'tenant', 7, false, true)];
+    yield 'other-principal' => [new HttpIdempotencyAccount('other-actor', 'tenant', 7, true, true)];
+    yield 'other-tenant' => [new HttpIdempotencyAccount('actor', 'other-tenant', 7, true, true)];
+    yield 'missing-tenant' => [new HttpIdempotencyAccount('actor', null, 7, true, true)];
   }
 
   #[Test]

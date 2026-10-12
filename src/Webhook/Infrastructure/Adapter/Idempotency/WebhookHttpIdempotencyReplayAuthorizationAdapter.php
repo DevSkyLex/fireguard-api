@@ -66,34 +66,10 @@ final readonly class WebhookHttpIdempotencyReplayAuthorizationAdapter implements
       $subscription = $storedProof->metadata['resourceId'] ?? null;
     }
     if ('createWebhookSubscription' !== $operation || null !== $storedProof) {
-      if (!is_string($subscription) || !Uuid::isValid($subscription)) {
-        $this->deny();
-      }
-      $current = $this->connection->fetchOne('SELECT organization_id FROM webhook_subscriptions WHERE id = :id', ['id' => $subscription]);
-      if (false === $current) {
-        if ('deleteWebhookSubscription' !== $operation || null === $storedProof) {
-          $this->deny();
-        }
-      } elseif ($current !== $organization) {
-        $this->deny();
-      }
-      if (null !== $storedProof && 'createWebhookSubscription' !== $operation && (($storedProof->metadata['webhookSubscriptionId'] ?? null) !== $subscription)) {
-        $this->deny();
-      }
-      if (null !== $storedProof && in_array($operation, ['createWebhookSubscription', 'updateWebhookSubscription', 'deleteWebhookSubscription', 'rotateWebhookSecret'], true)
-        && (($storedProof->metadata['resourceId'] ?? null) !== $subscription || ($storedProof->metadata['resourceKind'] ?? null) !== 'webhook_subscription')) {
-        $this->deny();
-      }
+      $this->assertSubscriptionScope($request, $storedProof, $organization, $subscription);
+      $this->assertOriginalSubscription($request, $storedProof, $subscription);
       if ('redeliverWebhook' === $operation) {
-        $delivery = $request->uriVariables['deliveryId'] ?? null;
-        if (!is_string($delivery) || !Uuid::isValid($delivery)) {
-          $this->deny();
-        }
-        $row = $this->connection->fetchAssociative('SELECT organization_id, subscription_id FROM webhook_deliveries WHERE id = :id', ['id' => $delivery]);
-        if (false === $row || ($row['organization_id'] ?? null) !== $organization || ($row['subscription_id'] ?? null) !== $subscription
-          || (null !== $storedProof && (($storedProof->metadata['resourceId'] ?? null) !== $delivery || ($storedProof->metadata['resourceKind'] ?? null) !== 'webhook_delivery'))) {
-          $this->deny();
-        }
+        $this->assertDeliveryScope($request, $storedProof, $organization, $subscription);
       }
     }
     $facts = $this->ordinary->authorize($request, $storedProof, $organization);
@@ -102,6 +78,89 @@ final readonly class WebhookHttpIdempotencyReplayAuthorizationAdapter implements
     }
 
     return $facts;
+  }
+
+  /**
+   * Method assertSubscriptionScope
+   *
+   * Permits a missing target only for an authenticated original deletion.
+   *
+   * @access private
+   *
+   * @param HttpIdempotencyAuthorizationRequest $request the current owner operation
+   * @param IdempotencyProof|null $storedProof authenticated original target
+   * @param string $organization the active owner scope
+   * @param mixed $subscription the current or retained subscription identity
+   *
+   * @return void
+   *
+   * @phpstan-assert string $subscription
+   */
+  private function assertSubscriptionScope(HttpIdempotencyAuthorizationRequest $request, ?IdempotencyProof $storedProof, string $organization, mixed $subscription): void
+  {
+    if (!is_string($subscription) || !Uuid::isValid($subscription)) {
+      $this->deny();
+    }
+    $current = $this->connection->fetchOne('SELECT organization_id FROM webhook_subscriptions WHERE id = :id', ['id' => $subscription]);
+    if (false === $current) {
+      if ('deleteWebhookSubscription' !== $request->operation->name || null === $storedProof) {
+        $this->deny();
+      }
+    } elseif ($current !== $organization) {
+      $this->deny();
+    }
+  }
+
+  /**
+   * Method assertOriginalSubscription
+   *
+   * Binds replay to the original subscription kind and route relationship.
+   *
+   * @access private
+   *
+   * @param HttpIdempotencyAuthorizationRequest $request the current owner operation
+   * @param IdempotencyProof|null $storedProof authenticated original target
+   * @param string $subscription the scoped subscription identity
+   *
+   * @return void
+   */
+  private function assertOriginalSubscription(HttpIdempotencyAuthorizationRequest $request, ?IdempotencyProof $storedProof, string $subscription): void
+  {
+    $operation = $request->operation->name;
+    if (null !== $storedProof && 'createWebhookSubscription' !== $operation && (($storedProof->metadata['webhookSubscriptionId'] ?? null) !== $subscription)) {
+      $this->deny();
+    }
+    if (null !== $storedProof && in_array($operation, ['createWebhookSubscription', 'updateWebhookSubscription', 'deleteWebhookSubscription', 'rotateWebhookSecret'], true)
+      && (($storedProof->metadata['resourceId'] ?? null) !== $subscription || ($storedProof->metadata['resourceKind'] ?? null) !== 'webhook_subscription')) {
+      $this->deny();
+    }
+  }
+
+  /**
+   * Method assertDeliveryScope
+   *
+   * Rechecks current delivery ownership and its exact subscription before redelivery disclosure.
+   *
+   * @access private
+   *
+   * @param HttpIdempotencyAuthorizationRequest $request the current owner operation
+   * @param IdempotencyProof|null $storedProof authenticated original delivery
+   * @param string $organization the active owner scope
+   * @param string $subscription the scoped subscription identity
+   *
+   * @return void
+   */
+  private function assertDeliveryScope(HttpIdempotencyAuthorizationRequest $request, ?IdempotencyProof $storedProof, string $organization, string $subscription): void
+  {
+    $delivery = $request->uriVariables['deliveryId'] ?? null;
+    if (!is_string($delivery) || !Uuid::isValid($delivery)) {
+      $this->deny();
+    }
+    $row = $this->connection->fetchAssociative('SELECT organization_id, subscription_id FROM webhook_deliveries WHERE id = :id', ['id' => $delivery]);
+    if (false === $row || ($row['organization_id'] ?? null) !== $organization || ($row['subscription_id'] ?? null) !== $subscription
+      || (null !== $storedProof && (($storedProof->metadata['resourceId'] ?? null) !== $delivery || ($storedProof->metadata['resourceKind'] ?? null) !== 'webhook_delivery'))) {
+      $this->deny();
+    }
   }
 
   /**

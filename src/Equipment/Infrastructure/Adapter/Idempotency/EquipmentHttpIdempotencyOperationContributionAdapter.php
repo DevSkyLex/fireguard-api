@@ -28,6 +28,25 @@ final readonly class EquipmentHttpIdempotencyOperationContributionAdapter implem
   public static function definitions(): array
   {
     return [
+      ...self::exportOperations(),
+      ...self::canonicalAndAttachmentOperations(),
+      ...self::equipmentOperations(),
+      ...self::catalogAndMediaOperations(),
+    ];
+  }
+
+  /**
+   * Method exportOperations
+   *
+   * Declares CSV, report and label exports with their original entitlement scopes.
+   *
+   * @access private
+   *
+   * @return list<HttpIdempotencyOperation> explicit owner mutations in their existing declaration order
+   */
+  private static function exportOperations(): array
+  {
+    return [
       new HttpIdempotencyOperation(
         name: 'equipment_export',
         database: 'main',
@@ -55,6 +74,21 @@ final readonly class EquipmentHttpIdempotencyOperationContributionAdapter implem
         requiredKey: true,
         resourceKind: 'equipment_export',
       ),
+    ];
+  }
+
+  /**
+   * Method canonicalAndAttachmentOperations
+   *
+   * Declares canonical equipment writes and legacy attachment transaction owners.
+   *
+   * @access private
+   *
+   * @return list<HttpIdempotencyOperation> explicit owner mutations in their existing declaration order
+   */
+  private static function canonicalAndAttachmentOperations(): array
+  {
+    return [
       new HttpIdempotencyOperation(
         name: '_api_/equipment_post',
         database: 'main',
@@ -125,6 +159,21 @@ final readonly class EquipmentHttpIdempotencyOperationContributionAdapter implem
         requiredKey: true,
         resourceKind: 'equipment_attachment',
       ),
+    ];
+  }
+
+  /**
+   * Method equipmentOperations
+   *
+   * Declares inventory lifecycle, assignment and tagging mutations.
+   *
+   * @access private
+   *
+   * @return list<HttpIdempotencyOperation> explicit owner mutations in their existing declaration order
+   */
+  private static function equipmentOperations(): array
+  {
+    return [
       new HttpIdempotencyOperation(
         name: 'equipment_replace',
         database: 'main',
@@ -258,6 +307,21 @@ final readonly class EquipmentHttpIdempotencyOperationContributionAdapter implem
         requiredKey: true,
         resourceKind: 'equipment',
       ),
+    ];
+  }
+
+  /**
+   * Method catalogAndMediaOperations
+   *
+   * Declares equipment type and media mutations with their saved response schemas.
+   *
+   * @access private
+   *
+   * @return list<HttpIdempotencyOperation> explicit owner mutations in their existing declaration order
+   */
+  private static function catalogAndMediaOperations(): array
+  {
+    return [
       new HttpIdempotencyOperation(
         name: 'equipment_type_catalog_create',
         database: 'main',

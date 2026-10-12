@@ -76,7 +76,7 @@ final readonly class PasswordPolicy
     }
     $complexity = ($this->requireUppercase && 1 !== preg_match('/[A-Z]/', $password))
       || ($this->requireLowercase && 1 !== preg_match('/[a-z]/', $password))
-      || ($this->requireDigit && 1 !== preg_match('/[0-9]/', $password))
+      || ($this->requireDigit && 1 !== preg_match('/\d/', $password))
       || ('' !== $this->specialCharacters && 1 !== preg_match($specialPattern, $password));
 
     // The historical HTTP rule also requires its first character to belong to

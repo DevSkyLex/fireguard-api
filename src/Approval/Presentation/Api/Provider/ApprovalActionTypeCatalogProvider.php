@@ -54,7 +54,7 @@ final readonly class ApprovalActionTypeCatalogProvider implements ProviderInterf
    */
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): array
   {
-    return array_map(self::toOutput(...), $this->catalog->descriptors());
+    return array_map(static fn (ApprovalActionDescriptor $descriptor): ApprovalActionTypeOutput => self::toOutput($descriptor), $this->catalog->descriptors());
   }
 
   /**

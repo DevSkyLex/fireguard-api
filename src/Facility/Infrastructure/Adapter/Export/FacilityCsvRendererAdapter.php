@@ -6,7 +6,7 @@ namespace Facility\Infrastructure\Adapter\Export;
 
 use Facility\Application\Port\Outbound\FacilityCsvRendererPort;
 use Facility\Application\Service\Export\FacilityExportCsvSchema;
-use RuntimeException;
+use Facility\Infrastructure\Exception\FacilityCsvRenderingException;
 
 use function fclose;
 use function fopen;
@@ -25,24 +25,24 @@ final readonly class FacilityCsvRendererAdapter implements FacilityCsvRendererPo
   {
     $stream = fopen('php://temp', 'w+b');
     if (false === $stream) {
-      throw new RuntimeException('CSV artifact stream could not be opened.');
+      throw new FacilityCsvRenderingException('CSV artifact stream could not be opened.');
     }
 
     try {
       if (false === fputcsv($stream, FacilityExportCsvSchema::HEADER, escape: '')) {
-        throw new RuntimeException('CSV artifact header could not be written.');
+        throw new FacilityCsvRenderingException('CSV artifact header could not be written.');
       }
       foreach ($rows as $row) {
         if (false === fputcsv($stream, $this->schema->cells($row), escape: '')) {
-          throw new RuntimeException('CSV artifact row could not be written.');
+          throw new FacilityCsvRenderingException('CSV artifact row could not be written.');
         }
       }
       if (!rewind($stream)) {
-        throw new RuntimeException('CSV artifact could not be read.');
+        throw new FacilityCsvRenderingException('CSV artifact could not be read.');
       }
       $contents = stream_get_contents($stream);
       if (false === $contents) {
-        throw new RuntimeException('CSV artifact could not be read.');
+        throw new FacilityCsvRenderingException('CSV artifact could not be read.');
       }
 
       return $contents;

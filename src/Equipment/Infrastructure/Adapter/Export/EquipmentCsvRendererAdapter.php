@@ -6,7 +6,7 @@ namespace Equipment\Infrastructure\Adapter\Export;
 
 use Equipment\Application\Port\Outbound\EquipmentCsvRendererPort;
 use Equipment\Application\Service\Export\EquipmentExportCsvSchema;
-use RuntimeException;
+use Equipment\Infrastructure\Exception\EquipmentCsvRenderingException;
 
 use function fclose;
 use function fopen;
@@ -25,24 +25,24 @@ final readonly class EquipmentCsvRendererAdapter implements EquipmentCsvRenderer
   {
     $stream = fopen('php://temp', 'w+b');
     if (false === $stream) {
-      throw new RuntimeException('CSV artifact stream could not be opened.');
+      throw new EquipmentCsvRenderingException('CSV artifact stream could not be opened.');
     }
 
     try {
       if (false === fputcsv($stream, EquipmentExportCsvSchema::HEADER, escape: '')) {
-        throw new RuntimeException('CSV artifact header could not be written.');
+        throw new EquipmentCsvRenderingException('CSV artifact header could not be written.');
       }
       foreach ($rows as $row) {
         if (false === fputcsv($stream, $this->schema->cells($row), escape: '')) {
-          throw new RuntimeException('CSV artifact row could not be written.');
+          throw new EquipmentCsvRenderingException('CSV artifact row could not be written.');
         }
       }
       if (!rewind($stream)) {
-        throw new RuntimeException('CSV artifact could not be read.');
+        throw new EquipmentCsvRenderingException('CSV artifact could not be read.');
       }
       $contents = stream_get_contents($stream);
       if (false === $contents) {
-        throw new RuntimeException('CSV artifact could not be read.');
+        throw new EquipmentCsvRenderingException('CSV artifact could not be read.');
       }
 
       return $contents;
