@@ -76,11 +76,7 @@ final readonly class AutomationHttpIdempotencyReplayAuthorizationAdapter impleme
       $this->notFound();
     }
     $permissions = ['organization.automation.read', 'organization.automation.manage'];
-    foreach ($permissions as $permission) {
-      if (!$this->organizations->hasPermission($request->principalId, $organization, $permission)) {
-        $this->deny();
-      }
-    }
+    $this->assertPermissions($request, $organization, $permissions);
     $this->evidence->record($request->principalId, $organization, $permissions);
     $run = $this->identifier($request->uriVariables['runId'] ?? null);
     $row = $this->connection->fetchAssociative('SELECT organization_id, rule_key FROM automation_runs WHERE id = :id', ['id' => $run]);
@@ -104,6 +100,28 @@ final readonly class AutomationHttpIdempotencyReplayAuthorizationAdapter impleme
     $facts['automationAttemptId'] = $attempt;
 
     return $facts;
+  }
+
+  /**
+   * Method assertPermissions
+   *
+   * Evaluates every current owner grant before recording successful requirements.
+   *
+   * @access private
+   *
+   * @param HttpIdempotencyAuthorizationRequest $request the verified actor
+   * @param string $organization the current run organization
+   * @param list<string> $permissions the owner retry requirements
+   *
+   * @return void
+   */
+  private function assertPermissions(HttpIdempotencyAuthorizationRequest $request, string $organization, array $permissions): void
+  {
+    foreach ($permissions as $permission) {
+      if (!$this->organizations->hasPermission($request->principalId, $organization, $permission)) {
+        $this->deny();
+      }
+    }
   }
 
   /**

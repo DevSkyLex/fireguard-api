@@ -30,6 +30,15 @@ use const PHP_QUERY_RFC3986;
  */
 final readonly class BillingReturnUrlAdapter implements BillingReturnUrlPort
 {
+  // #region Constants
+  /**
+   * Constant ORGANIZATION_PLACEHOLDER
+   *
+   * Marks the single organization identifier in the trusted relative route.
+   */
+  private const string ORGANIZATION_PLACEHOLDER = '{organizationId}';
+  // #endregion
+
   // #region Constructor
   /**
    * Method __construct
@@ -54,10 +63,10 @@ final readonly class BillingReturnUrlAdapter implements BillingReturnUrlPort
       || isset($parts['scheme'])
       || isset($parts['host'])
       || isset($parts['fragment'])
-      || 1 !== substr_count($settingsPath, '{organizationId}')
-      || !str_contains($parts['path'] ?? '', '{organizationId}')
+      || 1 !== substr_count($settingsPath, self::ORGANIZATION_PLACEHOLDER)
+      || !str_contains($parts['path'] ?? '', self::ORGANIZATION_PLACEHOLDER)
       || 1 === preg_match('/[\x00-\x20\\\\]/', $settingsPath)
-      || 1 === preg_match('/[{}]/', str_replace('{organizationId}', '', $settingsPath))
+      || 1 === preg_match('/[{}]/', str_replace(self::ORGANIZATION_PLACEHOLDER, '', $settingsPath))
     ) {
       throw new InvalidArgumentException('The Billing settings path must be a relative frontend route with one organization placeholder.');
     }
@@ -110,7 +119,7 @@ final readonly class BillingReturnUrlAdapter implements BillingReturnUrlPort
    */
   public function portal(string $organizationId): string
   {
-    return rtrim($this->product->frontendUrl(), '/') . str_replace('{organizationId}', rawurlencode($organizationId), $this->settingsPath);
+    return rtrim($this->product->frontendUrl(), '/') . str_replace(self::ORGANIZATION_PLACEHOLDER, rawurlencode($organizationId), $this->settingsPath);
   }
 
   /**

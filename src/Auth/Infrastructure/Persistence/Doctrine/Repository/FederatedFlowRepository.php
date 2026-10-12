@@ -42,6 +42,15 @@ final class FederatedFlowRepository implements FederatedFlowRepositoryPort
   use CryptTrait;
   // #endregion
 
+  // #region Properties
+  /**
+   * Constant INVALID_FLOW_MESSAGE
+   *
+   * Preserves the shared client-facing rejection for unusable retained flow proof.
+   */
+  private const string INVALID_FLOW_MESSAGE = 'This connection request is no longer valid.';
+  // #endregion
+
   // #region Constructor
   /**
    * Method __construct
@@ -129,21 +138,8 @@ final class FederatedFlowRepository implements FederatedFlowRepositoryPort
       if ('provider_verified' === $record->stage && null !== $record->proofExpiresAt && $record->proofExpiresAt > new DateTimeImmutable()) {
         return $this->project($record);
       }
-      if ('reserved' !== $record->stage) {
-        return null;
-      }
-      if (null !== $record->exchangeStartedAt) {
-        throw new FederatedAuthException('idempotency_outcome_unknown', 'The provider exchange outcome is unknown. Start a new sign-in request.');
-      }
-      if (null !== $record->consumedAt) {
-        return null;
-      }
 
-      $record->consumedAt = new DateTimeImmutable();
-      $record->exchangeStartedAt = $record->consumedAt;
-      $this->entityManager->flush();
-
-      return $this->project($record);
+      return $this->consumeReserved($record);
     });
   }
 
@@ -152,18 +148,20 @@ final class FederatedFlowRepository implements FederatedFlowRepositoryPort
    */
   public function inspect(string $rawState, string $browserBinding, ProviderId $provider, string $intent): ?FederatedFlow
   {
-    if ('' === $rawState || '' === $browserBinding) {
-      return null;
-    }
-    $record = $this->entityManager->find(FederatedAuthFlowRecord::class, hash('sha256', $rawState));
+    $record = '' === $rawState || '' === $browserBinding
+      ? null
+      : $this->entityManager->find(FederatedAuthFlowRecord::class, hash('sha256', $rawState));
     if (!$record instanceof FederatedAuthFlowRecord) {
       return null;
     }
     $this->entityManager->refresh($record);
-    if ($record->expiresAt <= new DateTimeImmutable() || $record->provider !== $provider->value || $record->intent !== $intent || !hash_equals($record->browserBindingHash, hash('sha256', $browserBinding))) {
-      return null;
-    }
-    if ('completed' !== $record->stage && null !== $record->proofExpiresAt && $record->proofExpiresAt <= new DateTimeImmutable()) {
+    if (
+      $record->expiresAt <= new DateTimeImmutable()
+      || $record->provider !== $provider->value
+      || $record->intent !== $intent
+      || !hash_equals($record->browserBindingHash, hash('sha256', $browserBinding))
+      || ('completed' !== $record->stage && null !== $record->proofExpiresAt && $record->proofExpiresAt <= new DateTimeImmutable())
+    ) {
       return null;
     }
 
@@ -180,7 +178,7 @@ final class FederatedFlowRepository implements FederatedFlowRepositoryPort
     $this->entityManager->wrapInTransaction(function () use ($stateHash, $profile): void {
       $record = $this->entityManager->find(FederatedAuthFlowRecord::class, $stateHash, LockMode::PESSIMISTIC_WRITE);
       if (!$record instanceof FederatedAuthFlowRecord || 'reserved' !== $record->stage || null === $record->exchangeStartedAt || $record->provider !== $profile->provider->value || !$profile->emailVerified) {
-        throw new FederatedAuthException('invalid_flow', 'This connection request is no longer valid.');
+        throw new FederatedAuthException('invalid_flow', self::INVALID_FLOW_MESSAGE);
       }
       $record->verifiedProfile = $this->encrypt(json_encode([
         'provider' => $profile->provider->value,
@@ -207,7 +205,7 @@ final class FederatedFlowRepository implements FederatedFlowRepositoryPort
     }
     $record = $this->entityManager->find(FederatedAuthFlowRecord::class, $stateHash, LockMode::PESSIMISTIC_WRITE);
     if (!$record instanceof FederatedAuthFlowRecord || 'provider_verified' !== $record->stage || null === $record->proofExpiresAt || $record->proofExpiresAt <= new DateTimeImmutable()) {
-      throw new FederatedAuthException('invalid_flow', 'This connection request is no longer valid.');
+      throw new FederatedAuthException('invalid_flow', self::INVALID_FLOW_MESSAGE);
     }
     $record->stage = 'completed';
     $record->completedUserId = $userId;
@@ -215,6 +213,42 @@ final class FederatedFlowRepository implements FederatedFlowRepositoryPort
   }
 
   /**
+   * Method consumeReserved
+   *
+   * Reserves one external exchange under the caller's row lock, retaining uncertainty before consumption checks.
+   *
+   * @access private
+   *
+   * @param FederatedAuthFlowRecord $record browser-bound unexpired row locked by consume
+   *
+   * @return ?FederatedFlow the newly reserved flow, or null when its lifecycle forbids an exchange
+   */
+  private function consumeReserved(FederatedAuthFlowRecord $record): ?FederatedFlow
+  {
+    if ('reserved' !== $record->stage) {
+      return null;
+    }
+    if (null !== $record->exchangeStartedAt) {
+      throw new FederatedAuthException('idempotency_outcome_unknown', 'The provider exchange outcome is unknown. Start a new sign-in request.');
+    }
+    if (null !== $record->consumedAt) {
+      return null;
+    }
+
+    $record->consumedAt = new DateTimeImmutable();
+    $record->exchangeStartedAt = $record->consumedAt;
+    $this->entityManager->flush();
+
+    return $this->project($record);
+  }
+
+  /**
+   * Method project
+   *
+   * Restores lifecycle state and opens retained secrets only when the consuming caller requests them.
+   *
+   * @access private
+   *
    * @param FederatedAuthFlowRecord $record owner-local validated row
    * @param bool $includeSecrets whether the live exchange consumes provider/PKCE proof
    *
@@ -226,7 +260,7 @@ final class FederatedFlowRepository implements FederatedFlowRepositoryPort
     if ($includeSecrets && null !== $record->verifiedProfile && null !== $record->proofExpiresAt && $record->proofExpiresAt > new DateTimeImmutable()) {
       $data = json_decode($this->decrypt($record->verifiedProfile), true, 16, JSON_THROW_ON_ERROR);
       if (!is_array($data) || !is_string($data['provider'] ?? null) || !is_string($data['subject'] ?? null) || !is_string($data['email'] ?? null) || !is_bool($data['email_verified'] ?? null) || !is_string($data['first_name'] ?? null) || !is_string($data['last_name'] ?? null) || (null !== ($data['issuer'] ?? null) && !is_string($data['issuer']))) {
-        throw new FederatedAuthException('invalid_flow', 'This connection request is no longer valid.');
+        throw new FederatedAuthException('invalid_flow', self::INVALID_FLOW_MESSAGE);
       }
       $profile = new FederatedProfile(ProviderId::from($data['provider']), $data['subject'], $data['email'], $data['email_verified'], $data['first_name'], $data['last_name'], is_string($data['issuer'] ?? null) ? $data['issuer'] : null);
     }

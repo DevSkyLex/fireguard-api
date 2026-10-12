@@ -87,34 +87,74 @@ final readonly class ApprovalHttpIdempotencyReplayAuthorizationAdapter implement
       'approvalActionType' => $row['action_type'],
     ];
     if (null !== $storedProof) {
-      if (($facts['resourceId'] ?? null) !== $id || ($facts['resourceKind'] ?? null) !== 'approval_request') {
-        $this->deny();
-      }
-      foreach ($audience as $key => $value) {
-        if (($facts[$key] ?? null) !== $value) {
-          $this->deny();
-        }
-      }
+      $this->assertOriginalAudience($facts, $audience, $id);
     }
     if ('withdrawApprovalRequest' === $request->operation->name) {
       if ($request->principalId !== $row['requested_by_user_id']) {
         $this->deny();
       }
     } else {
-      $policy = $this->policy->policyFor($organization);
-      $role = $policy->minApproverRoleFor($row['action_type']);
-      if (!$this->organizations->hasPermission($request->principalId, $organization, 'organization.approvals.decide')
-        || !$this->organizations->memberSatisfiesRole($request->principalId, $organization, $role)
-        || ($member === $row['requested_by_member_id'] && !$policy->allowSelfApproval)) {
-        $this->deny();
-      }
-      if (null !== $storedProof && !$this->organizations->memberSatisfiesRole($request->principalId, $organization, $facts['approvalMinimumRole'] ?? 'invalid')) {
-        $this->deny();
-      }
-      $audience['approvalMinimumRole'] = null !== $storedProof ? $facts['approvalMinimumRole'] : $role;
+      $audience['approvalMinimumRole'] = $this->approverRole($request, $storedProof, $organization, $member, $row, $facts);
     }
 
     return array_replace($facts, $audience);
+  }
+
+  /**
+   * Method assertOriginalAudience
+   *
+   * Binds the retained decision to its unchanged requester and current actor.
+   *
+   * @access private
+   *
+   * @param array<string, string> $facts signed original requirements
+   * @param array<string, string> $audience current owner audience
+   * @param string $id the current request identifier
+   *
+   * @return void
+   */
+  private function assertOriginalAudience(array $facts, array $audience, string $id): void
+  {
+    if (($facts['resourceId'] ?? null) !== $id || ($facts['resourceKind'] ?? null) !== 'approval_request') {
+      $this->deny();
+    }
+    foreach ($audience as $key => $value) {
+      if (($facts[$key] ?? null) !== $value) {
+        $this->deny();
+      }
+    }
+  }
+
+  /**
+   * Method approverRole
+   *
+   * Rechecks current policy and the original minimum role before decision disclosure.
+   *
+   * @access private
+   *
+   * @param HttpIdempotencyAuthorizationRequest $request the verified caller
+   * @param IdempotencyProof|null $storedProof authenticated original proof
+   * @param string $organization the current request organization
+   * @param string $member the current actor member
+   * @param array{action_type:string, requested_by_member_id:string, ...} $row the fresh owner request
+   * @param array<string, string> $facts signed original requirements
+   *
+   * @return string the retained minimum role
+   */
+  private function approverRole(HttpIdempotencyAuthorizationRequest $request, ?IdempotencyProof $storedProof, string $organization, string $member, array $row, array $facts): string
+  {
+    $policy = $this->policy->policyFor($organization);
+    $role = $policy->minApproverRoleFor($row['action_type']);
+    if (!$this->organizations->hasPermission($request->principalId, $organization, 'organization.approvals.decide')
+      || !$this->organizations->memberSatisfiesRole($request->principalId, $organization, $role)
+      || ($member === $row['requested_by_member_id'] && !$policy->allowSelfApproval)) {
+      $this->deny();
+    }
+    if (null !== $storedProof && !$this->organizations->memberSatisfiesRole($request->principalId, $organization, $facts['approvalMinimumRole'] ?? 'invalid')) {
+      $this->deny();
+    }
+
+    return null !== $storedProof ? $facts['approvalMinimumRole'] : $role;
   }
 
   /**

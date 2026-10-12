@@ -29,6 +29,7 @@ use const PHP_URL_QUERY;
  */
 final readonly class FederatedStartIdempotencyProofAdapter implements SensitiveIdempotencyProofPort
 {
+  // #region Constructor
   /**
    * Method __construct
    *
@@ -45,7 +46,9 @@ final readonly class FederatedStartIdempotencyProofAdapter implements SensitiveI
   public function __construct(private FederatedBrowserBindingPort $bindings, private FederatedProviderClientPort $providers, private FederatedStartFlowProofPort $flows, private UserSecurityRevisionPort $users, private ClockPort $clock)
   {
   }
+  // #endregion
 
+  // #region Methods
   /**
    * {@inheritdoc}
    */
@@ -77,26 +80,9 @@ final readonly class FederatedStartIdempotencyProofAdapter implements SensitiveI
       'intent' => $intent,
       'link_user_id' => $message->userId ?? '',
     ];
-    if (null !== $message->userId) {
-      $current = $this->users->current($message->userId);
-      if (null === $current || !$current->active) {
-        $this->deny();
-      }
-      $facts['user_id'] = $current->userId;
-      $facts['security_revision'] = (string) $current->securityRevision;
-    }
+    $facts += $this->linkAccountFacts($message->userId);
     if (null !== $storedProof) {
-      foreach ($facts as $key => $value) {
-        if (($storedProof->metadata[$key] ?? null) !== $value) {
-          $this->deny();
-        }
-      }
-      $stateHash = $storedProof->metadata['state_hash'] ?? null;
-      $flow = is_string($stateHash) ? $this->flows->find($stateHash, $message->browserBinding, $message->provider, $intent) : null;
-      if (null === $flow || $flow->userId !== $message->userId || $flow->expiresAt <= $this->clock->now()) {
-        $this->deny();
-      }
-      $facts['state_hash'] = $flow->stateHash;
+      $facts['state_hash'] = $this->replayStateHash($message, $intent, $facts, $storedProof);
     }
 
     $principal = $message->userId ?? 'federation-start:' . $binding->bindingHash . ':login';
@@ -162,10 +148,65 @@ final readonly class FederatedStartIdempotencyProofAdapter implements SensitiveI
   }
 
   /**
+   * Method linkAccountFacts
+   *
+   * Requires a current active account when starting an account-link flow.
+   *
+   * @access private
+   *
+   * @param ?string $userId account being linked, absent for login
+   *
+   * @return array<string, string> current link account revision
+   */
+  private function linkAccountFacts(?string $userId): array
+  {
+    if (null === $userId) {
+      return [];
+    }
+    $current = $this->users->current($userId);
+    if (null === $current || !$current->active) {
+      $this->deny();
+    }
+
+    return ['user_id' => $current->userId, 'security_revision' => (string) $current->securityRevision];
+  }
+
+  /**
+   * Method replayStateHash
+   *
+   * Compares fresh browser and account facts before resolving the still-unconsumed flow.
+   *
+   * @access private
+   *
+   * @param StartFederationCommand $message browser-bound start request
+   * @param string $intent login or link
+   * @param array<string, string> $facts current verified owner facts
+   * @param IdempotencyProof $proof authenticated receipt envelope
+   *
+   * @return string current unconsumed flow identity
+   */
+  private function replayStateHash(StartFederationCommand $message, string $intent, array $facts, IdempotencyProof $proof): string
+  {
+    foreach ($facts as $key => $value) {
+      if (($proof->metadata[$key] ?? null) !== $value) {
+        $this->deny();
+      }
+    }
+    $stateHash = $proof->metadata['state_hash'] ?? null;
+    $flow = is_string($stateHash) ? $this->flows->find($stateHash, $message->browserBinding, $message->provider, $intent) : null;
+    if (null === $flow || $flow->userId !== $message->userId || $flow->expiresAt <= $this->clock->now()) {
+      $this->deny();
+    }
+
+    return $flow->stateHash;
+  }
+
+  /**
    * @return never neutral browser or flow denial
    */
   private function deny(): never
   {
     throw new FederatedAuthException('invalid_flow', 'This connection request is no longer valid.');
   }
+  // #endregion
 }

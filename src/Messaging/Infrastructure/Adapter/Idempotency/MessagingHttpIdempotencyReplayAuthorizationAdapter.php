@@ -5,18 +5,15 @@ declare(strict_types=1);
 namespace Messaging\Infrastructure\Adapter\Idempotency;
 
 use Doctrine\DBAL\Connection;
-use InvalidArgumentException;
 use Messaging\Application\Port\Outbound\MessagingSubjectResolverPort;
+use Messaging\Infrastructure\Service\Idempotency\MessagingReplayContext;
 use Organization\Application\Port\Inbound\FreshOrganizationAuthorizationPort;
-use Shared\Application\Contract\Http\{HttpIdempotencyAuthorizationRequest, ResourceIriParser};
+use Shared\Application\Contract\Http\HttpIdempotencyAuthorizationRequest;
 use Shared\Application\Contract\Idempotency\{IdempotencyDeniedException, IdempotencyProof, IdempotencyScope};
 use Shared\Application\Port\Outbound\Idempotency\{HttpIdempotencyReplayAuthorizationPort, OrdinaryHttpReplayAuthorizationPort};
-use Symfony\Component\Uid\Uuid;
 
 use function array_key_exists;
-use function array_replace;
 use function in_array;
-use function is_array;
 use function is_string;
 
 /**
@@ -28,6 +25,19 @@ use function is_string;
  */
 final readonly class MessagingHttpIdempotencyReplayAuthorizationAdapter implements HttpIdempotencyReplayAuthorizationPort
 {
+  // #region Constants
+  /**
+   * Constant PATCH_MESSAGE
+   */
+  private const string PATCH_MESSAGE = '_api_/messages/{id}_patch';
+
+  /**
+   * Constant DELETE_MESSAGE
+   */
+  private const string DELETE_MESSAGE = '_api_/messages/{id}_delete';
+  // #endregion
+
+  // #region Constructor
   /**
    * Method __construct
    *
@@ -43,7 +53,9 @@ final readonly class MessagingHttpIdempotencyReplayAuthorizationAdapter implemen
     private iterable $subjects,
   ) {
   }
+  // #endregion
 
+  // #region Methods
   /**
    * {@inheritdoc}
    */
@@ -84,61 +96,10 @@ final readonly class MessagingHttpIdempotencyReplayAuthorizationAdapter implemen
     }
     $facts = $this->ordinary->authorize($request, $storedProof, $organization);
     $facts['messagingMemberId'] = $member;
-    $mode = $this->mode($operation);
-    if ('manage' === $mode) {
-      $this->permission($request, $organization, 'organization.messaging.manage');
-    } elseif (!in_array($mode, ['cleanup', 'membership'], true)) {
-      $this->permission($request, $organization, 'write' === $mode ? 'organization.messaging.write' : 'organization.messaging.read');
-      $this->visibility($request, $context, $member, 'write' === $mode);
-    }
-
-    foreach ([
-      'id' => 'messagingConversationId',
-      'subject_type' => 'messagingSubjectType',
-      'subject_id' => 'messagingSubjectId',
-      'visibility' => 'messagingVisibility',
-      'target_message_id' => 'messagingTargetMessageId',
-      'author_member_id' => 'messagingAuthorMemberId',
-      'uploaded_by_member_id' => 'messagingUploaderMemberId',
-      'target_attachment_id' => 'messagingTargetAttachmentId',
-    ] as $column => $key) {
-      if (!array_key_exists($column, $context)) {
-        continue;
-      }
-      $value = $context[$column] ?? '';
-      if (!is_string($value)) {
-        $this->deny();
-      }
-      if (null !== $storedProof && isset($original[$key]) && $original[$key] !== $value) {
-        $this->deny();
-      }
-      $facts[$key] = $value;
-    }
-    if (null === $storedProof && array_key_exists('pinned_by_member_id', $context)) {
-      $facts['messagingPinnerMemberId'] = is_string($context['pinned_by_member_id']) ? $context['pinned_by_member_id'] : '';
-    }
-    if (array_key_exists('deleted_at', $context)) {
-      $deleted = null === $context['deleted_at'] ? 'false' : 'true';
-      if (null !== $storedProof && 'cleanup' !== $mode && ($original['messagingTargetDeleted'] ?? null) !== $deleted) {
-        $this->deny();
-      }
-      $facts['messagingTargetDeleted'] = $deleted;
-    }
-    if ('_api_/messages/{id}_patch' === $operation && ($context['author_member_id'] ?? null) !== $member) {
-      $this->deny();
-    }
-    if ('_api_/messages/{id}_delete' === $operation) {
-      $this->ownership($request, $organization, $member, $this->string($context, 'author_member_id'));
-    }
-    if ('delete_message_attachment' === $operation) {
-      $this->ownership($request, $organization, $member, $this->string($context, 'uploaded_by_member_id'));
-    }
-    if ('unpin_message' === $operation) {
-      $pinner = null !== $storedProof ? ($original['messagingPinnerMemberId'] ?? '') : ($context['pinned_by_member_id'] ?? '');
-      if (is_string($pinner) && '' !== $pinner) {
-        $this->ownership($request, $organization, $member, $pinner);
-      }
-    }
+    $mode = $this->authorizeAccess($request, $context, $member);
+    $facts = $this->captureContextFacts($storedProof, $context, $facts);
+    $facts = $this->captureDeletedFact($storedProof, $context, $facts, $mode);
+    $this->assertTargetOwnership($request, $storedProof, $context, $organization, $member);
 
     return $facts;
   }
@@ -155,108 +116,7 @@ final readonly class MessagingHttpIdempotencyReplayAuthorizationAdapter implemen
    */
   private function context(HttpIdempotencyAuthorizationRequest $request, array $proof): array
   {
-    $operation = $request->operation->name;
-    if (in_array($operation, ['_api_/channels_post', '_api_/conversations_post', '_api_/direct-conversations_post', 'messaging_ping_presence'], true)) {
-      $body = $request->canonicalInput['body'] ?? null;
-      $value = is_array($body) ? ($body['value'] ?? null) : null;
-      $fields = is_array($value) ? ($value['fields'] ?? null) : null;
-      if (!is_array($fields) || !is_string($fields['organization'] ?? null)) {
-        $this->deny();
-      }
-
-      try {
-        $organization = ResourceIriParser::id($fields['organization'], 'organizations');
-      } catch (InvalidArgumentException) {
-        $this->deny();
-      }
-      if (!Uuid::isValid($organization)) {
-        $this->deny();
-      }
-      if ([] !== $proof && 'messaging_ping_presence' !== $operation) {
-        $id = $proof['resourceId'] ?? '';
-        if (($proof['resourceKind'] ?? null) !== 'messaging_conversation') {
-          $this->deny();
-        }
-        $conversation = $this->conversation($id);
-        if (($conversation['organization_id'] ?? null) !== $organization) {
-          $this->deny();
-        }
-
-        return $conversation;
-      }
-      $subject = '_api_/conversations_post' === $operation ? ($fields['subjectType'] ?? null) : 'channel';
-      $subjectId = '_api_/conversations_post' === $operation ? ($fields['subject'] ?? null) : null;
-      if ('_api_/direct-conversations_post' === $operation) {
-        $subject = 'direct';
-      }
-      if (!is_string($subject)) {
-        $this->deny();
-      }
-      if ('_api_/conversations_post' === $operation) {
-        $subjectId = $this->subjectId($subject, $subjectId);
-      }
-
-      return ['organization_id' => $organization, 'subject_type' => $subject, 'subject_id' => $subjectId, 'visibility' => 'channel' === $subject || 'direct' === $subject ? 'participants' : 'subject'];
-    }
-
-    $child = [];
-    if ('delete_message_attachment' === $operation) {
-      $id = $this->routeId($request, 'id');
-      $child = $this->connection->fetchAssociative('SELECT id AS target_attachment_id, conversation_id, organization_id, uploaded_by_member_id FROM messaging_attachments WHERE id = :id', ['id' => $id]);
-      if (false === $child) {
-        if (($proof['resourceId'] ?? null) !== $id || ($proof['resourceKind'] ?? null) !== 'messaging_attachment') {
-          $this->deny();
-        }
-        $child = ['target_attachment_id' => $id, 'conversation_id' => $proof['messagingConversationId'] ?? '', 'organization_id' => $proof['organizationId'] ?? '', 'uploaded_by_member_id' => $proof['messagingUploaderMemberId'] ?? ''];
-      }
-      $conversationId = $this->string($child, 'conversation_id');
-    } elseif (in_array($operation, ['_api_/messages/{id}_patch', '_api_/messages/{id}_delete', 'pin_message', 'unpin_message', 'add_reaction', 'remove_reaction', 'post_reply', 'save_message', 'unsave_message', 'add_message_attachment'], true)) {
-      $id = $this->routeId($request, 'add_message_attachment' === $operation ? 'messageId' : 'id');
-      $child = $this->connection->fetchAssociative('SELECT id AS target_message_id, conversation_id, organization_id, author_member_id, pinned_by_member_id, deleted_at FROM messaging_messages WHERE id = :id', ['id' => $id]);
-      if (false === $child) {
-        if ('_api_/messages/{id}_delete' !== $operation || ($proof['resourceId'] ?? null) !== $id || ($proof['resourceKind'] ?? null) !== 'messaging_message') {
-          $this->deny();
-        }
-        $child = ['target_message_id' => $id, 'conversation_id' => $proof['messagingConversationId'] ?? '', 'organization_id' => $proof['organizationId'] ?? '', 'author_member_id' => $proof['messagingAuthorMemberId'] ?? ''];
-      }
-      $conversationId = $this->string($child, 'conversation_id');
-      if ([] !== $proof && ($proof['messagingTargetMessageId'] ?? null) !== $id) {
-        $this->deny();
-      }
-    } else {
-      $conversationId = $this->routeId($request, in_array($operation, ['_api_/conversations/{conversationId}/messages_post', 'put_message'], true) ? 'conversationId' : 'id');
-    }
-    $conversation = $this->conversation($conversationId);
-    if ([] !== $child && ($conversation['organization_id'] ?? null) !== ($child['organization_id'] ?? null)) {
-      $this->deny();
-    }
-    if ([] !== $proof) {
-      $resultId = $proof['resourceId'] ?? null;
-      if (is_string($resultId) && 'messaging_message' === ($proof['resourceKind'] ?? null)) {
-        if (in_array($operation, ['_api_/conversations/{conversationId}/messages_post', 'put_message', 'post_reply'], true)) {
-          $created = $this->connection->fetchAssociative('SELECT conversation_id, parent_message_id, deleted_at FROM messaging_messages WHERE id = :id', ['id' => $resultId]);
-          if (false === $created || ($created['conversation_id'] ?? null) !== $conversationId
-            || null !== ($created['deleted_at'] ?? null)
-            || ('post_reply' === $operation && ($created['parent_message_id'] ?? null) !== ($child['target_message_id'] ?? null))) {
-            $this->deny();
-          }
-        } elseif ($resultId !== ($child['target_message_id'] ?? null)) {
-          $this->deny();
-        }
-      }
-      if ('add_message_attachment' === $operation) {
-        if (!is_string($resultId) || ($proof['resourceKind'] ?? null) !== 'messaging_attachment') {
-          $this->deny();
-        }
-        $attachment = $this->connection->fetchAssociative('SELECT message_id, conversation_id, organization_id FROM messaging_attachments WHERE id = :id', ['id' => $resultId]);
-        if (false === $attachment || ($attachment['message_id'] ?? null) !== ($child['target_message_id'] ?? null)
-          || ($attachment['conversation_id'] ?? null) !== $conversationId || ($attachment['organization_id'] ?? null) !== ($conversation['organization_id'] ?? null)) {
-          $this->deny();
-        }
-      }
-    }
-
-    return array_replace($conversation, $child);
+    return new MessagingReplayContext($this->connection, $this->subjects)->resolve($request, $proof);
   }
 
   /**
@@ -285,25 +145,7 @@ final readonly class MessagingHttpIdempotencyReplayAuthorizationAdapter implemen
         $this->deny();
       }
     } elseif ('subject' === ($context['visibility'] ?? null)) {
-      $type = $this->string($context, 'subject_type');
-      $id = $this->string($context, 'subject_id');
-      $found = false;
-      foreach ($this->subjects as $subject) {
-        $descriptor = $subject->descriptor();
-        if ($descriptor->type !== $type) {
-          continue;
-        }
-        $found = true;
-        if (!$subject->resolve($organization, $id)->exists) {
-          $this->deny();
-        }
-        $this->permission($request, $organization, $descriptor->requiredReadPermission);
-
-        break;
-      }
-      if (!$found) {
-        $this->deny();
-      }
+      $this->subjectVisibility($request, $context);
     } else {
       $this->deny();
     }
@@ -320,80 +162,11 @@ final readonly class MessagingHttpIdempotencyReplayAuthorizationAdapter implemen
   {
     return match ($operation) {
       '_api_/channels_post', '_api_/channels/{id}_patch', '_api_/channels/{id}_delete', 'messaging_channel_add_participant', 'messaging_channel_remove_participant', 'messaging_channel_bind_team', 'messaging_channel_set_parent', '_api_/conversations/{id}_patch' => 'manage',
-      '_api_/messages/{id}_delete', 'delete_message_attachment', 'unpin_message', 'remove_reaction', 'unsave_message', 'unfavorite_conversation' => 'cleanup',
+      self::DELETE_MESSAGE, 'delete_message_attachment', 'unpin_message', 'remove_reaction', 'unsave_message', 'unfavorite_conversation' => 'cleanup',
       'messaging_ping_presence' => 'membership',
-      '_api_/conversations/{conversationId}/messages_post', 'put_message', '_api_/messages/{id}_patch', 'pin_message', 'post_reply', 'add_message_attachment', 'messaging_conversation_typing' => 'write',
+      '_api_/conversations/{conversationId}/messages_post', 'put_message', self::PATCH_MESSAGE, 'pin_message', 'post_reply', 'add_message_attachment', 'messaging_conversation_typing' => 'write',
       default => 'read',
     };
-  }
-
-  /**
-   * Method conversation
-   *
-   * @param string $id current contextual parent identifier
-   *
-   * @return array<string, mixed> uncached parent context
-   */
-  private function conversation(string $id): array
-  {
-    if (!Uuid::isValid($id)) {
-      $this->deny();
-    }
-    $row = $this->connection->fetchAssociative('SELECT id, organization_id, subject_type, subject_id, visibility FROM messaging_conversations WHERE id = :id', ['id' => $id]);
-    if (false === $row) {
-      $this->deny();
-    }
-
-    return $row;
-  }
-
-  /**
-   * Method subjectId
-   *
-   * @param string $type registered subject key
-   * @param mixed $value canonical body subject IRI
-   *
-   * @return string parsed scoped subject identifier
-   */
-  private function subjectId(string $type, mixed $value): string
-  {
-    if (!is_string($value)) {
-      $this->deny();
-    }
-    foreach ($this->subjects as $subject) {
-      $descriptor = $subject->descriptor();
-      if ($descriptor->type === $type) {
-        try {
-          $id = ResourceIriParser::id($value, $descriptor->resourceSegment);
-        } catch (InvalidArgumentException) {
-          $this->deny();
-        }
-        if (!Uuid::isValid($id)) {
-          $this->deny();
-        }
-
-        return $id;
-      }
-    }
-    $this->deny();
-  }
-
-  /**
-   * Method routeId
-   *
-   * @param HttpIdempotencyAuthorizationRequest $request trusted route facts
-   * @param string $key explicit owner route key
-   *
-   * @return string validated identifier
-   */
-  private function routeId(HttpIdempotencyAuthorizationRequest $request, string $key): string
-  {
-    $id = $request->uriVariables[$key] ?? null;
-    if (!is_string($id) || !Uuid::isValid($id)) {
-      $this->deny();
-    }
-
-    return $id;
   }
 
   /**
@@ -456,4 +229,178 @@ final readonly class MessagingHttpIdempotencyReplayAuthorizationAdapter implemen
   {
     throw new IdempotencyDeniedException('access_denied');
   }
+
+  /**
+   * Method authorizeAccess
+   *
+   * Applies the current permission and visibility gate before capturing replay facts.
+   *
+   * @access private
+   *
+   * @param HttpIdempotencyAuthorizationRequest $request current caller and route
+   * @param array<string, mixed> $context current owner conversation and child facts
+   * @param string $member current active membership
+   *
+   * @return string original owner access mode
+   */
+  private function authorizeAccess(HttpIdempotencyAuthorizationRequest $request, array $context, string $member): string
+  {
+    $operation = $request->operation->name;
+    $organization = $this->string($context, 'organization_id');
+    $mode = $this->mode($operation);
+    if ('manage' === $mode) {
+      $this->permission($request, $organization, 'organization.messaging.manage');
+    } elseif (!in_array($mode, ['cleanup', 'membership'], true)) {
+      $this->permission($request, $organization, 'write' === $mode ? 'organization.messaging.write' : 'organization.messaging.read');
+      $this->visibility($request, $context, $member, 'write' === $mode);
+    }
+
+    return $mode;
+  }
+
+  /**
+   * Method captureContextFacts
+   *
+   * Preserves original signed child ownership and conversation facts without coercion.
+   *
+   * @access private
+   *
+   * @param IdempotencyProof|null $storedProof verified original receipt
+   * @param array<string, mixed> $context current owner conversation and child facts
+   * @param array<string, string> $facts current actor and scope facts
+   *
+   * @return array<string, string> checked owner context facts
+   */
+  private function captureContextFacts(?IdempotencyProof $storedProof, array $context, array $facts): array
+  {
+    $original = null === $storedProof ? [] : $storedProof->metadata;
+    foreach ([
+      'id' => 'messagingConversationId',
+      'subject_type' => 'messagingSubjectType',
+      'subject_id' => 'messagingSubjectId',
+      'visibility' => 'messagingVisibility',
+      'target_message_id' => 'messagingTargetMessageId',
+      'author_member_id' => 'messagingAuthorMemberId',
+      'uploaded_by_member_id' => 'messagingUploaderMemberId',
+      'target_attachment_id' => 'messagingTargetAttachmentId',
+    ] as $column => $key) {
+      if (!array_key_exists($column, $context)) {
+        continue;
+      }
+      $value = $context[$column] ?? '';
+      if (!is_string($value)) {
+        $this->deny();
+      }
+      if (null !== $storedProof && isset($original[$key]) && $original[$key] !== $value) {
+        $this->deny();
+      }
+      $facts[$key] = $value;
+    }
+    if (null === $storedProof && array_key_exists('pinned_by_member_id', $context)) {
+      $facts['messagingPinnerMemberId'] = is_string($context['pinned_by_member_id']) ? $context['pinned_by_member_id'] : '';
+    }
+
+    return $facts;
+  }
+
+  /**
+   * Method captureDeletedFact
+   *
+   * Refuses changed deletion state for content replay while preserving cleanup responses.
+   *
+   * @access private
+   *
+   * @param IdempotencyProof|null $storedProof verified original receipt
+   * @param array<string, mixed> $context current owner conversation and child facts
+   * @param array<string, string> $facts current actor and scope facts
+   * @param string $mode original owner access mode
+   *
+   * @return array<string, string> checked deletion facts
+   */
+  private function captureDeletedFact(?IdempotencyProof $storedProof, array $context, array $facts, string $mode): array
+  {
+    $original = null === $storedProof ? [] : $storedProof->metadata;
+    if (array_key_exists('deleted_at', $context)) {
+      $deleted = null === $context['deleted_at'] ? 'false' : 'true';
+      if (null !== $storedProof && 'cleanup' !== $mode && ($original['messagingTargetDeleted'] ?? null) !== $deleted) {
+        $this->deny();
+      }
+      $facts['messagingTargetDeleted'] = $deleted;
+    }
+
+    return $facts;
+  }
+
+  /**
+   * Method assertTargetOwnership
+   *
+   * Retains author, uploader and original pinner checks for every cleanup operation.
+   *
+   * @access private
+   *
+   * @param HttpIdempotencyAuthorizationRequest $request current caller and route
+   * @param IdempotencyProof|null $storedProof verified original receipt
+   * @param array<string, mixed> $context current owner conversation and child facts
+   * @param string $organization current owner organization
+   * @param string $member current active membership
+   *
+   * @return void
+   */
+  private function assertTargetOwnership(HttpIdempotencyAuthorizationRequest $request, ?IdempotencyProof $storedProof, array $context, string $organization, string $member): void
+  {
+    $operation = $request->operation->name;
+    $original = null === $storedProof ? [] : $storedProof->metadata;
+    if (self::PATCH_MESSAGE === $operation && ($context['author_member_id'] ?? null) !== $member) {
+      $this->deny();
+    }
+    if (self::DELETE_MESSAGE === $operation) {
+      $this->ownership($request, $organization, $member, $this->string($context, 'author_member_id'));
+    }
+    if ('delete_message_attachment' === $operation) {
+      $this->ownership($request, $organization, $member, $this->string($context, 'uploaded_by_member_id'));
+    }
+    if ('unpin_message' === $operation) {
+      $pinner = null !== $storedProof ? ($original['messagingPinnerMemberId'] ?? '') : ($context['pinned_by_member_id'] ?? '');
+      if (is_string($pinner) && '' !== $pinner) {
+        $this->ownership($request, $organization, $member, $pinner);
+      }
+    }
+  }
+
+  /**
+   * Method subjectVisibility
+   *
+   * Requires an installed owner resolver, existing subject and its current read permission.
+   *
+   * @access private
+   *
+   * @param HttpIdempotencyAuthorizationRequest $request current caller and route
+   * @param array<string, mixed> $context current owner conversation and child facts
+   *
+   * @return void
+   */
+  private function subjectVisibility(HttpIdempotencyAuthorizationRequest $request, array $context): void
+  {
+    $organization = $this->string($context, 'organization_id');
+    $type = $this->string($context, 'subject_type');
+    $id = $this->string($context, 'subject_id');
+    $found = false;
+    foreach ($this->subjects as $subject) {
+      $descriptor = $subject->descriptor();
+      if ($descriptor->type !== $type) {
+        continue;
+      }
+      $found = true;
+      if (!$subject->resolve($organization, $id)->exists) {
+        $this->deny();
+      }
+      $this->permission($request, $organization, $descriptor->requiredReadPermission);
+
+      break;
+    }
+    if (!$found) {
+      $this->deny();
+    }
+  }
+  // #endregion
 }

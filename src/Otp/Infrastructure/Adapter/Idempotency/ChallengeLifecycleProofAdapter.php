@@ -55,6 +55,30 @@ final readonly class ChallengeLifecycleProofAdapter implements ChallengeLifecycl
       return null;
     }
 
-    return new ChallengeLifecycleProof((string) $row['id'], (string) $row['user_id'], $purpose, (string) $row['recipient'], (string) $row['channel'], (is_string($row['verified_at']) ? 'verified' : ((int) $row['attempts'] >= (int) $row['max_attempts'] ? 'exhausted' : 'pending')), new DateTimeImmutable((string) $row['expires_at']), is_string($row['verified_at']) ? new DateTimeImmutable($row['verified_at']) : null, (int) $row['attempts']);
+    $status = $this->challengeStatus($row['verified_at'], (int) $row['attempts'], (int) $row['max_attempts']);
+
+    return new ChallengeLifecycleProof((string) $row['id'], (string) $row['user_id'], $purpose, (string) $row['recipient'], (string) $row['channel'], $status, new DateTimeImmutable((string) $row['expires_at']), is_string($row['verified_at']) ? new DateTimeImmutable($row['verified_at']) : null, (int) $row['attempts']);
+  }
+
+  /**
+   * Method challengeStatus
+   *
+   * Preserves verified-state precedence over exhausted attempt counts.
+   *
+   * @access private
+   *
+   * @param mixed $verifiedAt driver verification timestamp
+   * @param int $attempts current persisted attempt count
+   * @param int $maximumAttempts configured challenge bound
+   *
+   * @return 'verified'|'exhausted'|'pending' current non-secret lifecycle state
+   */
+  private function challengeStatus(mixed $verifiedAt, int $attempts, int $maximumAttempts): string
+  {
+    return match (true) {
+      is_string($verifiedAt) => 'verified',
+      $attempts >= $maximumAttempts => 'exhausted',
+      default => 'pending',
+    };
   }
 }

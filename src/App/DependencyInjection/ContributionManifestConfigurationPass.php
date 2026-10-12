@@ -60,33 +60,109 @@ final readonly class ContributionManifestConfigurationPass implements CompilerPa
   {
     $catalogs = [];
     foreach (self::MANIFESTS as $tag => $shape) {
-      $catalog = [];
-      foreach ($container->findTaggedServiceIds($tag) as $serviceId => $tags) {
-        $class = $container->getDefinition($serviceId)->getClass();
-        if (!is_string($class)) {
-          throw new InvalidArgumentException(sprintf('Manifest service "%s" requires an explicit class.', $serviceId));
-        }
-        $method = new ReflectionMethod($class, $shape['method']);
-        if (!$method->isPublic() || !$method->isStatic()) {
-          throw new InvalidArgumentException(sprintf('Manifest "%s::%s" must be public and static.', $class, $shape['method']));
-        }
-        $result = $method->invoke(null);
-        $definitions = ($shape['single'] ?? false) ? [$result] : $result;
-        if (!is_array($definitions)) {
-          throw new InvalidArgumentException(sprintf('Manifest "%s" must publish a definition list.', $class));
-        }
-        foreach ($definitions as $definition) {
-          if (!is_object($definition) || !property_exists($definition, $shape['key']) || !is_string($key = $definition->{$shape['key']}) || '' === $key) {
-            throw new InvalidArgumentException(sprintf('Manifest "%s" has an invalid ownership key.', $class));
-          }
-          if (isset($catalog[$key])) {
-            throw new InvalidArgumentException(sprintf('Duplicate contributed key "%s" for "%s".', $key, $tag));
-          }
-          $catalog[$key] = $definition;
-        }
-      }
-      $catalogs[$tag] = $catalog;
+      $catalogs[$tag] = $this->catalog($container, $tag, $shape);
     }
+    $this->validateRolePermissions($catalogs);
+  }
+
+  /**
+   * Method catalog
+   *
+   * Composes one selected manifest while preserving duplicate ownership validation.
+   *
+   * @access private
+   *
+   * @param ContainerBuilder $container the selected application configuration
+   * @param string $tag the owner contribution tag
+   * @param array{method:string, key:string, single?:bool} $shape the public manifest shape
+   *
+   * @return array<string, object> selected definitions indexed by ownership key
+   */
+  private function catalog(ContainerBuilder $container, string $tag, array $shape): array
+  {
+    $catalog = [];
+    foreach ($container->findTaggedServiceIds($tag) as $serviceId => $tags) {
+      foreach ($this->definitions($container, $serviceId, $shape) as $definition) {
+        $key = $this->ownershipKey($definition, $shape['key'], (string) $container->getDefinition($serviceId)->getClass());
+        if (isset($catalog[$key])) {
+          throw new InvalidArgumentException(sprintf('Duplicate contributed key "%s" for "%s".', $key, $tag));
+        }
+        $catalog[$key] = $definition;
+      }
+    }
+
+    return $catalog;
+  }
+
+  /**
+   * Method definitions
+   *
+   * Invokes only public static manifests without constructing infrastructure services.
+   *
+   * @access private
+   *
+   * @param ContainerBuilder $container the selected composition
+   * @param string $serviceId the registered owner service
+   * @param array{method:string, key:string, single?:bool} $shape the published manifest shape
+   *
+   * @return array<array-key, mixed> raw contributed definitions
+   */
+  private function definitions(ContainerBuilder $container, string $serviceId, array $shape): array
+  {
+    $class = $container->getDefinition($serviceId)->getClass();
+    if (!is_string($class)) {
+      throw new InvalidArgumentException(sprintf('Manifest service "%s" requires an explicit class.', $serviceId));
+    }
+    $method = new ReflectionMethod($class, $shape['method']);
+    if (!$method->isPublic() || !$method->isStatic()) {
+      throw new InvalidArgumentException(sprintf('Manifest "%s::%s" must be public and static.', $class, $shape['method']));
+    }
+    $result = $method->invoke(null);
+    $definitions = ($shape['single'] ?? false) ? [$result] : $result;
+    if (!is_array($definitions)) {
+      throw new InvalidArgumentException(sprintf('Manifest "%s" must publish a definition list.', $class));
+    }
+
+    return $definitions;
+  }
+
+  /**
+   * Method ownershipKey
+   *
+   * Rejects invalid manifest representations before indexing owner definitions.
+   *
+   * @access private
+   *
+   * @param mixed $definition the raw contributed definition
+   * @param string $property the published ownership property
+   * @param string $class the declaring owner class
+   *
+   * @return string the valid nonempty ownership key
+   *
+   * @phpstan-assert object $definition
+   */
+  private function ownershipKey(mixed $definition, string $property, string $class): string
+  {
+    if (!is_object($definition) || !property_exists($definition, $property) || !is_string($key = $definition->{$property}) || '' === $key) {
+      throw new InvalidArgumentException(sprintf('Manifest "%s" has an invalid ownership key.', $class));
+    }
+
+    return $key;
+  }
+
+  /**
+   * Method validateRolePermissions
+   *
+   * Rejects seeded roles referencing permissions outside the selected composition.
+   *
+   * @access private
+   *
+   * @param array<string, array<string, object>> $catalogs the selected owner catalogs
+   *
+   * @return void
+   */
+  private function validateRolePermissions(array $catalogs): void
+  {
     foreach ($catalogs['authorization.role_catalog_contribution'] as $role) {
       if (!property_exists($role, 'permissionNames') || !is_array($role->permissionNames)) {
         throw new InvalidArgumentException('Role manifest requires explicit permission names.');

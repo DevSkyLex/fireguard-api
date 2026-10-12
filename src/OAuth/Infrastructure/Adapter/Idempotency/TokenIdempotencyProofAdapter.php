@@ -9,6 +9,7 @@ use DateTimeImmutable;
 use DateTimeZone;
 use Doctrine\ORM\EntityManagerInterface;
 use League\OAuth2\Server\CryptTrait;
+use OAuth\Application\Contract\Client\ClientSecurityProof;
 use OAuth\Application\Port\Inbound\ClientSecurityProofPort;
 use OAuth\Application\UseCase\Command\Token\IssueToken\{IssueTokenCommand, IssueTokenResult};
 use OAuth\Domain\Exception\Token\AuthorizationException;
@@ -49,6 +50,15 @@ final class TokenIdempotencyProofAdapter implements SensitiveIdempotencyProofPor
 {
   // #region Traits
   use CryptTrait;
+  // #endregion
+
+  // #region Properties
+  /**
+   * Constant GRANT_OWNER_UNAVAILABLE
+   *
+   * @var string stable protocol denial for missing or changed grant ownership
+   */
+  private const string GRANT_OWNER_UNAVAILABLE = 'The grant owner is unavailable.';
   // #endregion
 
   // #region Constructor
@@ -107,44 +117,12 @@ final class TokenIdempotencyProofAdapter implements SensitiveIdempotencyProofPor
     if (null !== $storedProof && (($storedProof->metadata['client_id'] ?? null) !== $client->clientId || ($storedProof->metadata['client_revision'] ?? null) !== (string) $client->securityRevision || ($storedProof->metadata['grant_type'] ?? null) !== $message->grantType)) {
       throw AuthorizationException::invalidClient('Client authentication failed.');
     }
-    if ('authorization_code' === $message->grantType) {
-      $grant = $this->decodeGrant($message->code);
-      $this->assertGrantClient($grant, $message->clientId);
-      $codeId = $grant['auth_code_id'] ?? null;
-      $challenge = $grant['code_challenge'] ?? null;
-      $verifier = $message->codeVerifier ?? '';
-      if (!is_string($codeId) || !is_string($challenge) || 1 !== preg_match('/^[A-Za-z0-9._~-]{43,128}$/', $verifier)) {
-        throw AuthorizationException::invalidGrant('Invalid authorization code proof.');
-      }
-      $method = $grant['code_challenge_method'] ?? 'plain';
-      $computed = 'S256' === $method ? rtrim(strtr(base64_encode(hash('sha256', $verifier, true)), '+/', '-_'), '=') : $verifier;
-      if (!in_array($method, ['plain', 'S256'], true) || !hash_equals($challenge, $computed) || ($grant['redirect_uri'] ?? null) !== $message->redirectUri || !in_array($message->redirectUri, $client->redirectUris, true)) {
-        throw AuthorizationException::invalidGrant('Invalid authorization code proof.');
-      }
-      $row = $this->entityManager->getConnection()->fetchAssociative('SELECT user_identifier, client_identifier FROM auth_codes WHERE identifier = ? AND expiry > CURRENT_TIMESTAMP', [$codeId]);
-      if (false === $row || ($row['client_identifier'] ?? null) !== $client->clientId) {
-        throw AuthorizationException::invalidGrant('Invalid authorization code.');
-      }
-      $proof['grant_id'] = $codeId;
-      $proof = $this->userProof($row['user_identifier'] ?? null, $proof, $storedProof);
-      if (null !== $storedProof && ($storedProof->metadata['grant_id'] ?? null) !== $codeId) {
-        throw AuthorizationException::invalidGrant('Invalid authorization code.');
-      }
-    } elseif ('refresh_token' === $message->grantType) {
-      $grant = $this->decodeGrant($message->refreshToken);
-      $this->assertGrantClient($grant, $message->clientId);
-      $refreshId = $grant['refresh_token_id'] ?? null;
-      if (!is_string($refreshId)) {
-        throw AuthorizationException::invalidGrant('Invalid refresh token.');
-      }
-      $proof = $this->userProof($grant['user_id'] ?? null, $proof, $storedProof);
-      $proof['grant_id'] = $refreshId;
-      if (null !== $storedProof && !in_array($refreshId, [$storedProof->metadata['grant_id'] ?? null, $storedProof->metadata['issued_refresh_id'] ?? null], true)) {
-        throw AuthorizationException::invalidGrant('Invalid refresh token.');
-      }
-    } elseif ('client_credentials' !== $message->grantType) {
-      throw AuthorizationException::unsupportedGrantType('The grant type is not supported.');
-    }
+    $proof = match ($message->grantType) {
+      'authorization_code' => $this->authorizationCodeProof($message, $client, $proof, $storedProof),
+      'refresh_token' => $this->refreshProof($message, $proof, $storedProof),
+      'client_credentials' => $proof,
+      default => throw AuthorizationException::unsupportedGrantType('The grant type is not supported.'),
+    };
     if (null !== $storedProof) {
       $this->assertIssuedTokensCurrent($storedProof, $client->clientId);
     }
@@ -203,6 +181,78 @@ final class TokenIdempotencyProofAdapter implements SensitiveIdempotencyProofPor
   }
 
   /**
+   * Method authorizationCodeProof
+   *
+   * Verifies the native code, client, PKCE and current owner before replay selection.
+   *
+   * @access private
+   *
+   * @param IssueTokenCommand $message current client-authenticated grant request
+   * @param ClientSecurityProof $client fresh client scopes and redirect configuration
+   * @param array<string, string> $proof current client receipt facts
+   * @param IdempotencyProof|null $storedProof authenticated receipt selected for replay
+   *
+   * @return array<string, string> verified authorization-code owner and PKCE proof
+   */
+  private function authorizationCodeProof(IssueTokenCommand $message, ClientSecurityProof $client, array $proof, ?IdempotencyProof $storedProof): array
+  {
+    $grant = $this->decodeGrant($message->code);
+    $this->assertGrantClient($grant, $message->clientId);
+    $codeId = $grant['auth_code_id'] ?? null;
+    $challenge = $grant['code_challenge'] ?? null;
+    $verifier = $message->codeVerifier ?? '';
+    if (!is_string($codeId) || !is_string($challenge) || 1 !== preg_match('/^[A-Za-z0-9._~-]{43,128}$/', $verifier)) {
+      throw AuthorizationException::invalidGrant('Invalid authorization code proof.');
+    }
+    $method = $grant['code_challenge_method'] ?? 'plain';
+    $computed = 'S256' === $method ? rtrim(strtr(base64_encode(hash('sha256', $verifier, true)), '+/', '-_'), '=') : $verifier;
+    if (!in_array($method, ['plain', 'S256'], true) || !hash_equals($challenge, $computed) || ($grant['redirect_uri'] ?? null) !== $message->redirectUri || !in_array($message->redirectUri, $client->redirectUris, true)) {
+      throw AuthorizationException::invalidGrant('Invalid authorization code proof.');
+    }
+    $row = $this->entityManager->getConnection()->fetchAssociative('SELECT user_identifier, client_identifier FROM auth_codes WHERE identifier = ? AND expiry > CURRENT_TIMESTAMP', [$codeId]);
+    if (false === $row || ($row['client_identifier'] ?? null) !== $client->clientId) {
+      throw AuthorizationException::invalidGrant('Invalid authorization code.');
+    }
+    $proof['grant_id'] = $codeId;
+    $proof = $this->userProof($row['user_identifier'] ?? null, $proof, $storedProof);
+    if (null !== $storedProof && ($storedProof->metadata['grant_id'] ?? null) !== $codeId) {
+      throw AuthorizationException::invalidGrant('Invalid authorization code.');
+    }
+
+    return $proof;
+  }
+
+  /**
+   * Method refreshProof
+   *
+   * Preserves the original-or-issued refresh lineage checked against current daughter tokens.
+   *
+   * @access private
+   *
+   * @param IssueTokenCommand $message current client-authenticated grant request
+   * @param array<string, string> $proof current client receipt facts
+   * @param IdempotencyProof|null $storedProof authenticated original rotation receipt
+   *
+   * @return array<string, string> verified refresh owner and original-or-issued lineage
+   */
+  private function refreshProof(IssueTokenCommand $message, array $proof, ?IdempotencyProof $storedProof): array
+  {
+    $grant = $this->decodeGrant($message->refreshToken);
+    $this->assertGrantClient($grant, $message->clientId);
+    $refreshId = $grant['refresh_token_id'] ?? null;
+    if (!is_string($refreshId)) {
+      throw AuthorizationException::invalidGrant('Invalid refresh token.');
+    }
+    $proof = $this->userProof($grant['user_id'] ?? null, $proof, $storedProof);
+    $proof['grant_id'] = $refreshId;
+    if (null !== $storedProof && !in_array($refreshId, [$storedProof->metadata['grant_id'] ?? null, $storedProof->metadata['issued_refresh_id'] ?? null], true)) {
+      throw AuthorizationException::invalidGrant('Invalid refresh token.');
+    }
+
+    return $proof;
+  }
+
+  /**
    * @param ?string $token authenticated encrypted grant credential
    *
    * @return array<string, mixed> verified grant facts
@@ -248,17 +298,17 @@ final class TokenIdempotencyProofAdapter implements SensitiveIdempotencyProofPor
   private function userProof(mixed $userId, array $proof, ?IdempotencyProof $storedProof): array
   {
     if (!is_string($userId) || '' === $userId) {
-      throw AuthorizationException::invalidGrant('The grant owner is unavailable.');
+      throw AuthorizationException::invalidGrant(self::GRANT_OWNER_UNAVAILABLE);
     }
     $current = $this->users->current($userId);
     if (null === $current || !$current->active || (null !== $storedProof && (($storedProof->metadata['user_id'] ?? null) !== $userId || ($storedProof->metadata['security_revision'] ?? null) !== (string) $current->securityRevision))) {
-      throw AuthorizationException::invalidGrant('The grant owner is unavailable.');
+      throw AuthorizationException::invalidGrant(self::GRANT_OWNER_UNAVAILABLE);
     }
     $proof['user_id'] = $userId;
     $proof['security_revision'] = (string) $current->securityRevision;
     $proof['authorization_fingerprint'] = $this->grants->currentFingerprint($userId);
     if (null !== $storedProof && ($storedProof->metadata['authorization_fingerprint'] ?? null) !== $proof['authorization_fingerprint']) {
-      throw AuthorizationException::invalidGrant('The grant owner is unavailable.');
+      throw AuthorizationException::invalidGrant(self::GRANT_OWNER_UNAVAILABLE);
     }
 
     return $proof;

@@ -6,6 +6,7 @@ namespace Authorization\Application\Contract\Catalog;
 
 use InvalidArgumentException;
 
+use function array_map;
 use function array_unique;
 use function count;
 use function preg_match;
@@ -19,6 +20,15 @@ use function preg_match;
  */
 final readonly class RoleDefinition
 {
+  // #region Properties
+  /**
+   * Property permissionNames
+   *
+   * @var list<string> grants validated by the public permission vocabulary
+   */
+  public array $permissionNames;
+  // #endregion
+
   // #region Constructor
   /**
    * Method __construct
@@ -40,7 +50,7 @@ final readonly class RoleDefinition
   public function __construct(
     public string $name,
     public string $description,
-    public array $permissionNames,
+    array $permissionNames,
     public bool $isSystem = true,
     public ?string $reference = null,
     public bool $defaultForNewUsers = false,
@@ -52,9 +62,8 @@ final readonly class RoleDefinition
     if (count($permissionNames) !== count(array_unique($permissionNames))) {
       throw new InvalidArgumentException('Duplicate permission in contributed role: ' . $name);
     }
-    foreach ($permissionNames as $permissionName) {
-      new PermissionDefinition($permissionName, '');
-    }
+    $this->permissionNames = array_map(static fn (string $permissionName): string => new PermissionDefinition($permissionName, '')->name, $permissionNames);
   }
   // #endregion
+
 }

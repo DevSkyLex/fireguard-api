@@ -8,6 +8,7 @@ use DateTimeImmutable;
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
 use InvalidArgumentException;
+use LogicException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
@@ -15,9 +16,9 @@ use Shared\Application\Contract\Http\HttpIdempotencyOperation;
 use Shared\Application\Contract\Idempotency\{IdempotencyBegin, IdempotencyDeniedException, IdempotencyLease, IdempotencyProof, IdempotencySnapshot};
 use Shared\Application\Contract\Transaction\CommitOutcomeUnknownException;
 use Shared\Application\Message\{CommandMessage, ResultMessage};
-use Shared\Application\Port\Outbound\Idempotency\{ExternalIdempotencyReconciliationPort, HttpIdempotencyOperationContributionPort, HttpIdempotencyPort, HttpIdempotencyResultProofContributionPort};
+use Shared\Application\Port\Outbound\Idempotency\{ExternalIdempotencyReconciliationPort, HttpIdempotencyOperationContributionPort, HttpIdempotencyPort, HttpIdempotencyResultProofContributionPort, SensitiveIdempotencyProofPort};
 use Shared\Application\Service\Idempotency\{HttpIdempotencyOperationRegistry, HttpIdempotencyResultProofRegistry};
-use Shared\Infrastructure\Idempotency\{HmacIdempotencyFingerprintAdapter, HttpIdempotencyExecutionContext, HttpIdempotencyResultCodec};
+use Shared\Infrastructure\Idempotency\{HmacIdempotencyFingerprintAdapter, HttpIdempotencyExecutionContext, HttpIdempotencyExecutionRecovery, HttpIdempotencyResultCodec, HttpIdempotencySensitiveExecutionProof};
 use Shared\Infrastructure\Messaging\Outbox\RootTransactionManagerAdapter;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
 
@@ -32,9 +33,35 @@ use function str_repeat;
  * @category Adapter Tests
  */
 #[CoversClass(HttpIdempotencyExecutionContext::class)]
+#[CoversClass(HttpIdempotencyExecutionRecovery::class)]
+#[CoversClass(HttpIdempotencySensitiveExecutionProof::class)]
 #[CoversClass(RootTransactionManagerAdapter::class)]
 final class HttpIdempotencyExecutionContextTest extends TestCase
 {
+  #[Test]
+  public function sensitiveReplayRequiresAnAuthenticatedStoredProofBeforeActivation(): void
+  {
+    $context = $this->context($this->createStub(Connection::class));
+    $policy = $this->createMock(SensitiveIdempotencyProofPort::class);
+    $policy->expects(self::never())->method('replayResult');
+    $this->expectException(LogicException::class);
+    $this->expectExceptionMessage('Sensitive HTTP replay requires its exact currently proved command and receipt proof.');
+
+    $context->activate(self::operation(), $this->createStub(HttpIdempotencyPort::class), new IdempotencyBegin(replay: new IdempotencySnapshot(201, 'unopened')), [], new HttpIdempotencySensitiveExecutionProof($policy, new ExecutionTestCommand()));
+  }
+
+  #[Test]
+  public function sensitiveProofCannotActivateADifferentPrimaryCommand(): void
+  {
+    $context = $this->context($this->createStub(Connection::class));
+    $policy = $this->createStub(SensitiveIdempotencyProofPort::class);
+    $nested = new class () implements CommandMessage {};
+    $this->expectException(LogicException::class);
+    $this->expectExceptionMessage('Sensitive HTTP replay requires its exact currently proved command and receipt proof.');
+
+    $context->activate(self::operation(), $this->createStub(HttpIdempotencyPort::class), new IdempotencyBegin(lease: self::lease()), [], new HttpIdempotencySensitiveExecutionProof($policy, $nested));
+  }
+
   #[Test]
   public function ownerResultProofRunsAfterFlushAndBeforeAtomicReceiptCommit(): void
   {

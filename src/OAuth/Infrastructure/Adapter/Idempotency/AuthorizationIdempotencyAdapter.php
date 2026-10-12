@@ -68,24 +68,14 @@ final class AuthorizationIdempotencyAdapter implements AuthorizationReceiptPort
     $params = $request->parameters;
     $tokenId = $request->tokenId;
     $userId = $request->userId;
-    $clientId = $params['client_id'] ?? null;
-    $state = $params['state'] ?? null;
-    $pkce = $params['code_challenge'] ?? null;
-    if (!in_array($request->operationName, ['authorize', 'grant_consent'], true) || '' === $tokenId || !is_string($clientId) || (null !== $state && !is_string($state)) || !is_string($pkce) || 1 !== preg_match('/\A[A-Za-z0-9._~\-]{43,128}\z/', $pkce)) {
-      throw new IdempotencyDeniedException('owner_lost');
-    }
-    $client = $this->entityManager->getConnection()->fetchAssociative('SELECT security_revision FROM clients WHERE id = ? AND is_active = TRUE AND deleted_at IS NULL', [$clientId]);
+    $clientId = $this->authorizationClientId($request);
+    $clientRevision = $this->currentClientRevision($clientId);
     $user = $this->users->current($userId);
-    if (false === $client || (!is_int($client['security_revision']) && !is_numeric($client['security_revision'])) || null === $user || !$user->active) {
+    if (null === $user || !$user->active) {
       throw new IdempotencyDeniedException('owner_lost');
     }
-    $clientRevision = (int) $client['security_revision'];
     $canonical = ['parameters' => $params, 'session' => $tokenId, 'family' => $request->tokenFamily];
-    $keys = $request->keys;
-    if ([] !== $keys && (1 !== count($keys) || !is_string($keys[0]) || 1 !== preg_match('/^[\x21-\x7e]{1,255}$/D', $keys[0]))) {
-      throw new IdempotencyDeniedException('key_invalid');
-    }
-    $key = $keys[0] ?? $this->fingerprints->digest('oauth.authorization.key', $canonical);
+    $key = $this->executionKey($request->keys, $canonical);
     $scope = new IdempotencyScope($userId, null, null, $request->operationName, $request->resourceUri);
     $authorizeReplay = function (IdempotencyProof $proof) use ($userId, $clientId): void {
       $this->assertReplayProof($proof, $userId, $clientId);
@@ -99,11 +89,7 @@ final class AuthorizationIdempotencyAdapter implements AuthorizationReceiptPort
     try {
       return $this->transaction->transactional(function () use ($completion, $lease, $userId, $clientId, $clientRevision, $user): AuthorizationGrantOutcome {
         $this->engine->claimWithinTransaction($lease);
-        $lockedClient = $this->entityManager->getConnection()->fetchOne('SELECT security_revision FROM clients WHERE id = ? AND is_active = TRUE AND deleted_at IS NULL FOR SHARE', [$clientId]);
-        $lockedUser = $this->entityManager->getConnection()->fetchOne('SELECT security_revision FROM users WHERE id = ? AND status = ? FOR SHARE', [$userId, 'active']);
-        if ((!is_int($lockedClient) && !is_numeric($lockedClient)) || (int) $lockedClient !== $clientRevision || (!is_int($lockedUser) && !is_numeric($lockedUser)) || (int) $lockedUser !== $user->securityRevision) {
-          throw new IdempotencyDeniedException('owner_lost');
-        }
+        $this->assertLockedRevisions($clientId, $clientRevision, $userId, $user->securityRevision);
         $response = $completion();
         $location = $response->redirectLocation;
         $code = null === $location ? '' : $this->authorizationCode($location);
@@ -127,6 +113,94 @@ final class AuthorizationIdempotencyAdapter implements AuthorizationReceiptPort
       $this->engine->confirmedRollback($lease);
 
       throw $failure;
+    }
+  }
+
+  /**
+   * Method authorizationClientId
+   *
+   * Validates the native browser operation, client, state and PKCE identity before selecting a receipt.
+   *
+   * @access private
+   *
+   * @param AuthorizationReceiptRequest $request validated browser protocol facts
+   *
+   * @return string requesting client after native identity validation
+   */
+  private function authorizationClientId(AuthorizationReceiptRequest $request): string
+  {
+    $clientId = $request->parameters['client_id'] ?? null;
+    $state = $request->parameters['state'] ?? null;
+    $pkce = $request->parameters['code_challenge'] ?? null;
+    if (!in_array($request->operationName, ['authorize', 'grant_consent'], true) || '' === $request->tokenId || !is_string($clientId) || (null !== $state && !is_string($state)) || !is_string($pkce) || 1 !== preg_match('/\A[A-Za-z0-9._~\-]{43,128}\z/', $pkce)) {
+      throw new IdempotencyDeniedException('owner_lost');
+    }
+
+    return $clientId;
+  }
+
+  /**
+   * Method currentClientRevision
+   *
+   * Loads the fresh active client epoch before selecting a receipt.
+   *
+   * @access private
+   *
+   * @param string $clientId currently validated client identifier
+   *
+   * @return int fresh active client epoch before receipt selection
+   */
+  private function currentClientRevision(string $clientId): int
+  {
+    $client = $this->entityManager->getConnection()->fetchAssociative('SELECT security_revision FROM clients WHERE id = ? AND is_active = TRUE AND deleted_at IS NULL', [$clientId]);
+    if (false === $client || (!is_int($client['security_revision']) && !is_numeric($client['security_revision']))) {
+      throw new IdempotencyDeniedException('owner_lost');
+    }
+
+    return (int) $client['security_revision'];
+  }
+
+  /**
+   * Method executionKey
+   *
+   * Rejects ambiguous headers and derives native protocol identity only when no key was supplied.
+   *
+   * @access private
+   *
+   * @param list<string|null> $keys caller execution keys
+   * @param array<string, mixed> $canonical validated native request identity
+   *
+   * @return string explicit or native protocol execution identity
+   */
+  private function executionKey(array $keys, array $canonical): string
+  {
+    if ([] !== $keys && (1 !== count($keys) || !is_string($keys[0]) || 1 !== preg_match('/^[\x21-\x7e]{1,255}$/D', $keys[0]))) {
+      throw new IdempotencyDeniedException('key_invalid');
+    }
+
+    return $keys[0] ?? $this->fingerprints->digest('oauth.authorization.key', $canonical);
+  }
+
+  /**
+   * Method assertLockedRevisions
+   *
+   * Acquires shared owner locks and rejects credential epochs changed since receipt reservation.
+   *
+   * @access private
+   *
+   * @param string $clientId validated client identity
+   * @param int $clientRevision epoch selected before execution
+   * @param string $userId verified browser owner
+   * @param int $userRevision epoch selected before execution
+   *
+   * @return void
+   */
+  private function assertLockedRevisions(string $clientId, int $clientRevision, string $userId, int $userRevision): void
+  {
+    $lockedClient = $this->entityManager->getConnection()->fetchOne('SELECT security_revision FROM clients WHERE id = ? AND is_active = TRUE AND deleted_at IS NULL FOR SHARE', [$clientId]);
+    $lockedUser = $this->entityManager->getConnection()->fetchOne('SELECT security_revision FROM users WHERE id = ? AND status = ? FOR SHARE', [$userId, 'active']);
+    if ((!is_int($lockedClient) && !is_numeric($lockedClient)) || (int) $lockedClient !== $clientRevision || (!is_int($lockedUser) && !is_numeric($lockedUser)) || (int) $lockedUser !== $userRevision) {
+      throw new IdempotencyDeniedException('owner_lost');
     }
   }
 
@@ -158,6 +232,12 @@ final class AuthorizationIdempotencyAdapter implements AuthorizationReceiptPort
   }
 
   /**
+   * Method assertCodeCurrent
+   *
+   * Rejects consumed, expired or differently owned authorization codes before result opening.
+   *
+   * @access private
+   *
    * @param array<string,string> $proof MAC-verified code lineage before ciphertext opens
    * @param string $userId current browser account
    * @param string $clientId currently active requesting client
@@ -173,6 +253,12 @@ final class AuthorizationIdempotencyAdapter implements AuthorizationReceiptPort
   }
 
   /**
+   * Method authorizationCode
+   *
+   * Decodes the authenticated issued code identity while preserving native error redirects.
+   *
+   * @access private
+   *
    * @param string|null $location freshly generated League redirect
    *
    * @return string authenticated logical authorization code identity
@@ -204,6 +290,12 @@ final class AuthorizationIdempotencyAdapter implements AuthorizationReceiptPort
   }
 
   /**
+   * Method restore
+   *
+   * Restores only the authenticated versioned protocol result snapshot.
+   *
+   * @access private
+   *
    * @param IdempotencySnapshot $snapshot authenticated application protocol outcome
    *
    * @return AuthorizationGrantOutcome original authenticated owner protocol outcome
@@ -219,6 +311,12 @@ final class AuthorizationIdempotencyAdapter implements AuthorizationReceiptPort
   }
 
   /**
+   * Method assertAuthorization
+   *
+   * Rechecks current browser authorization before execution and after an uncertain commit.
+   *
+   * @access private
+   *
    * @param callable():bool $authorizeCurrent live owner proof checked again after an uncertain commit
    *
    * @return void

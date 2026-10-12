@@ -82,10 +82,9 @@ final readonly class ComplianceHttpIdempotencyReplayAuthorizationAdapter impleme
     if (null !== $facilityId && (!is_string($facilityId) || $this->facilities->organizationId($facilityId) !== $organizationId)) {
       throw new IdempotencyDeniedException('access_denied');
     }
-    if (null !== $storedProof && isset($storedProof->metadata['resourceId'])) {
-      if ('compliance_snapshot' !== ($storedProof->metadata['resourceKind'] ?? null) || $this->connection->fetchOne('SELECT organization_id FROM compliance_register_snapshots WHERE id = :id', ['id' => $storedProof->metadata['resourceId']]) !== $organizationId) {
-        throw new IdempotencyDeniedException('access_denied');
-      }
+    if (null !== $storedProof && isset($storedProof->metadata['resourceId'])
+      && ('compliance_snapshot' !== ($storedProof->metadata['resourceKind'] ?? null) || $this->connection->fetchOne('SELECT organization_id FROM compliance_register_snapshots WHERE id = :id', ['id' => $storedProof->metadata['resourceId']]) !== $organizationId)) {
+      throw new IdempotencyDeniedException('access_denied');
     }
 
     return $this->authorizer->authorize($request, $storedProof, $organizationId);

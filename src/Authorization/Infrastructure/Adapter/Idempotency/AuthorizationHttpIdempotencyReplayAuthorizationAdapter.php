@@ -68,21 +68,7 @@ final readonly class AuthorizationHttpIdempotencyReplayAuthorizationAdapter impl
       throw new IdempotencyDeniedException('authorization_unavailable');
     }
     $id = $request->uriVariables['id'] ?? $request->uriVariables['roleId'] ?? $storedProof?->metadata['resourceId'] ?? null;
-    $tenant = '';
-    if (null !== $id) {
-      if (!is_string($id) || '' === $id) {
-        throw new IdempotencyDeniedException('access_denied');
-      }
-      $row = $this->connection->fetchAssociative('SELECT id' . ('role' === $kind ? ', tenant_id' : '') . ' FROM ' . ('role' === $kind ? 'roles' : 'permissions') . ' WHERE id = :id', ['id' => $id]);
-      if (false === $row) {
-        if (null === $storedProof || !in_array($request->operation->name, ['role_delete', 'permission_delete'], true)) {
-          throw 'role' === $kind ? RoleNotFoundException::withId($id) : PermissionNotFoundException::withId($id);
-        }
-        $tenant = $storedProof->metadata['authorizationTargetTenantId'] ?? '';
-      } else {
-        $tenant = is_string($row['tenant_id'] ?? null) ? $row['tenant_id'] : '';
-      }
-    }
+    $tenant = $this->targetTenant($request, $storedProof, $kind, $id);
     if (null !== $storedProof && (($storedProof->metadata['authorizationTargetKind'] ?? null) !== $kind || ($storedProof->metadata['authorizationTargetTenantId'] ?? null) !== $tenant || (isset($storedProof->metadata['authorizationTargetId']) && $storedProof->metadata['authorizationTargetId'] !== $id))) {
       throw new IdempotencyDeniedException('access_denied');
     }
@@ -96,6 +82,40 @@ final readonly class AuthorizationHttpIdempotencyReplayAuthorizationAdapter impl
     }
 
     return $proof;
+  }
+
+  /**
+   * Method targetTenant
+   *
+   * Restores a deleted target scope only from authenticated original deletion proof.
+   *
+   * @access private
+   *
+   * @param HttpIdempotencyAuthorizationRequest $request the current owner operation
+   * @param IdempotencyProof|null $storedProof signed original owner scope
+   * @param string $kind the registered target kind
+   * @param mixed $id the current or retained identifier
+   *
+   * @return string the original or current target tenant
+   */
+  private function targetTenant(HttpIdempotencyAuthorizationRequest $request, ?IdempotencyProof $storedProof, string $kind, mixed $id): string
+  {
+    if (null === $id) {
+      return '';
+    }
+    if (!is_string($id) || '' === $id) {
+      throw new IdempotencyDeniedException('access_denied');
+    }
+    $row = $this->connection->fetchAssociative('SELECT id' . ('role' === $kind ? ', tenant_id' : '') . ' FROM ' . ('role' === $kind ? 'roles' : 'permissions') . ' WHERE id = :id', ['id' => $id]);
+    if (false === $row) {
+      if (null === $storedProof || !in_array($request->operation->name, ['role_delete', 'permission_delete'], true)) {
+        throw 'role' === $kind ? RoleNotFoundException::withId($id) : PermissionNotFoundException::withId($id);
+      }
+
+      return $storedProof->metadata['authorizationTargetTenantId'] ?? '';
+    }
+
+    return is_string($row['tenant_id'] ?? null) ? $row['tenant_id'] : '';
   }
 
   /**

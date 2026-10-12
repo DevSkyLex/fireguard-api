@@ -9,7 +9,7 @@ use ApiPlatform\Metadata\Resource\Factory\ResourceMetadataCollectionFactoryInter
 use InvalidArgumentException;
 use JsonException;
 use LogicException;
-use Shared\Application\Contract\Http\HttpIdempotencyAuthorizationRequest;
+use Shared\Application\Contract\Http\{HttpIdempotencyAuthorizationRequest, HttpIdempotencyOperation};
 use Shared\Application\Contract\Idempotency\{IdempotencyDeniedException, IdempotencyProof};
 use Shared\Application\Contract\Transaction\CommitOutcomeUnknownException;
 use Shared\Application\Port\Outbound\Idempotency\{HttpIdempotencyAuthorizationEvidencePort, HttpIdempotencyPrincipalPort};
@@ -113,78 +113,7 @@ final readonly class HttpIdempotencySubscriber implements EventSubscriberInterfa
     if (null === $operation) {
       return;
     }
-    $mandatory = $this->required && $operation->requiredKey;
-    $sensitive = $this->policies->sensitive($operation->primaryCommand);
-    $invalidKey = false;
-
-    try {
-      $key = $this->key($request);
-    } catch (IdempotencyDeniedException $failure) {
-      if (null === $sensitive || 'key_invalid' !== $failure->reason) {
-        throw $failure;
-      }
-      $key = null;
-      $invalidKey = true;
-    }
-    if (null === $key && !$mandatory && null === $sensitive) {
-      return;
-    }
-
-    try {
-      $canonical = $this->input->canonical($request);
-    } catch (InvalidArgumentException|JsonException $failure) {
-      throw new BadRequestHttpException('Invalid idempotency request input.', $failure);
-    }
-    $tenant = $request->attributes->get('tenantId');
-    $tenantId = is_string($tenant) && '' !== $tenant ? $tenant : null;
-    $routeTenantId = $tenantId;
-    if (null !== $sensitive) {
-      $principal = $this->principals->current();
-      if (null !== $principal) {
-        if (null !== $key || $mandatory || $invalidKey) {
-          $this->authorizationEvidence?->begin($principal->principalId);
-        }
-        $tenantId = $principal->tenantId ?? $tenantId;
-      }
-      $request->attributes->set(HttpIdempotencyCommandPreparation::ATTRIBUTE, new HttpIdempotencyPendingCommand($operation, $key, $canonical, $request->getPathInfo(), $tenantId, $mandatory, $invalidKey, $principal?->principalId, $routeTenantId));
-
-      return;
-    }
-    $principal = $this->principals->current();
-    if (null === $principal) {
-      throw new AuthenticationCredentialsNotFoundException('Authentication required.');
-    }
-    if (null !== $principal->tenantId) {
-      $tenantId = $principal->tenantId;
-    }
-    $this->authorizationEvidence?->begin($principal->principalId);
-    $resolved = $request->attributes->get('_api_uri_variables');
-    $source = is_array($resolved) ? $resolved : $request->attributes->all();
-    $variables = [];
-    foreach ($source as $variable => $value) {
-      if (is_string($variable) && '_' !== ($variable[0] ?? '')) {
-        $variables[$variable] = $value;
-      }
-    }
-    $securityExpression = $http?->getSecurity();
-    $facts = new HttpIdempotencyAuthorizationRequest($principal->principalId, $tenantId, $operation, $request->getPathInfo(), $variables, $canonical, null !== $securityExpression ? (string) $securityExpression : null);
-    $owner = $this->policies->ordinary($operation->name) ?? throw new LogicException('Ordinary HTTP mutation has no current owner replay gate.');
-    $scope = $owner->scope($facts);
-    $engine = $this->engines->forDatabase($operation->database);
-    $stored = null !== $key ? $engine->inspectProof($scope, $key) : null;
-    $proof = $owner->authorize($facts, $stored);
-    if (null === $key) {
-      throw new IdempotencyDeniedException('key_required');
-    }
-    $begin = $engine->begin($scope, $key, $canonical, static function (IdempotencyProof $selected) use (&$stored, &$proof, $owner, $facts): void {
-      if (null === $stored || $stored->metadata !== $selected->metadata || $stored->expiresAt->format('U.u') !== $selected->expiresAt->format('U.u')) {
-        $proof = $owner->authorize($facts, $selected);
-      }
-      $stored = $selected;
-    });
-    $this->execution->activate($operation, $engine, $begin, $proof, authorizeReconciliation: static function (IdempotencyProof $current) use ($owner, $facts): void {
-      $owner->authorize($facts, $current);
-    });
+    $this->prepareRequest($request, $http, $operation);
   }
 
   /**
@@ -298,6 +227,182 @@ final readonly class HttpIdempotencySubscriber implements EventSubscriberInterfa
       $problem['operationCompleted'] = true;
     }
     $event->setResponse(new JsonResponse($problem, $status, $headers));
+  }
+
+  /**
+   * Method prepareRequest
+   *
+   * Parses request meaning before choosing the ordinary or credential-sensitive owner boundary.
+   *
+   * @access private
+   *
+   * @param Request $request current routed request
+   * @param HttpOperation|null $http current API operation declaration
+   * @param HttpIdempotencyOperation $operation declared mutation ownership
+   *
+   * @return void
+   */
+  private function prepareRequest(Request $request, ?HttpOperation $http, HttpIdempotencyOperation $operation): void
+  {
+    $mandatory = $this->required && $operation->requiredKey;
+    $sensitive = null !== $this->policies->sensitive($operation->primaryCommand);
+    [$key, $invalidKey] = $this->requestKey($request, $sensitive);
+    if (null === $key && !$mandatory && !$sensitive) {
+      return;
+    }
+    $canonical = $this->canonicalInput($request);
+    $tenant = $request->attributes->get('tenantId');
+    $tenantId = is_string($tenant) && '' !== $tenant ? $tenant : null;
+    if ($sensitive) {
+      $this->deferSensitive($request, $operation, $key, $canonical, $tenantId, $mandatory, $invalidKey);
+    } else {
+      $this->prepareOrdinary($request, $http, $operation, $key, $canonical, $tenantId);
+    }
+  }
+
+  /**
+   * Method requestKey
+   *
+   * Defers invalid sensitive keys until fresh credential proof while retaining ordinary key errors.
+   *
+   * @access private
+   *
+   * @param Request $request current HTTP request
+   * @param bool $sensitive whether current credentials must precede key errors
+   *
+   * @return array{string|null, bool} key and deferred invalid-key marker
+   */
+  private function requestKey(Request $request, bool $sensitive): array
+  {
+    try {
+      return [$this->key($request), false];
+    } catch (IdempotencyDeniedException $failure) {
+      if (!$sensitive || 'key_invalid' !== $failure->reason) {
+        throw $failure;
+      }
+
+      return [null, true];
+    }
+  }
+
+  /**
+   * Method canonicalInput
+   *
+   * @access private
+   *
+   * @param Request $request current logical HTTP input
+   *
+   * @return array<string, mixed> normalized content and representation facts
+   */
+  private function canonicalInput(Request $request): array
+  {
+    try {
+      return $this->input->canonical($request);
+    } catch (InvalidArgumentException|JsonException $failure) {
+      throw new BadRequestHttpException('Invalid idempotency request input.', $failure);
+    }
+  }
+
+  /**
+   * Method deferSensitive
+   *
+   * Stores trusted HTTP facts until the exact owner command can prove its credentials.
+   *
+   * @access private
+   *
+   * @param Request $request current routed request
+   * @param HttpIdempotencyOperation $operation declared sensitive mutation
+   * @param string|null $key validated client execution identity
+   * @param array<string, mixed> $canonical normalized logical input
+   * @param string|null $tenantId trusted route or host tenant
+   * @param bool $mandatory whether this operation requires a key during rollout
+   * @param bool $invalidKey deferred invalid-key failure
+   *
+   * @return void
+   */
+  private function deferSensitive(Request $request, HttpIdempotencyOperation $operation, ?string $key, array $canonical, ?string $tenantId, bool $mandatory, bool $invalidKey): void
+  {
+    $routeTenantId = $tenantId;
+    $principal = $this->principals->current();
+    if (null !== $principal) {
+      if (null !== $key || $mandatory || $invalidKey) {
+        $this->authorizationEvidence?->begin($principal->principalId);
+      }
+      $tenantId = $principal->tenantId ?? $tenantId;
+    }
+    $request->attributes->set(HttpIdempotencyCommandPreparation::ATTRIBUTE, new HttpIdempotencyPendingCommand($operation, $key, $canonical, $request->getPathInfo(), $tenantId, $mandatory, $invalidKey, $principal?->principalId, $routeTenantId));
+  }
+
+  /**
+   * Method prepareOrdinary
+   *
+   * Rechecks current owner authority and signed receipt scope before reserving or opening its result.
+   *
+   * @access private
+   *
+   * @param Request $request current routed request
+   * @param HttpOperation|null $http current API declaration
+   * @param HttpIdempotencyOperation $operation declared ordinary mutation
+   * @param string|null $key validated client execution identity
+   * @param array<string, mixed> $canonical normalized logical input
+   * @param string|null $tenantId trusted route or host tenant
+   *
+   * @return void
+   */
+  private function prepareOrdinary(Request $request, ?HttpOperation $http, HttpIdempotencyOperation $operation, ?string $key, array $canonical, ?string $tenantId): void
+  {
+    $principal = $this->principals->current();
+    if (null === $principal) {
+      throw new AuthenticationCredentialsNotFoundException('Authentication required.');
+    }
+    if (null !== $principal->tenantId) {
+      $tenantId = $principal->tenantId;
+    }
+    $this->authorizationEvidence?->begin($principal->principalId);
+    $securityExpression = $http?->getSecurity();
+    $facts = new HttpIdempotencyAuthorizationRequest($principal->principalId, $tenantId, $operation, $request->getPathInfo(), $this->uriVariables($request), $canonical, null !== $securityExpression ? (string) $securityExpression : null);
+    $owner = $this->policies->ordinary($operation->name) ?? throw new LogicException('Ordinary HTTP mutation has no current owner replay gate.');
+    $scope = $owner->scope($facts);
+    $engine = $this->engines->forDatabase($operation->database);
+    $stored = null !== $key ? $engine->inspectProof($scope, $key) : null;
+    $proof = $owner->authorize($facts, $stored);
+    if (null === $key) {
+      throw new IdempotencyDeniedException('key_required');
+    }
+    $begin = $engine->begin($scope, $key, $canonical, static function (IdempotencyProof $selected) use (&$stored, &$proof, $owner, $facts): void {
+      if (null === $stored || $stored->metadata !== $selected->metadata || $stored->expiresAt->format('U.u') !== $selected->expiresAt->format('U.u')) {
+        $proof = $owner->authorize($facts, $selected);
+      }
+      $stored = $selected;
+    });
+    $this->execution->activate($operation, $engine, $begin, $proof, authorizeReconciliation: static function (IdempotencyProof $current) use ($owner, $facts): void {
+      $owner->authorize($facts, $current);
+    });
+  }
+
+  /**
+   * Method uriVariables
+   *
+   * Retains only public route facts and excludes internal framework attributes.
+   *
+   * @access private
+   *
+   * @param Request $request routed request before API read listeners
+   *
+   * @return array<string, mixed> meaningful owner resource identifiers
+   */
+  private function uriVariables(Request $request): array
+  {
+    $resolved = $request->attributes->get('_api_uri_variables');
+    $source = is_array($resolved) ? $resolved : $request->attributes->all();
+    $variables = [];
+    foreach ($source as $variable => $value) {
+      if (is_string($variable) && '_' !== ($variable[0] ?? '')) {
+        $variables[$variable] = $value;
+      }
+    }
+
+    return $variables;
   }
 
   /**

@@ -68,45 +68,64 @@ final readonly class HttpIdempotencyResourceMetadataCollectionFactory implements
     $collection = $this->inner->create($resourceClass);
     $resources = [];
     foreach ($collection as $resource) {
-      $httpOperations = clone ($resource->getOperations() ?? new \ApiPlatform\Metadata\Operations());
+      $declaredOperations = $resource->getOperations() ?? new \ApiPlatform\Metadata\Operations();
+      $httpOperations = clone $declaredOperations;
       foreach ($httpOperations as $name => $http) {
-        $operation = $this->operations->find($http->getName() ?? $name);
-        if (null === $operation) {
-          if (in_array($name, $this->nativeProofOperations, true)) {
-            $extra = $http->getExtraProperties();
-            $extra['http_idempotency_native_proof'] = true;
-            $httpOperations->add($name, $http->withExtraProperties($extra));
-
-            continue;
-          }
-          if ($this->required && in_array($http->getMethod(), ['POST', 'PUT', 'PATCH', 'DELETE'], true) && !in_array($name, $this->readOnlyOperations, true)) {
-            throw new LogicException(sprintf('HTTP mutation "%s" has no explicit idempotency owner.', $name));
-          }
-
-          continue;
-        }
-        $parameters = clone ($http->getParameters() ?? new Parameters());
-        $conditional = $this->conditionalKeyDescriptions[$operation->name] ?? null;
-        $description = $conditional ?? 'Opaque logical-operation key. Repeat the same key and request to obtain the original authorized outcome.';
-        $schema = ['type' => 'string', 'minLength' => 1, 'maxLength' => 255, 'pattern' => '^[!-~]+$'];
-        $parameters->add('Idempotency-Key', new HeaderParameter(
-          key: 'Idempotency-Key',
-          schema: $schema,
-          openApi: new Parameter('Idempotency-Key', 'header', $description, null === $conditional && $this->required && $operation->requiredKey, schema: $schema),
-          description: $description,
-          required: false,
-          constraints: [],
-          castToArray: false,
-          castToNativeType: false,
-        ));
-        $extra = $http->getExtraProperties();
-        $extra['http_idempotency'] = ['database' => $operation->database, 'transactionMode' => $operation->transactionMode, 'secret' => $operation->secret];
-        $httpOperations->add($name, $this->withConflictContract($http->withParameters($parameters)->withExtraProperties($extra)));
+        $httpOperations->add($name, $this->withIdempotencyContract($name, $http));
       }
       $resources[] = $resource->withOperations($httpOperations);
     }
 
     return new ResourceMetadataCollection($resourceClass, $resources);
+  }
+
+  /**
+   * Method withIdempotencyContract
+   *
+   * Preserves native protocol exceptions and decorates one explicitly owned mutation.
+   *
+   * @access private
+   *
+   * @param string $name the resource's operation key
+   * @param HttpOperation $http the framework operation
+   *
+   * @return HttpOperation the validated and annotated operation
+   */
+  private function withIdempotencyContract(string $name, HttpOperation $http): HttpOperation
+  {
+    $operation = $this->operations->find($http->getName() ?? $name);
+    if (null === $operation) {
+      if (in_array($name, $this->nativeProofOperations, true)) {
+        $extra = $http->getExtraProperties();
+        $extra['http_idempotency_native_proof'] = true;
+
+        return $http->withExtraProperties($extra);
+      }
+      if ($this->required && in_array($http->getMethod(), ['POST', 'PUT', 'PATCH', 'DELETE'], true) && !in_array($name, $this->readOnlyOperations, true)) {
+        throw new LogicException(sprintf('HTTP mutation "%s" has no explicit idempotency owner.', $name));
+      }
+
+      return $http;
+    }
+    $declaredParameters = $http->getParameters() ?? new Parameters();
+    $parameters = clone $declaredParameters;
+    $conditional = $this->conditionalKeyDescriptions[$operation->name] ?? null;
+    $description = $conditional ?? 'Opaque logical-operation key. Repeat the same key and request to obtain the original authorized outcome.';
+    $schema = ['type' => 'string', 'minLength' => 1, 'maxLength' => 255, 'pattern' => '^[!-~]+$'];
+    $parameters->add('Idempotency-Key', new HeaderParameter(
+      key: 'Idempotency-Key',
+      schema: $schema,
+      openApi: new Parameter('Idempotency-Key', 'header', $description, null === $conditional && $this->required && $operation->requiredKey, schema: $schema),
+      description: $description,
+      required: false,
+      constraints: [],
+      castToArray: false,
+      castToNativeType: false,
+    ));
+    $extra = $http->getExtraProperties();
+    $extra['http_idempotency'] = ['database' => $operation->database, 'transactionMode' => $operation->transactionMode, 'secret' => $operation->secret];
+
+    return $this->withConflictContract($http->withParameters($parameters)->withExtraProperties($extra));
   }
 
   /**
@@ -157,14 +176,16 @@ final readonly class HttpIdempotencyResourceMetadataCollectionFactory implements
       return $http->withOpenapi($extended);
     }
     $response = $existing instanceof Response ? clone $existing : new Response(description: 'Idempotency conflict, in-progress operation, uncertain outcome or expired original result.');
-    $content = clone ($response->getContent() ?? new ArrayObject());
+    $declaredContent = $response->getContent() ?? new ArrayObject();
+    $content = clone $declaredContent;
     $existingMedia = $content['application/problem+json'] ?? null;
     if ($existingMedia instanceof MediaType) {
       $existingSchema = $existingMedia->getSchema();
       if (null !== $existingSchema) {
         $schema = ['anyOf' => [$existingSchema->getArrayCopy(), $schema]];
       }
-      $mergedExamples = clone ($existingMedia->getExamples() ?? new ArrayObject());
+      $declaredExamples = $existingMedia->getExamples() ?? new ArrayObject();
+      $mergedExamples = clone $declaredExamples;
       foreach ($examples as $name => $example) {
         $mergedExamples[$name] = $example;
       }

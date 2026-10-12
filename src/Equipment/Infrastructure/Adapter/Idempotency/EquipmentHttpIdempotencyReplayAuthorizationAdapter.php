@@ -61,17 +61,56 @@ final readonly class EquipmentHttpIdempotencyReplayAuthorizationAdapter implemen
       return $facts;
     }
     if (null !== $storedProof) {
-      $currentIntervention = $this->value($row, 'intervention_id');
-      if (null !== $currentIntervention && isset($facts['interventionId']) && $currentIntervention !== $facts['interventionId']) {
-        $this->deny();
-      }
-      $intervention = $this->value($row, 'intervention_id') ?? $facts['interventionId'] ?? null;
-      if (null !== $intervention && ($facts['interventionPermission'] ?? '') === 'organization.interventions.execute') {
-        $this->interventions->assertExecutionAccess($organization, $intervention, $request->principalId);
-      }
+      $this->assertStoredInterventionAccess($request, $row, $organization, $facts);
 
       return $facts;
     }
+
+    return $this->authorizeMutation($request, $row, $organization, $facts);
+  }
+
+  /**
+   * Method assertStoredInterventionAccess
+   *
+   * Rechecks the original intervention assignment and execution grant before opening the saved result.
+   *
+   * @access private
+   *
+   * @param HttpIdempotencyAuthorizationRequest $request the verified current caller
+   * @param array<string, mixed>|null $row current equipment scope, absent after deletion
+   * @param string $organization the freshly authorized owning organization
+   * @param array<string, string> $facts the authenticated original scope and grants
+   *
+   * @return void
+   */
+  private function assertStoredInterventionAccess(HttpIdempotencyAuthorizationRequest $request, ?array $row, string $organization, array $facts): void
+  {
+    $currentIntervention = $this->value($row, 'intervention_id');
+    if (null !== $currentIntervention && isset($facts['interventionId']) && $currentIntervention !== $facts['interventionId']) {
+      $this->deny();
+    }
+    $intervention = $currentIntervention ?? $facts['interventionId'] ?? null;
+    if (null !== $intervention && ($facts['interventionPermission'] ?? '') === 'organization.interventions.execute') {
+      $this->interventions->assertExecutionAccess($organization, $intervention, $request->principalId);
+    }
+  }
+
+  /**
+   * Method authorizeMutation
+   *
+   * Captures the exact original write or intervention execution grant for a new equipment mutation.
+   *
+   * @access private
+   *
+   * @param HttpIdempotencyAuthorizationRequest $request the verified logical mutation
+   * @param array<string, mixed>|null $row the current equipment scope
+   * @param string $organization the authorized owning organization
+   * @param array<string, string> $facts the common caller and organization evidence
+   *
+   * @return array<string, string> complete evidence for the first execution
+   */
+  private function authorizeMutation(HttpIdempotencyAuthorizationRequest $request, ?array $row, string $organization, array $facts): array
+  {
     $permission = 'organization.equipment.write';
     $intervention = $this->bodyId($request, 'intervention', 'interventions');
     if (null === $intervention && ('draft' === $this->value($row, 'record_status') || null === $row)) {
@@ -94,33 +133,81 @@ final readonly class EquipmentHttpIdempotencyReplayAuthorizationAdapter implemen
   {
     $kind = $request->operation->resourceKind;
     $saved = $proof?->metadata['resourceId'] ?? null;
-    if ('equipment_type' === $kind) {
-      $code = $saved ?? $this->route($request, 'typeCode');
-      $organization = $this->route($request, 'organizationId');
-      if (null === $code || null === $organization) {
-        return null;
-      }
-      $row = $this->connection->fetchAssociative('SELECT organization_id FROM equipment_type_catalog WHERE organization_id = :org AND type_code = :code', ['org' => $organization, 'code' => $code]);
 
-      return false === $row ? null : $row;
+    return match ($kind) {
+      'equipment_type' => $this->typeTarget($request, $saved),
+      'equipment_attachment' => $this->attachmentTarget($request, $saved),
+      default => $this->equipmentTarget($saved ?? $this->route($request, 'equipmentId') ?? $this->route($request, 'id')),
+    };
+  }
+
+  /**
+   * Method typeTarget
+   *
+   * Resolves a catalog code only inside the route's declared organization.
+   *
+   * @access private
+   *
+   * @param HttpIdempotencyAuthorizationRequest $request the verified catalog route
+   * @param string|null $saved the originally created resource identifier
+   *
+   * @return array<string, mixed>|null current owner scope, absent when the type is gone
+   */
+  private function typeTarget(HttpIdempotencyAuthorizationRequest $request, ?string $saved): ?array
+  {
+    $code = $saved ?? $this->route($request, 'typeCode');
+    $organization = $this->route($request, 'organizationId');
+    if (null === $code || null === $organization) {
+      return null;
     }
-    if ('equipment_attachment' === $kind) {
-      $attachment = $saved ?? $this->route($request, 'attachmentId') ?? $this->route($request, 'id');
-      if (null !== $attachment) {
-        $row = $this->connection->fetchAssociative('SELECT e.id, e.organization_id, e.intervention_id, e.record_status FROM equipment_attachments a JOIN equipment e ON e.id = a.equipment_id WHERE a.id = :id', ['id' => $attachment]);
-        if (false !== $row) {
-          $parent = $this->route($request, 'equipmentId');
-          if (null !== $parent && $this->value($row, 'id') !== $parent) {
-            $this->deny();
-          }
+    $row = $this->connection->fetchAssociative('SELECT organization_id FROM equipment_type_catalog WHERE organization_id = :org AND type_code = :code', ['org' => $organization, 'code' => $code]);
 
-          return $row;
+    return false === $row ? null : $row;
+  }
+
+  /**
+   * Method attachmentTarget
+   *
+   * Resolves an attachment's actual equipment and rejects a conflicting route parent.
+   *
+   * @access private
+   *
+   * @param HttpIdempotencyAuthorizationRequest $request the verified attachment route and input
+   * @param string|null $saved the original attachment identifier when replaying
+   *
+   * @return array<string, mixed>|null current equipment scope, absent when its parent is gone
+   */
+  private function attachmentTarget(HttpIdempotencyAuthorizationRequest $request, ?string $saved): ?array
+  {
+    $attachment = $saved ?? $this->route($request, 'attachmentId') ?? $this->route($request, 'id');
+    if (null !== $attachment) {
+      $row = $this->connection->fetchAssociative('SELECT e.id, e.organization_id, e.intervention_id, e.record_status FROM equipment_attachments a JOIN equipment e ON e.id = a.equipment_id WHERE a.id = :id', ['id' => $attachment]);
+      if (false !== $row) {
+        $parent = $this->route($request, 'equipmentId');
+        if (null !== $parent && $this->value($row, 'id') !== $parent) {
+          $this->deny();
         }
+
+        return $row;
       }
-      $id = $this->route($request, 'equipmentId') ?? $this->bodyId($request, 'equipment', 'equipment');
-    } else {
-      $id = $saved ?? $this->route($request, 'equipmentId') ?? $this->route($request, 'id');
     }
+
+    return $this->equipmentTarget($this->route($request, 'equipmentId') ?? $this->bodyId($request, 'equipment', 'equipment'));
+  }
+
+  /**
+   * Method equipmentTarget
+   *
+   * Reads the current main-database owner for the persisted or offline equipment identifier.
+   *
+   * @access private
+   *
+   * @param string|null $id the trusted route or saved equipment identifier
+   *
+   * @return array<string, mixed>|null current equipment scope, absent after deletion
+   */
+  private function equipmentTarget(?string $id): ?array
+  {
     if (null === $id) {
       return null;
     }
@@ -161,7 +248,11 @@ final readonly class EquipmentHttpIdempotencyReplayAuthorizationAdapter implemen
     $fields = $body['fields'] ?? (is_array($body['value'] ?? null) ? $body['value']['fields'] ?? null : null);
     $value = is_array($fields) ? $fields[$key] ?? null : null;
 
-    return is_string($value) && '' !== $value ? (str_starts_with($value, '/api/') ? ResourceIriParser::id($value, $collection) : $value) : null;
+    if (!is_string($value) || '' === $value) {
+      return null;
+    }
+
+    return str_starts_with($value, '/api/') ? ResourceIriParser::id($value, $collection) : $value;
   }
 
   /**

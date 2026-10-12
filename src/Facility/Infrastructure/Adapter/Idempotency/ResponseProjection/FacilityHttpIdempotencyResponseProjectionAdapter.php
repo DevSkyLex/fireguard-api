@@ -74,14 +74,33 @@ final readonly class FacilityHttpIdempotencyResponseProjectionAdapter implements
     if ($command instanceof AddFacilityAttachmentCommand && $result instanceof AddFacilityAttachmentResult) {
       return [new GetFacilityMediaContextQuery($command->userId ?? throw new IdempotencyDeniedException('result_unavailable'), attachmentId: $result->attachmentId, write: true)];
     }
+    $detail = $this->detailQuery($command, $result) ?? throw new IdempotencyDeniedException('result_unavailable');
+
+    return [$detail];
+  }
+
+  /**
+   * Method detailQuery
+   *
+   * Uses the newly cloned identifier or the mutation's original facility without broadening accepted command types.
+   *
+   * @access private
+   *
+   * @param CommandMessage $command the original owner command
+   * @param ResultMessage $result the original saved application result
+   *
+   * @return GetFacilityQuery|null the exact detail read, absent for an unsupported command/result pair
+   */
+  private function detailQuery(CommandMessage $command, ResultMessage $result): ?GetFacilityQuery
+  {
     if ($command instanceof DuplicateFacilitySubtreeCommand && $result instanceof DuplicateFacilitySubtreeResult) {
-      return [new GetFacilityQuery($command->organizationId, $result->facilityId)];
+      return new GetFacilityQuery($command->organizationId, $result->facilityId);
     }
     if ($command instanceof UpdateFacilityCommand || $command instanceof ArchiveFacilityCommand || $command instanceof RestoreFacilityCommand || $command instanceof MoveFacilityCommand || $command instanceof SetFacilityPlanGeometryCommand) {
-      return [new GetFacilityQuery($command->organizationId, $command->facilityId)];
+      return new GetFacilityQuery($command->organizationId, $command->facilityId);
     }
 
-    throw new IdempotencyDeniedException('result_unavailable');
+    return null;
   }
   // #endregion
 }

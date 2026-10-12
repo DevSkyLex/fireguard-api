@@ -6,7 +6,7 @@ namespace Auth\Presentation\Api\Processor\Federation;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Application\Contract\Federation\{FederatedLoginContext, ProviderId};
+use Auth\Application\Contract\Federation\{FederatedLogin, FederatedLoginContext, ProviderId};
 use Auth\Application\Contract\User\AuthenticatedUser;
 use Auth\Application\Port\Outbound\JwtTokenServicePort;
 use Auth\Application\UseCase\Command\Federation\CompleteFederation\CompleteFederationCommand;
@@ -20,7 +20,7 @@ use Otp\Application\Port\Inbound\Challenge\ChallengeAccessPort;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
-use Symfony\Component\HttpFoundation\RequestStack;
+use Symfony\Component\HttpFoundation\{Request, RequestStack};
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, TooManyRequestsHttpException};
 use Symfony\Component\RateLimiter\RateLimiterFactory;
 
@@ -153,6 +153,23 @@ final readonly class FederatedCompleteProcessor implements ProcessorInterface
       $request->attributes->set('_federated_flow_cookie', $this->flowCookieService->createReplayCookie($browserBinding, $login->browserProofExpiresAt));
     }
 
+    return $this->loginOutput($login, $request);
+  }
+
+  /**
+   * Method loginOutput
+   *
+   * Projects the session result and retains the absolute expiration of any refresh cookie.
+   *
+   * @access private
+   *
+   * @param FederatedLogin $login the completed sign-in result
+   * @param ?Request $request the current request receiving refresh-cookie attributes
+   *
+   * @return LoginOutput the existing token or MFA response shape
+   */
+  private function loginOutput(FederatedLogin $login, ?Request $request): LoginOutput
+  {
     $output = new LoginOutput();
     $output->returnUrl = $login->returnUrl;
     $output->newAccount = $login->newAccount;

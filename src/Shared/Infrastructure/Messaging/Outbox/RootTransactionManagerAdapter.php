@@ -91,36 +91,7 @@ final readonly class RootTransactionManagerAdapter implements RootTransactionMan
         $this->idempotency?->beforeCommit($this->database, $result);
       }
     } catch (Throwable $failure) {
-      try {
-        $this->connection->rollBack();
-      } catch (Throwable $rollbackFailure) {
-        $this->connection->close();
-
-        try {
-          $this->clearPersistenceState($failure, $rollbackFailure);
-        } finally {
-          if ($tracked) {
-            $this->markUnknown();
-          }
-        }
-
-        throw new CommitOutcomeUnknownException($failure, $rollbackFailure);
-      }
-
-      try {
-        $this->clearPersistenceState($failure);
-        if ($tracked) {
-          $this->idempotency?->confirmedRollback($this->database);
-        }
-      } catch (Throwable $resetFailure) {
-        if ($tracked) {
-          $this->markUnknown();
-        }
-
-        throw $resetFailure;
-      }
-
-      throw DatabaseFailureTranslator::translate($failure);
+      $this->rollbackOperation($failure, $tracked);
     }
 
     try {
@@ -143,6 +114,52 @@ final readonly class RootTransactionManagerAdapter implements RootTransactionMan
     }
 
     return $result;
+  }
+
+  /**
+   * Method rollbackOperation
+   *
+   * Exposes the original failure only after rollback and persistence reset are confirmed.
+   *
+   * @access private
+   *
+   * @param Throwable $failure the failed owning operation
+   * @param bool $tracked whether the transaction owns a reserved HTTP receipt
+   *
+   * @return never
+   */
+  private function rollbackOperation(Throwable $failure, bool $tracked): never
+  {
+    try {
+      $this->connection->rollBack();
+    } catch (Throwable $rollbackFailure) {
+      $this->connection->close();
+
+      try {
+        $this->clearPersistenceState($failure, $rollbackFailure);
+      } finally {
+        if ($tracked) {
+          $this->markUnknown();
+        }
+      }
+
+      throw new CommitOutcomeUnknownException($failure, $rollbackFailure);
+    }
+
+    try {
+      $this->clearPersistenceState($failure);
+      if ($tracked) {
+        $this->idempotency?->confirmedRollback($this->database);
+      }
+    } catch (Throwable $resetFailure) {
+      if ($tracked) {
+        $this->markUnknown();
+      }
+
+      throw $resetFailure;
+    }
+
+    throw DatabaseFailureTranslator::translate($failure);
   }
 
   /**

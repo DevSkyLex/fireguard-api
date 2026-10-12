@@ -22,6 +22,9 @@ services:
       - '../../src/Shared/Infrastructure/Persistence/Doctrine/Record/'
       - '../../src/Shared/Infrastructure/Messaging/Outbox/OutboxEvent.php'
       - '../../src/Shared/Infrastructure/Idempotency/HttpIdempotencyExecutionState.php'
+      - '../../src/Shared/Infrastructure/Idempotency/HttpIdempotencySensitiveExecutionProof.php'
+      - '../../src/Shared/Infrastructure/Idempotency/HttpIdempotencyExecutionRecovery.php'
+      - '../../src/Shared/Infrastructure/Idempotency/HttpIdempotencyResultFacts.php'
       - '../../src/Shared/Infrastructure/Idempotency/HttpIdempotencyPendingCommand.php'
       - '../../src/Shared/Infrastructure/Idempotency/ResponseProjection/HttpIdempotencyResponseProjectionState.php'
       - '../../src/Shared/Infrastructure/DataFixtures/SeedFixtureAdapter.php'
@@ -78,6 +81,7 @@ services:
   Shared\Domain\Service\EventIdProvider: '@Shared\Infrastructure\Service\UuidEventIdProvider'
 
   # Port to Adapter bindings (Outbound Ports)
+  Shared\Application\Port\Outbound\AttachmentDownloadPort: '@Shared\Infrastructure\Adapter\Attachment\AttachmentDownloadAdapter'
   Shared\Application\Port\Outbound\CachePort: '@Shared\Infrastructure\Symfony\Adapter\Outbound\CacheAdapter'
   Shared\Application\Port\Outbound\ClockPort: '@Shared\Infrastructure\Symfony\Adapter\Outbound\SystemClockAdapter'
   Shared\Application\Port\Outbound\GeoIpLookupPort: '@Shared\Infrastructure\Adapter\GeoIp\DbIpGeoIpAdapter'

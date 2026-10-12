@@ -68,31 +68,12 @@ final readonly class OrdinaryHttpReplayAuthorizer implements OrdinaryHttpReplayA
    */
   public function authorize(HttpIdempotencyAuthorizationRequest $request, ?IdempotencyProof $storedProof, ?string $currentOrganizationId): array
   {
-    $actor = $this->users->current($request->principalId);
-    if (null === $actor || !$actor->active || $actor->principalId !== $request->principalId || $actor->tenantId !== $request->tenantId) {
-      $this->deny();
-    }
+    $actor = $this->currentActor($request);
     $platformKey = $this->platformKey($request->platformSecurityExpression);
-    $this->assertPlatformKey($request, $actor, $platformKey);
+    $this->assertPlatformKey($actor, $platformKey);
     $routeOrganization = $this->routeOrganization($request);
-    if ((null !== $routeOrganization || null !== $currentOrganizationId) && null === $this->organizations) {
-      $this->deny();
-    }
-    if (null !== $routeOrganization && null !== $currentOrganizationId && $routeOrganization !== $currentOrganizationId) {
-      if (null === $storedProof) {
-        throw new IdempotencyDeniedException('scope_not_found');
-      }
-      $this->deny();
-    }
-    $facts = [
-      'authorizationVersion' => '1',
-      'principalId' => $request->principalId,
-      'tenantId' => $request->tenantId ?? '',
-      'operation' => $request->operation->name,
-      'resourceUri' => $request->resourceUri,
-      'principalSecurityRevision' => (string) $actor->securityRevision,
-      'platformSecurityKey' => $platformKey,
-    ];
+    $this->assertCurrentOrganizationScope($routeOrganization, $currentOrganizationId, $storedProof);
+    $facts = $this->currentFacts($request, $actor, $platformKey);
     if (null === $storedProof) {
       $organization = $currentOrganizationId ?? $routeOrganization;
       if (null !== $organization) {
@@ -102,13 +83,129 @@ final readonly class OrdinaryHttpReplayAuthorizer implements OrdinaryHttpReplayA
       return $facts;
     }
     $proof = $storedProof->metadata;
+    $this->assertRecordedFacts($proof, $facts);
+    $this->assertPlatformKey($actor, $proof['platformSecurityKey'] ?? '');
+    $this->assertOriginalOrganization($proof['organizationId'] ?? null, $routeOrganization, $currentOrganizationId);
+    $organizations = $this->rows($proof['authorizationRequirements'] ?? null);
+    foreach ($organizations as $row) {
+      $this->assertOrganizationRequirement($request->principalId, $row);
+    }
+    foreach ($this->rows($proof['platformAuthorizationRequirements'] ?? null) as $row) {
+      $this->assertPlatformRequirement($actor, $row);
+    }
+
+    return $proof;
+  }
+
+  /**
+   * Method currentActor
+   *
+   * Checks fresh account identity and status before consulting any scope authority.
+   *
+   * @access private
+   *
+   * @param HttpIdempotencyAuthorizationRequest $request verified current caller and tenant
+   *
+   * @return HttpIdempotencyAccount the matching active account
+   */
+  private function currentActor(HttpIdempotencyAuthorizationRequest $request): HttpIdempotencyAccount
+  {
+    $actor = $this->users->current($request->principalId);
+    if (null === $actor || !$actor->active || $actor->principalId !== $request->principalId || $actor->tenantId !== $request->tenantId) {
+      $this->deny();
+    }
+
+    return $actor;
+  }
+
+  /**
+   * Method assertCurrentOrganizationScope
+   *
+   * A missing organization authority denies before a route mismatch can reveal resource scope.
+   *
+   * @access private
+   *
+   * @param string|null $routeOrganization organization declared by the current route
+   * @param string|null $currentOrganizationId current owner-resolved resource organization
+   * @param IdempotencyProof|null $storedProof signed replay proof, absent for first execution
+   *
+   * @return void
+   */
+  private function assertCurrentOrganizationScope(?string $routeOrganization, ?string $currentOrganizationId, ?IdempotencyProof $storedProof): void
+  {
+    if ((null !== $routeOrganization || null !== $currentOrganizationId) && null === $this->organizations) {
+      $this->deny();
+    }
+    if (null !== $routeOrganization && null !== $currentOrganizationId && $routeOrganization !== $currentOrganizationId) {
+      if (null === $storedProof) {
+        throw new IdempotencyDeniedException('scope_not_found');
+      }
+      $this->deny();
+    }
+  }
+
+  /**
+   * Method currentFacts
+   *
+   * Captures the current identity and declaration independently of signed historical requirements.
+   *
+   * @access private
+   *
+   * @param HttpIdempotencyAuthorizationRequest $request verified current operation context
+   * @param HttpIdempotencyAccount $actor matching active account
+   * @param string $platformKey current declared security requirement
+   *
+   * @return array<string, string> scalar authority facts for the current operation
+   */
+  private function currentFacts(HttpIdempotencyAuthorizationRequest $request, HttpIdempotencyAccount $actor, string $platformKey): array
+  {
+    return [
+      'authorizationVersion' => '1',
+      'principalId' => $request->principalId,
+      'tenantId' => $request->tenantId ?? '',
+      'operation' => $request->operation->name,
+      'resourceUri' => $request->resourceUri,
+      'principalSecurityRevision' => (string) $actor->securityRevision,
+      'platformSecurityKey' => $platformKey,
+    ];
+  }
+
+  /**
+   * Method assertRecordedFacts
+   *
+   * Rechecks identity and revision before invoking authorities for any signed original requirement.
+   *
+   * @access private
+   *
+   * @param array<string, string> $proof signed original authority facts
+   * @param array<string, string> $facts current authority facts
+   *
+   * @return void
+   */
+  private function assertRecordedFacts(array $proof, array $facts): void
+  {
     foreach (['authorizationVersion', 'principalId', 'tenantId', 'operation', 'resourceUri', 'principalSecurityRevision'] as $key) {
       if (($proof[$key] ?? null) !== $facts[$key]) {
         $this->deny();
       }
     }
-    $this->assertPlatformKey($request, $actor, $proof['platformSecurityKey'] ?? '');
-    $originalOrganization = $proof['organizationId'] ?? null;
+  }
+
+  /**
+   * Method assertOriginalOrganization
+   *
+   * Retains the original organization scope even when the mutated resource no longer exists.
+   *
+   * @access private
+   *
+   * @param string|null $originalOrganization organization captured in the signed original proof
+   * @param string|null $routeOrganization organization declared by the current route
+   * @param string|null $currentOrganizationId current owner-resolved resource organization
+   *
+   * @return void
+   */
+  private function assertOriginalOrganization(?string $originalOrganization, ?string $routeOrganization, ?string $currentOrganizationId): void
+  {
     if (null !== $originalOrganization && null === $this->organizations) {
       $this->deny();
     }
@@ -118,28 +215,36 @@ final readonly class OrdinaryHttpReplayAuthorizer implements OrdinaryHttpReplayA
     if (null !== $originalOrganization && '' === $originalOrganization) {
       $this->deny();
     }
-    $organizations = $this->rows($proof['authorizationRequirements'] ?? null);
-    foreach ($organizations as $row) {
-      $organization = $row['organizationId'] ?? null;
-      $permissions = $row['permissions'] ?? null;
-      $membership = $row['membership'] ?? null;
-      if (!is_string($organization) || '' === $organization || !is_array($permissions) || !array_is_list($permissions) || count($permissions) > 128 || !is_bool($membership) || null === $this->organizations) {
-        $this->deny();
-      }
-      if ($membership && !$this->organizations->isMemberOf($request->principalId, $organization)) {
-        $this->deny();
-      }
-      foreach ($permissions as $permission) {
-        if (!is_string($permission) || !$this->organizations->hasPermission($request->principalId, $organization, $permission)) {
-          $this->deny();
-        }
-      }
-    }
-    foreach ($this->rows($proof['platformAuthorizationRequirements'] ?? null) as $row) {
-      $this->assertPlatformRequirement($actor, $row);
-    }
+  }
 
-    return $proof;
+  /**
+   * Method assertOrganizationRequirement
+   *
+   * Validates each signed row before membership, then each permission in its original order.
+   *
+   * @access private
+   *
+   * @param string $principalId matching current caller
+   * @param array<string, mixed> $row signed organization requirement
+   *
+   * @return void
+   */
+  private function assertOrganizationRequirement(string $principalId, array $row): void
+  {
+    $organization = $row['organizationId'] ?? null;
+    $permissions = $row['permissions'] ?? null;
+    $membership = $row['membership'] ?? null;
+    if (!is_string($organization) || '' === $organization || !is_array($permissions) || !array_is_list($permissions) || count($permissions) > 128 || !is_bool($membership) || null === $this->organizations) {
+      $this->deny();
+    }
+    if ($membership && !$this->organizations->isMemberOf($principalId, $organization)) {
+      $this->deny();
+    }
+    foreach ($permissions as $permission) {
+      if (!is_string($permission) || !$this->organizations->hasPermission($principalId, $organization, $permission)) {
+        $this->deny();
+      }
+    }
   }
 
   /**
@@ -187,13 +292,12 @@ final readonly class OrdinaryHttpReplayAuthorizer implements OrdinaryHttpReplayA
    *
    * @access private
    *
-   * @param HttpIdempotencyAuthorizationRequest $request current caller
    * @param HttpIdempotencyAccount $actor fresh active actor
    * @param string $key declared current or signed original security requirement
    *
    * @return void
    */
-  private function assertPlatformKey(HttpIdempotencyAuthorizationRequest $request, HttpIdempotencyAccount $actor, string $key): void
+  private function assertPlatformKey(HttpIdempotencyAccount $actor, string $key): void
   {
     if (!$this->platform->permitsKey($actor, $key)) {
       $this->deny();

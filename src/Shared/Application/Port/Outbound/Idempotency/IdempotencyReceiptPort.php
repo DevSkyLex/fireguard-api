@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Shared\Application\Port\Outbound\Idempotency;
 
 use DateTimeImmutable;
-use Shared\Application\Contract\Idempotency\{IdempotencyLease, IdempotencyReceipt};
+use Shared\Application\Contract\Idempotency\{IdempotencyCompletion, IdempotencyLease, IdempotencyReceipt};
 
 /**
  * Interface IdempotencyReceiptPort
@@ -48,17 +48,11 @@ interface IdempotencyReceiptPort
    * @access public
    *
    * @param IdempotencyLease $lease claimed fence
-   * @param string $payload opaque application result
-   * @param bool $secret encryption marker
-   * @param DateTimeImmutable $completedAt first completion time
-   * @param DateTimeImmutable $expiresAt immutable replay deadline
-   * @param array<string, string> $proof verified non-secret metadata
-   * @param string $proofMac canonical proof authentication
-   * @param string|null $organizationHash result-owner organization purge digest
+   * @param IdempotencyCompletion $completion opaque result with its immutable replay deadline and authenticated proof
    *
    * @return void
    */
-  public function complete(IdempotencyLease $lease, string $payload, bool $secret, DateTimeImmutable $completedAt, DateTimeImmutable $expiresAt, array $proof = [], string $proofMac = '', ?string $organizationHash = null): void;
+  public function complete(IdempotencyLease $lease, IdempotencyCompletion $completion): void;
 
   /**
    * Method releaseAfterRollback

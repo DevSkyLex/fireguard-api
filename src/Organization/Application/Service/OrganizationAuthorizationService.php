@@ -92,10 +92,7 @@ final class OrganizationAuthorizationService implements OrganizationAuthorizatio
   public function hasPermission(string $userId, string $organizationId, string $permission): bool
   {
     $permission = $this->permissionCatalog->canonicalName($permission);
-    if (null === $permission) {
-      return false;
-    }
-    if (!$this->isPermissionExercisable($organizationId, $permission)) {
+    if (null === $permission || !$this->isPermissionExercisable($organizationId, $permission)) {
       return false;
     }
 

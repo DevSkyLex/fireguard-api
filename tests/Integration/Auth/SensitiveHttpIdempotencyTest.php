@@ -21,7 +21,7 @@ use PHPUnit\Framework\Attributes\WithEnvironmentVariable;
 use Shared\Application\Contract\Idempotency\IdempotencyScope;
 use Shared\Application\Message\{CommandMessage, ResultMessage};
 use Shared\Application\Port\Outbound\Idempotency\{HttpIdempotencyPort, SensitiveIdempotencyProofPort};
-use Shared\Infrastructure\Idempotency\HttpIdempotencyExecutionContext;
+use Shared\Infrastructure\Idempotency\{HttpIdempotencyExecutionContext, HttpIdempotencySensitiveExecutionProof};
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
 use Symfony\Component\HttpKernel\Exception\UnauthorizedHttpException;
@@ -262,7 +262,7 @@ final class SensitiveHttpIdempotencyTest extends KernelTestCase
       $authorization = $policy->authorize($command, $stored);
     }
     $begin = $this->engine->begin($scope, $key, $authorization->canonicalInput);
-    $this->execution->activate($operation, $this->engine, $begin, $authorization->receiptProof, $policy, $command, $stored);
+    $this->execution->activate($operation, $this->engine, $begin, $authorization->receiptProof, new HttpIdempotencySensitiveExecutionProof($policy, $command, $stored));
 
     return $this->execution->dispatchPrimary($command, static fn (): ResultMessage => $handler($command));
   }

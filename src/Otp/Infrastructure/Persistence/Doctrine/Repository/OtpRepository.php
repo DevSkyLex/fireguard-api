@@ -25,6 +25,22 @@ use function is_int;
  */
 final readonly class OtpRepository implements OtpRepositoryPort
 {
+  // #region Properties
+  /**
+   * Constant USER_FILTER
+   *
+   * @var string owner-bound challenge filter
+   */
+  private const string USER_FILTER = 'o.userId = :userId';
+
+  /**
+   * Constant PURPOSE_FILTER
+   *
+   * @var string purpose-bound challenge filter
+   */
+  private const string PURPOSE_FILTER = 'o.purpose = :purpose';
+  // #endregion
+
   // #region Constructor
   /**
    * Constructor.
@@ -105,8 +121,8 @@ final readonly class OtpRepository implements OtpRepositoryPort
     $repository = $this->entityManager->getRepository(OtpRecord::class);
 
     $record = $repository->createQueryBuilder('o')
-      ->where('o.userId = :userId')
-      ->andWhere('o.purpose = :purpose')
+      ->where(self::USER_FILTER)
+      ->andWhere(self::PURPOSE_FILTER)
       ->andWhere('o.expiresAt > :now')
       ->andWhere('o.verifiedAt IS NULL')
       ->setParameter('userId', $userId)
@@ -175,8 +191,8 @@ final readonly class OtpRepository implements OtpRepositoryPort
     $result = $this->entityManager->createQueryBuilder()
       ->update(OtpRecord::class, 'o')
       ->set('o.expiresAt', ':now')
-      ->where('o.userId = :userId')
-      ->andWhere('o.purpose = :purpose')
+      ->where(self::USER_FILTER)
+      ->andWhere(self::PURPOSE_FILTER)
       ->andWhere('o.expiresAt > :now')
       ->andWhere('o.verifiedAt IS NULL')
       ->setParameter('userId', $userId)
@@ -205,8 +221,8 @@ final readonly class OtpRepository implements OtpRepositoryPort
   {
     $query = $this->entityManager->getRepository(OtpRecord::class)->createQueryBuilder('o')
       ->where('o.challengeToken = :token')
-      ->andWhere('o.userId = :userId')
-      ->andWhere('o.purpose = :purpose')
+      ->andWhere(self::USER_FILTER)
+      ->andWhere(self::PURPOSE_FILTER)
       ->setParameter('token', $token->value)
       ->setParameter('userId', $userId)
       ->setParameter('purpose', $purpose->value)

@@ -6,11 +6,13 @@ namespace Tests\Unit\Intervention\Infrastructure\Adapter\Idempotency;
 
 use DateTimeImmutable;
 use Doctrine\DBAL\Connection;
+use Intervention\Application\Contract\Resource\InterventionAssignmentContext;
 use Intervention\Application\Port\Inbound\FreshInterventionScopePort;
 use Intervention\Application\Service\{InterventionActionPolicy, InterventionMemberPolicy};
 use Intervention\Domain\Service\{InterventionChangePolicy, InterventionMutabilityPolicy, InterventionTransitionPolicy};
 use Intervention\Infrastructure\Adapter\Idempotency\{InterventionHttpIdempotencyOperationContributionAdapter, InterventionHttpIdempotencyReplayAuthorizationAdapter};
 use Organization\Application\Port\Inbound\{FreshOrganizationAuthorizationPort, FreshOrganizationMemberDirectoryPort, FreshOrganizationWorkforceDirectoryPort};
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Contract\Http\HttpIdempotencyAuthorizationRequest;
 use Shared\Application\Contract\Idempotency\{IdempotencyDeniedException, IdempotencyProof};
@@ -72,6 +74,94 @@ final class InterventionHttpIdempotencyReplayAuthorizationAdapterTest extends Te
     $interventions->expects(self::once())->method('assertExecutionAccess')->with('org', 'intervention', 'user', 'task');
     $proof = new IdempotencyProof(['organizationId' => 'org', 'interventionId' => 'intervention', 'interventionPermission' => 'organization.interventions.execute', 'executionWorkItemId' => 'task'], new DateTimeImmutable('+1 day'));
     self::assertSame($proof->metadata, $this->adapter($connection, $interventions, [])->authorize($this->request('intervention_work_item_update'), $proof));
+  }
+
+  public function testTransferredCurrentTargetDeniesBeforeExecutionProofIsUsed(): void
+  {
+    $connection = $this->createStub(Connection::class);
+    $connection->method('fetchAssociative')->willReturn(['id' => 'other', 'organization_id' => 'org', 'intervention_id' => 'other']);
+    $interventions = $this->createMock(FreshInterventionScopePort::class);
+    $interventions->expects(self::never())->method('assertExecutionAccess');
+    $proof = new IdempotencyProof(['organizationId' => 'org', 'interventionId' => 'intervention', 'interventionPermission' => 'organization.interventions.execute'], new DateTimeImmutable('+1 day'));
+    $this->expectException(IdempotencyDeniedException::class);
+    $this->adapter($connection, $interventions, [])->authorize($this->request('intervention_work_item_update'), $proof);
+  }
+
+  public function testDeletedTaskRetainsOriginalAssigneeUnderTheCurrentParentPolicy(): void
+  {
+    $connection = $this->createStub(Connection::class);
+    $connection->method('fetchAssociative')->willReturn(false);
+    $interventions = $this->createMock(FreshInterventionScopePort::class);
+    $interventions->method('context')->willReturn(new InterventionAssignmentContext('intervention', 'org', 'published'));
+    $interventions->expects(self::once())->method('assertRetainedWorkItemExecutionAccess')->with('org', 'intervention', 'user', 'original-assignee');
+    $interventions->expects(self::never())->method('assertExecutionAccess');
+    $proof = new IdempotencyProof(['organizationId' => 'org', 'interventionId' => 'intervention', 'interventionPermission' => 'organization.interventions.execute', 'executionWorkItemId' => 'task', 'executionAssigneeId' => 'original-assignee'], new DateTimeImmutable('+1 day'));
+
+    self::assertSame($proof->metadata, $this->adapter($connection, $interventions, [])->authorize($this->request('intervention_work_item_delete'), $proof));
+  }
+
+  public function testDeletedTaskWithoutOriginalAssigneeFailsClosed(): void
+  {
+    $connection = $this->createStub(Connection::class);
+    $connection->method('fetchAssociative')->willReturn(false);
+    $interventions = $this->createMock(FreshInterventionScopePort::class);
+    $interventions->method('context')->willReturn(new InterventionAssignmentContext('intervention', 'org', 'published'));
+    $interventions->expects(self::never())->method('assertRetainedWorkItemExecutionAccess');
+    $proof = new IdempotencyProof(['organizationId' => 'org', 'interventionId' => 'intervention', 'interventionPermission' => 'organization.interventions.execute', 'executionWorkItemId' => 'task'], new DateTimeImmutable('+1 day'));
+    $this->expectException(IdempotencyDeniedException::class);
+    $this->adapter($connection, $interventions, [])->authorize($this->request('intervention_work_item_delete'), $proof);
+  }
+
+  #[DataProvider('malformedOriginalMembers')]
+  public function testDeletedInterventionRejectsMalformedOriginalMembers(string $members): void
+  {
+    $connection = $this->createStub(Connection::class);
+    $connection->method('fetchAssociative')->willReturn(false);
+    $interventions = $this->createMock(FreshInterventionScopePort::class);
+    $interventions->method('context')->willReturn(null);
+    $interventions->expects(self::never())->method('assertRetainedInterventionExecutionAccess');
+    $proof = new IdempotencyProof(['organizationId' => 'org', 'interventionId' => 'intervention', 'interventionPermission' => 'organization.interventions.execute', 'executionResponsibleId' => '', 'executionParticipants' => $members, 'executionAssigneeId' => ''], new DateTimeImmutable('+1 day'));
+    $this->expectException(IdempotencyDeniedException::class);
+    $this->adapter($connection, $interventions, [])->authorize($this->request('intervention_delete'), $proof);
+  }
+
+  /**
+   * @return iterable<string, array{string}> invalid retained team representations
+   */
+  public static function malformedOriginalMembers(): iterable
+  {
+    yield 'non-list object' => ['{"member":"participant"}'];
+    yield 'number instead of identity' => ['[123]'];
+    yield 'null instead of identity' => ['[null]'];
+    yield 'non-array value' => ['"participant"'];
+  }
+
+  public function testFirstExecutionCapturesTheOriginalTaskAndTeamAfterAuthorization(): void
+  {
+    $connection = $this->createStub(Connection::class);
+    $connection->method('fetchAssociative')->willReturn(['id' => 'intervention', 'organization_id' => 'org', 'status' => 'in_progress', 'intervention_id' => 'intervention', 'resource_id' => 'task']);
+    $connection->method('fetchOne')->willReturn('assignee');
+    $interventions = $this->createMock(FreshInterventionScopePort::class);
+    $interventions->expects(self::once())->method('assertExecutionAccess')->with('org', 'intervention', 'user', 'task');
+    $interventions->method('context')->willReturn(new InterventionAssignmentContext('intervention', 'org', 'in_progress', 'responsible', ['participant']));
+    $facts = $this->adapter($connection, $interventions, ['organization.interventions.execute'])->authorize($this->request('intervention_work_item_update', ['status' => 'completed']), null);
+
+    self::assertSame('intervention', $facts['interventionId']);
+    self::assertSame('organization.interventions.execute', $facts['interventionPermission']);
+    self::assertSame('responsible', $facts['executionResponsibleId']);
+    self::assertSame('["participant"]', $facts['executionParticipants']);
+    self::assertSame('task', $facts['executionWorkItemId']);
+    self::assertSame('assignee', $facts['executionAssigneeId']);
+  }
+
+  public function testTimeEntryRechecksTaskOrganizationAfterTheOrdinaryScopeRead(): void
+  {
+    $connection = $this->createStub(Connection::class);
+    $connection->method('fetchAssociative')->willReturnOnConsecutiveCalls(['id' => 'intervention', 'organization_id' => 'org', 'intervention_id' => 'intervention'], ['id' => 'task', 'organization_id' => 'foreign']);
+    $request = $this->request('intervention_time_create');
+    $request = new HttpIdempotencyAuthorizationRequest($request->principalId, $request->tenantId, $request->operation, $request->resourceUri, ['taskId' => 'task'], $request->canonicalInput);
+    $this->expectException(IdempotencyDeniedException::class);
+    $this->adapter($connection, $this->createStub(FreshInterventionScopePort::class), [])->authorize($request, null);
   }
 
   /**

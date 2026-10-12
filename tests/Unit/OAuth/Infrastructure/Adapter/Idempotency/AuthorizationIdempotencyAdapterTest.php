@@ -62,7 +62,11 @@ final class AuthorizationIdempotencyAdapterTest extends TestCase
 
     self::assertTrue($opened);
     self::assertSame(1, $codeChecks);
-    self::assertSame($reconcile ? 2 : 1, $ownerChecks);
+    if ($reconcile) {
+      self::assertSame(2, $ownerChecks);
+    } else {
+      self::assertSame(1, $ownerChecks);
+    }
     self::assertSame(302, $result->statusCode);
     self::assertSame('https://client.example/callback?code=original-code', $result->redirectLocation);
     self::assertTrue($result->replayed);

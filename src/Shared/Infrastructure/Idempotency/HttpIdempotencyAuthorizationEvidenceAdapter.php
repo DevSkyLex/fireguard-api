@@ -12,6 +12,7 @@ use function array_unique;
 use function array_values;
 use function count;
 use function in_array;
+use function is_array;
 use function json_encode;
 use function ksort;
 use function sort;
@@ -206,9 +207,12 @@ final readonly class HttpIdempotencyAuthorizationEvidenceAdapter implements Http
    */
   private function data(Request $request): array
   {
-    /** @var array{organizations: array<string, array{organizationId: string, permissions: list<string>, membership: bool}>, platform: array<string, array{kind: string, names: list<string>}>} $data */
     $data = $request->attributes->get(self::ATTRIBUTE, ['organizations' => [], 'platform' => []]);
+    if (!is_array($data)) {
+      throw new IdempotencyDeniedException('authorization_unavailable');
+    }
 
+    /** @var array{organizations: array<string, array{organizationId: string, permissions: list<string>, membership: bool}>, platform: array<string, array{kind: string, names: list<string>}>} $data */
     return $data;
   }
   // #endregion

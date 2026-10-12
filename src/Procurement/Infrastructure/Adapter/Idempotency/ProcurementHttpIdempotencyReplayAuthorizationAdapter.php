@@ -107,40 +107,10 @@ final readonly class ProcurementHttpIdempotencyReplayAuthorizationAdapter implem
       $row = $this->resource($organization, $kind, $target);
       $this->relationships($request, $organization, $kind, $row, $fields);
     }
-    if (in_array($operation, ['procurement_create_order', 'procurement_change_order'], true)) {
-      if (array_key_exists('supplierId', $fields)) {
-        $this->resource($organization, 'supplier', $this->identifier($fields['supplierId']));
-      }
-      $lines = $fields['lines'] ?? [];
-      if (is_array($lines)) {
-        foreach ($lines as $line) {
-          $line = $this->fields($line);
-          $this->catalogLine($organization, $line);
-          if (array_key_exists('unitCost', $line)) {
-            $this->permission($request, $organization, 'organization.maintenance_cost.manage');
-          }
-        }
-      }
-    }
+    $this->assertSubmittedOrder($request, $organization, $fields);
     $financial = 'supplier' !== $request->operation->resourceKind && $this->organizations->hasPermission($request->principalId, $organization, 'organization.maintenance_cost.read');
     if (null !== $storedProof) {
-      if (($storedProof->metadata['resourceKind'] ?? null) !== $request->operation->resourceKind || (null !== $target && ($storedProof->metadata['procurementTargetId'] ?? null) !== $target)) {
-        $this->deny();
-      }
-      $originalFinancial = $storedProof->metadata['procurementFinancialReadable'] ?? null;
-      if (!in_array($originalFinancial, ['0', '1'], true) || ('1' === $originalFinancial && !$financial)) {
-        $this->deny();
-      }
-      $resultId = $this->identifier($storedProof->metadata['resourceId'] ?? null);
-      $result = $this->resource($organization, $request->operation->resourceKind, $resultId);
-      if ('procurement_receive' === $operation && ($result['order_id'] ?? null) !== $target) {
-        $this->notFound();
-      }
-      if (null !== $target && 'procurement_receive' !== $operation && $resultId !== $target) {
-        $this->deny();
-      }
-      $this->relationships($request, $organization, $request->operation->resourceKind, $result, []);
-      $financial = '1' === $originalFinancial;
+      $financial = $this->originalFinancialVisibility($request, $storedProof, $organization, $target, $financial);
     }
     $facts = $this->ordinary->authorize($request, $storedProof, $organization);
     $facts['procurementFinancialReadable'] = $financial ? '1' : '0';
@@ -149,6 +119,76 @@ final readonly class ProcurementHttpIdempotencyReplayAuthorizationAdapter implem
     }
 
     return $facts;
+  }
+
+  /**
+   * Method assertSubmittedOrder
+   *
+   * Rechecks submitted supplier, catalog goods and cost-writing authority.
+   *
+   * @access private
+   *
+   * @param HttpIdempotencyAuthorizationRequest $request the current owner operation
+   * @param string $organization the active owner scope
+   * @param array<array-key, mixed> $fields canonical submitted fields
+   *
+   * @return void
+   */
+  private function assertSubmittedOrder(HttpIdempotencyAuthorizationRequest $request, string $organization, array $fields): void
+  {
+    if (!in_array($request->operation->name, ['procurement_create_order', 'procurement_change_order'], true)) {
+      return;
+    }
+    if (array_key_exists('supplierId', $fields)) {
+      $this->resource($organization, 'supplier', $this->identifier($fields['supplierId']));
+    }
+    $lines = $fields['lines'] ?? [];
+    if (is_array($lines)) {
+      foreach ($lines as $line) {
+        $line = $this->fields($line);
+        $this->catalogLine($organization, $line);
+        if (array_key_exists('unitCost', $line)) {
+          $this->permission($request, $organization, 'organization.maintenance_cost.manage');
+        }
+      }
+    }
+  }
+
+  /**
+   * Method originalFinancialVisibility
+   *
+   * Rechecks the original result lineage and financial audience before disclosure.
+   *
+   * @access private
+   *
+   * @param HttpIdempotencyAuthorizationRequest $request the current owner operation
+   * @param IdempotencyProof $storedProof authenticated original result identity
+   * @param string $organization the active owner scope
+   * @param string|null $target the current route target
+   * @param bool $financial the current financial read grant
+   *
+   * @return bool the retained financial projection
+   */
+  private function originalFinancialVisibility(HttpIdempotencyAuthorizationRequest $request, IdempotencyProof $storedProof, string $organization, ?string $target, bool $financial): bool
+  {
+    if (($storedProof->metadata['resourceKind'] ?? null) !== $request->operation->resourceKind || (null !== $target && ($storedProof->metadata['procurementTargetId'] ?? null) !== $target)) {
+      $this->deny();
+    }
+    $originalFinancial = $storedProof->metadata['procurementFinancialReadable'] ?? null;
+    if (!in_array($originalFinancial, ['0', '1'], true) || ('1' === $originalFinancial && !$financial)) {
+      $this->deny();
+    }
+    $resultId = $this->identifier($storedProof->metadata['resourceId'] ?? null);
+    $result = $this->resource($organization, $request->operation->resourceKind, $resultId);
+    if ('procurement_receive' === $request->operation->name && ($result['order_id'] ?? null) !== $target) {
+      $this->notFound();
+    }
+    if (null !== $target && 'procurement_receive' !== $request->operation->name && $resultId !== $target) {
+      $this->deny();
+    }
+    $this->relationships($request, $organization, $request->operation->resourceKind, $result, []);
+
+    return '1' === $originalFinancial;
   }
 
   /**
@@ -167,29 +207,7 @@ final readonly class ProcurementHttpIdempotencyReplayAuthorizationAdapter implem
   private function relationships(HttpIdempotencyAuthorizationRequest $request, string $organization, ?string $kind, array $row, array $fields): void
   {
     if ('purchase_order' === $kind) {
-      $this->resource($organization, 'supplier', $this->identifier($row['supplier_id'] ?? null));
-      $lines = $row['lines'] ?? [];
-      $lines = is_string($lines) ? json_decode($lines, true, 32, JSON_THROW_ON_ERROR) : $lines;
-      if (!is_array($lines)) {
-        $this->notFound();
-      }
-      $requestedLine = $fields['lineId'] ?? null;
-      $found = null === $requestedLine;
-      foreach ($lines as $line) {
-        if (!is_array($line)) {
-          $this->notFound();
-        }
-        $this->catalogLine($organization, $line);
-        if ($requestedLine === ($line['id'] ?? null)) {
-          $found = true;
-          if ('procurement_receive' === $request->operation->name && 'part' === ($line['kind'] ?? null)) {
-            $this->permission($request, $organization, 'organization.inventory.manage');
-          }
-        }
-      }
-      if (!$found) {
-        $this->notFound();
-      }
+      $this->orderRelationships($request, $organization, $row, $fields);
     } elseif ('receipt' === $kind) {
       $order = $this->resource($organization, 'purchase_order', $this->identifier($row['order_id'] ?? null));
       $this->relationships($request, $organization, 'purchase_order', $order, ['lineId' => $row['line_id'] ?? null]);
@@ -204,6 +222,65 @@ final readonly class ProcurementHttpIdempotencyReplayAuthorizationAdapter implem
     if (null !== $warehouse && !$this->parts->warehouseExistsActive($organization, $this->identifier($warehouse))) {
       $this->notFound();
     }
+  }
+
+  /**
+   * Method orderRelationships
+   *
+   * Rechecks the supplier, each retained good and the requested receipt line.
+   *
+   * @access private
+   *
+   * @param HttpIdempotencyAuthorizationRequest $request the current owner operation
+   * @param string $organization the active owner scope
+   * @param array<string, mixed> $row the fresh purchase order
+   * @param array<array-key, mixed> $fields canonical requested line fields
+   *
+   * @return void
+   */
+  private function orderRelationships(HttpIdempotencyAuthorizationRequest $request, string $organization, array $row, array $fields): void
+  {
+    $this->resource($organization, 'supplier', $this->identifier($row['supplier_id'] ?? null));
+    $lines = $this->orderLines($row);
+    $requestedLine = $fields['lineId'] ?? null;
+    $found = null === $requestedLine;
+    foreach ($lines as $line) {
+      if (!is_array($line)) {
+        $this->notFound();
+      }
+      $this->catalogLine($organization, $line);
+      if ($requestedLine === ($line['id'] ?? null)) {
+        $found = true;
+        if ('procurement_receive' === $request->operation->name && 'part' === ($line['kind'] ?? null)) {
+          $this->permission($request, $organization, 'organization.inventory.manage');
+        }
+      }
+    }
+    if (!$found) {
+      $this->notFound();
+    }
+  }
+
+  /**
+   * Method orderLines
+   *
+   * Restores retained JSON lines without accepting malformed row representations.
+   *
+   * @access private
+   *
+   * @param array<string, mixed> $row the fresh purchase order
+   *
+   * @return array<array-key, mixed> the retained line list
+   */
+  private function orderLines(array $row): array
+  {
+    $lines = $row['lines'] ?? [];
+    $lines = is_string($lines) ? json_decode($lines, true, 32, JSON_THROW_ON_ERROR) : $lines;
+    if (!is_array($lines)) {
+      $this->notFound();
+    }
+
+    return $lines;
   }
 
   /**

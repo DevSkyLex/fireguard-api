@@ -87,6 +87,50 @@ final readonly class InventoryHttpIdempotencyReplayAuthorizationAdapter implemen
       $this->permission($request, $organization, 'organization.maintenance_cost.manage');
     }
     $body = $this->body($request);
+    $this->assertGoodsScope($operation, $organization, $body);
+    $context = $this->interventionContext($request, $organization, $body);
+    if ([] !== $context) {
+      $work = null === $context['workItemId'] ? null : $this->identifier($context['workItemId']);
+      $equipment = null === $context['equipmentId'] ? null : $this->identifier($context['equipmentId']);
+      $this->interventions->assertInventoryAccess($organization, $this->identifier($context['interventionId']), $work, $equipment, $request->principalId);
+    }
+    $target = $this->target($request, $storedProof, $organization);
+    $financial = $this->financialVisibility($request, $storedProof, $organization, $stock);
+    $facts = $this->ordinary->authorize($request, $storedProof, $organization);
+    $facts['inventoryFinancialReadable'] = $financial ? '1' : '0';
+    if (null !== $target) {
+      $facts['targetId'] = $target;
+    }
+    $this->requests->getCurrentRequest()?->attributes->set('_inventory_http_response_visibility', ['organizationId' => $organization, 'financial' => $financial]);
+
+    return $facts;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function financial(string $organizationId): ?bool
+  {
+    $visibility = $this->requests->getCurrentRequest()?->attributes->get('_inventory_http_response_visibility');
+
+    return is_array($visibility) && ($visibility['organizationId'] ?? null) === $organizationId && is_bool($visibility['financial'] ?? null) ? $visibility['financial'] : null;
+  }
+
+  /**
+   * Method assertGoodsScope
+   *
+   * Checks current part and warehouse ownership for new stock effects.
+   *
+   * @access private
+   *
+   * @param string $operation the selected owner operation
+   * @param string $organization the active scope
+   * @param array<array-key, mixed> $body the canonical input fields
+   *
+   * @return void
+   */
+  private function assertGoodsScope(string $operation, string $organization, array $body): void
+  {
     if (in_array($operation, ['inventory_consumptions_create', 'inventory_corrections_create'], true)) {
       foreach (['partId' => 'inventory_parts', 'warehouseId' => 'inventory_warehouses'] as $field => $table) {
         $id = $this->identifier($body[$field] ?? null);
@@ -95,7 +139,24 @@ final readonly class InventoryHttpIdempotencyReplayAuthorizationAdapter implemen
         }
       }
     }
-    $target = null;
+  }
+
+  /**
+   * Method interventionContext
+   *
+   * Resolves the current operational parent from input or retained declaration rows.
+   *
+   * @access private
+   *
+   * @param HttpIdempotencyAuthorizationRequest $request the selected owner operation
+   * @param string $organization the active scope
+   * @param array<array-key, mixed> $body the canonical input fields
+   *
+   * @return array{interventionId:mixed, workItemId:mixed, equipmentId:mixed}|array{} the current operational context
+   */
+  private function interventionContext(HttpIdempotencyAuthorizationRequest $request, string $organization, array $body): array
+  {
+    $operation = $request->operation->name;
     $context = [];
     if ('inventory_consumptions_create' === $operation) {
       $context = ['interventionId' => $this->identifier($body['interventionId'] ?? null), 'workItemId' => $body['workItemId'] ?? null, 'equipmentId' => $body['equipmentId'] ?? null];
@@ -107,11 +168,27 @@ final readonly class InventoryHttpIdempotencyReplayAuthorizationAdapter implemen
       }
       $context = ['interventionId' => $row['intervention_id'] ?? null, 'workItemId' => $row['work_item_id'] ?? null, 'equipmentId' => $row['equipment_id'] ?? null];
     }
-    if ([] !== $context) {
-      $work = null === $context['workItemId'] ? null : $this->identifier($context['workItemId']);
-      $equipment = null === $context['equipmentId'] ? null : $this->identifier($context['equipmentId']);
-      $this->interventions->assertInventoryAccess($organization, $this->identifier($context['interventionId']), $work, $equipment, $request->principalId);
-    }
+
+    return $context;
+  }
+
+  /**
+   * Method target
+   *
+   * Binds the original result or patched target to its current owner row.
+   *
+   * @access private
+   *
+   * @param HttpIdempotencyAuthorizationRequest $request the selected owner operation
+   * @param IdempotencyProof|null $storedProof authenticated original target facts
+   * @param string $organization the active scope
+   *
+   * @return string|null the retained result identity
+   */
+  private function target(HttpIdempotencyAuthorizationRequest $request, ?IdempotencyProof $storedProof, string $organization): ?string
+  {
+    $operation = $request->operation->name;
+    $target = null;
     if (null !== $storedProof || in_array($operation, ['inventory_parts_patch', 'inventory_warehouses_patch'], true)) {
       $target = $this->identifier(null !== $storedProof ? ($storedProof->metadata['resourceId'] ?? null) : ($request->uriVariables['id'] ?? null));
       $kind = $request->operation->resourceKind;
@@ -132,6 +209,26 @@ final readonly class InventoryHttpIdempotencyReplayAuthorizationAdapter implemen
         $this->notFound();
       }
     }
+
+    return $target;
+  }
+
+  /**
+   * Method financialVisibility
+   *
+   * Retains the original visibility while rejecting revoked financial access.
+   *
+   * @access private
+   *
+   * @param HttpIdempotencyAuthorizationRequest $request the current caller
+   * @param IdempotencyProof|null $storedProof authenticated original visibility
+   * @param string $organization the active scope
+   * @param bool $stock whether the operation exposes a stock result
+   *
+   * @return bool the authorized original financial projection
+   */
+  private function financialVisibility(HttpIdempotencyAuthorizationRequest $request, ?IdempotencyProof $storedProof, string $organization, bool $stock): bool
+  {
     $financial = $stock && $this->organizations->hasPermission($request->principalId, $organization, 'organization.maintenance_cost.read');
     if ($stock && null !== $storedProof) {
       $originalFinancial = $storedProof->metadata['inventoryFinancialReadable'] ?? null;
@@ -140,24 +237,8 @@ final readonly class InventoryHttpIdempotencyReplayAuthorizationAdapter implemen
       }
       $financial = '1' === $originalFinancial;
     }
-    $facts = $this->ordinary->authorize($request, $storedProof, $organization);
-    $facts['inventoryFinancialReadable'] = $financial ? '1' : '0';
-    if (null !== $target) {
-      $facts['targetId'] = $target;
-    }
-    $this->requests->getCurrentRequest()?->attributes->set('_inventory_http_response_visibility', ['organizationId' => $organization, 'financial' => $financial]);
 
-    return $facts;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function financial(string $organizationId): ?bool
-  {
-    $visibility = $this->requests->getCurrentRequest()?->attributes->get('_inventory_http_response_visibility');
-
-    return is_array($visibility) && ($visibility['organizationId'] ?? null) === $organizationId && is_bool($visibility['financial'] ?? null) ? $visibility['financial'] : null;
+    return $financial;
   }
 
   /**

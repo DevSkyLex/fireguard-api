@@ -9,6 +9,8 @@ use Authorization\Application\Port\Outbound\PermissionCatalogPort;
 use Authorization\Domain\ValueObject\PermissionName;
 use Doctrine\DBAL\Connection;
 
+use function array_values;
+
 /**
  * Class FreshAuthorizationAdapter
  *
@@ -74,13 +76,13 @@ final readonly class FreshAuthorizationAdapter implements FreshAuthorizationPort
    */
   public function roleNames(string $userId, ?string $tenantId): array
   {
-    /** @var list<string> $roles */
+    /** @var array<string> $roles */
     $roles = $this->connection->fetchFirstColumn(
       'SELECT DISTINCT r.name FROM role_assignments a JOIN roles r ON r.id = a.role_id WHERE a.subject_type = :subjectType AND a.subject_id = :userId AND (a.tenant_id IS NULL OR a.tenant_id = :tenantId) AND (r.tenant_id IS NULL OR r.tenant_id = :tenantId) AND (a.expires_at IS NULL OR a.expires_at > CURRENT_TIMESTAMP) ORDER BY r.name',
       ['subjectType' => 'user', 'userId' => $userId, 'tenantId' => $tenantId],
     );
 
-    return $roles;
+    return array_values($roles);
   }
   // #endregion
 }

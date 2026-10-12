@@ -12,21 +12,13 @@ use Shared\Application\Contract\Http\HttpIdempotencyOperation;
 use Shared\Application\Contract\Idempotency\{IdempotencyBegin, IdempotencyDeniedException, IdempotencyLease, IdempotencyProof, IdempotencySnapshot};
 use Shared\Application\Contract\Transaction\CommitOutcomeUnknownException;
 use Shared\Application\Message\{CommandMessage, ResultMessage, VoidResult};
-use Shared\Application\Port\Outbound\Idempotency\{ExternalIdempotencyReconciliationPort, HttpIdempotencyAuthorizationEvidencePort, HttpIdempotencyExecutionPort, HttpIdempotencyPort, IdempotencyFingerprintPort, SensitiveIdempotencyProofPort};
+use Shared\Application\Port\Outbound\Idempotency\{ExternalIdempotencyReconciliationPort, HttpIdempotencyAuthorizationEvidencePort, HttpIdempotencyExecutionPort, HttpIdempotencyPort, IdempotencyFingerprintPort};
 use Shared\Application\Service\Idempotency\HttpIdempotencyResultProofRegistry;
 use Shared\Infrastructure\Messaging\Outbox\RootTransactionManagerAdapter;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Throwable;
 
-use function array_key_exists;
-use function array_keys;
 use function array_replace;
-use function explode;
-use function get_object_vars;
-use function is_array;
-use function is_object;
-use function is_string;
-use function preg_match;
 use function trim;
 
 /**
@@ -39,20 +31,20 @@ use function trim;
  */
 final readonly class HttpIdempotencyExecutionContext implements HttpIdempotencyExecutionPort
 {
-  // #endregion
   // #region Constants
   /**
    * Constant ATTRIBUTE
    */
   private const string ATTRIBUTE = '_fireguard_http_idempotency_execution';
+  // #endregion
 
   // #region Properties
   /**
-   * Property reconciliation
+   * Property recovery
    *
-   * @var list<ExternalIdempotencyReconciliationPort> owner current-state reconciliation contributors
+   * Replays and reconciles only outcomes authorized by the execution's current owner gate.
    */
-  private array $reconciliation;
+  private HttpIdempotencyExecutionRecovery $recovery;
   // #endregion
 
   // #region Constructor
@@ -88,11 +80,7 @@ final readonly class HttpIdempotencyExecutionContext implements HttpIdempotencyE
     iterable $reconciliation = [],
     private ?HttpIdempotencyResultProofRegistry $resultProofs = null,
   ) {
-    $contributors = [];
-    foreach ($reconciliation as $contributor) {
-      $contributors[] = $contributor;
-    }
-    $this->reconciliation = $contributors;
+    $this->recovery = new HttpIdempotencyExecutionRecovery($codec, $responseProjections, $mainConnection, $authConnection, $reconciliation);
   }
   // #endregion
 
@@ -108,9 +96,7 @@ final readonly class HttpIdempotencyExecutionContext implements HttpIdempotencyE
    * @param HttpIdempotencyPort $engine its explicitly chosen database engine
    * @param IdempotencyBegin $begin reserved execution or completed matching replay
    * @param array<string, string> $proof currently verified nonsecret owner facts
-   * @param SensitiveIdempotencyProofPort|null $proofPolicy the sensitive owner's fresh proof policy
-   * @param CommandMessage|null $proofCommand the command whose current credentials were verified
-   * @param IdempotencyProof|null $storedProof the authenticated completed receipt metadata
+   * @param HttpIdempotencySensitiveExecutionProof|null $sensitive the sensitive owner's exact policy, command and receipt binding
    * @param (Closure(IdempotencyProof):void)|null $authorizeReconciliation fresh current gate for the selected uncertain committed receipt
    *
    * @return void
@@ -120,22 +106,20 @@ final readonly class HttpIdempotencyExecutionContext implements HttpIdempotencyE
     HttpIdempotencyPort $engine,
     IdempotencyBegin $begin,
     array $proof,
-    ?SensitiveIdempotencyProofPort $proofPolicy = null,
-    ?CommandMessage $proofCommand = null,
-    ?IdempotencyProof $storedProof = null,
+    ?HttpIdempotencySensitiveExecutionProof $sensitive = null,
     ?Closure $authorizeReconciliation = null,
   ): void {
     $request = $this->requests->getCurrentRequest() ?? throw new LogicException('HTTP idempotency requires a current request.');
     if (null !== $this->state()) {
       throw new LogicException('HTTP idempotency execution is already active.');
     }
-    if (null !== $proofPolicy && (null === $proofCommand || $proofCommand::class !== $operation->primaryCommand || (null !== $begin->replay && null === $storedProof))) {
+    if (null !== $sensitive && ($sensitive->command::class !== $operation->primaryCommand || (null !== $begin->replay && null === $sensitive->stored))) {
       throw new LogicException('Sensitive HTTP replay requires its exact currently proved command and receipt proof.');
     }
     if (isset($proof['principalId'])) {
       $this->authorizationEvidence?->begin($proof['principalId']);
     }
-    $request->attributes->set(self::ATTRIBUTE, new HttpIdempotencyExecutionState($operation, $engine, $begin, $proof, $proofPolicy, $proofCommand, $storedProof, $authorizeReconciliation));
+    $request->attributes->set(self::ATTRIBUTE, new HttpIdempotencyExecutionState($operation, $engine, $begin, $proof, $sensitive?->policy, $sensitive?->command, $sensitive?->stored, $authorizeReconciliation));
     $this->responseProjections?->activate($operation);
     if (null !== $begin->replay && null !== $this->responseProjections) {
       $projection = $this->codec->projection($begin->replay->body);
@@ -172,46 +156,14 @@ final readonly class HttpIdempotencyExecutionContext implements HttpIdempotencyE
 
     try {
       if (null !== $state->begin->replay) {
-        return $this->replayResult($state, $state->begin->replay);
-      }
-      if ('bus_owner' === $state->operation->transactionMode) {
-        $database = $state->operation->database;
-        $root = new RootTransactionManagerAdapter(
-          'main' === $database ? $this->mainConnection : $this->authConnection,
-          'main' === $database ? $this->mainEntityManager : $this->authEntityManager,
-          $this,
-          $database,
-        );
-        $result = $root->transactional($dispatch);
+        $result = $this->recovery->replayResult($state, $state->begin->replay);
       } else {
-        $result = $dispatch();
-      }
-      if (!$state->completed) {
-        $this->commitUnknown($state->operation->database);
-
-        throw new IdempotencyDeniedException('commit_unknown');
+        $result = $this->dispatchFresh($state, $dispatch);
       }
 
       return $result;
     } catch (CommitOutcomeUnknownException $failure) {
-      if (null !== $state->proofPolicy && null === $state->authorizeReconciliation) {
-        throw new IdempotencyDeniedException('commit_unknown');
-      }
-      $currentProof = null;
-      $gate = null === $state->authorizeReconciliation ? null : static function (IdempotencyProof $selected) use ($state, &$currentProof): void {
-        ($state->authorizeReconciliation ?? throw new LogicException('Reconciliation requires its current owner gate.'))($selected);
-        $currentProof = $selected;
-      };
-      $snapshot = null !== $state->begin->lease ? $state->engine->reconcile($state->begin->lease, $gate) : null;
-      if (null !== $snapshot) {
-        if (null !== $gate && null === $currentProof) {
-          throw new IdempotencyDeniedException('result_unavailable');
-        }
-
-        return $this->replayResult($state, $snapshot, $currentProof);
-      }
-
-      throw $failure;
+      return $this->recovery->reconcile($state, $failure);
     } catch (Throwable $failure) {
       if (!$state->finished && !$state->claimed && null !== $state->begin->lease) {
         $state->engine->confirmedRollback($state->begin->lease);
@@ -240,7 +192,7 @@ final readonly class HttpIdempotencyExecutionContext implements HttpIdempotencyE
     $body = $this->codec->encode($result, $state->operation);
     $proof = array_replace($state->proof, $this->authorizationEvidence?->snapshot() ?? []);
     if (null !== $state->operation->resultIdentifierProperty) {
-      $identifier = $this->resultIdentifier($result, $state->operation->resultIdentifierProperty, $state->operation->resultIdentifierNullable);
+      $identifier = HttpIdempotencyResultFacts::identifier($result, $state->operation->resultIdentifierProperty, $state->operation->resultIdentifierNullable);
       if (null !== $identifier) {
         $proof['resourceId'] = $identifier;
       }
@@ -392,7 +344,7 @@ final readonly class HttpIdempotencyExecutionContext implements HttpIdempotencyE
     if (null !== $contributor && null !== $state->captured) {
       $entityManager = 'main' === $database ? $this->mainEntityManager : $this->authEntityManager;
       $entityManager?->flush();
-      $proof = $this->mergeResultProof($state->snapshot->proof, $contributor->proofForResult($state->operation, $state->captured, $state->snapshot->proof));
+      $proof = HttpIdempotencyResultFacts::merge($state->snapshot->proof, $contributor->proofForResult($state->operation, $state->captured, $state->snapshot->proof));
       $state->snapshot = new IdempotencySnapshot($state->snapshot->statusCode, $state->snapshot->body, $state->snapshot->headers, $state->snapshot->secret, $proof);
     }
     $state->engine->beforeCommit($state->begin->lease, $state->snapshot);
@@ -433,7 +385,7 @@ final readonly class HttpIdempotencyExecutionContext implements HttpIdempotencyE
       if ($state->externalStarted) {
         $state->engine->commitUnknown($state->begin->lease);
         $state->finished = true;
-        $this->requestExternalReconciliation($state);
+        $this->recovery->requestExternalReconciliation($state);
 
         throw new IdempotencyDeniedException('commit_unknown');
       }
@@ -457,7 +409,7 @@ final readonly class HttpIdempotencyExecutionContext implements HttpIdempotencyE
     if ($this->activeFor($database) && null !== $state && null !== $state->begin->lease) {
       $state->engine->commitUnknown($state->begin->lease);
       $state->finished = true;
-      $this->requestExternalReconciliation($state);
+      $this->recovery->requestExternalReconciliation($state);
     }
   }
 
@@ -490,6 +442,41 @@ final readonly class HttpIdempotencyExecutionContext implements HttpIdempotencyE
   }
 
   /**
+   * Method dispatchFresh
+   *
+   * Preserves the declared bus or media transaction owner and requires its confirmed commit.
+   *
+   * @access private
+   *
+   * @param HttpIdempotencyExecutionState $state fresh reserved primary execution
+   * @param callable():ResultMessage $dispatch normal primary Messenger dispatch
+   *
+   * @return ResultMessage committed owner application result
+   */
+  private function dispatchFresh(HttpIdempotencyExecutionState $state, callable $dispatch): ResultMessage
+  {
+    if ('bus_owner' === $state->operation->transactionMode) {
+      $database = $state->operation->database;
+      $root = new RootTransactionManagerAdapter(
+        'main' === $database ? $this->mainConnection : $this->authConnection,
+        'main' === $database ? $this->mainEntityManager : $this->authEntityManager,
+        $this,
+        $database,
+      );
+      $result = $root->transactional($dispatch);
+    } else {
+      $result = $dispatch();
+    }
+    if (!$state->completed) {
+      $this->commitUnknown($state->operation->database);
+
+      throw new IdempotencyDeniedException('commit_unknown');
+    }
+
+    return $result;
+  }
+
+  /**
    * Method state
    *
    * @access private
@@ -503,122 +490,5 @@ final readonly class HttpIdempotencyExecutionContext implements HttpIdempotencyE
     return $state instanceof HttpIdempotencyExecutionState ? $state : null;
   }
 
-  /**
-   * Method mergeResultProof
-   *
-   * @access private
-   *
-   * @param array<string, string> $verifiedFacts signed authority and result facts to preserve
-   * @param mixed $newFacts runtime owner result-proof contribution
-   *
-   * @return array<string, string> scalar facts with unchanged verified authority
-   */
-  private function mergeResultProof(array $verifiedFacts, mixed $newFacts): array
-  {
-    if (!is_array($newFacts)) {
-      throw new IdempotencyDeniedException('authorization_unavailable');
-    }
-    foreach ($newFacts as $key => $value) {
-      if (!is_string($key) || !is_string($value) || (array_key_exists($key, $verifiedFacts) && $verifiedFacts[$key] !== $value)) {
-        throw new IdempotencyDeniedException('authorization_unavailable');
-      }
-      $verifiedFacts[$key] = $value;
-    }
-
-    return $verifiedFacts;
-  }
-
-  /**
-   * Method resultIdentifier
-   *
-   * Reads a bounded owner-declared public property path after the immutable result schema has been validated.
-   *
-   * @access private
-   *
-   * @param ResultMessage $result validated primary result
-   * @param string $path explicitly declared public identifier path
-   * @param bool $nullable whether the owner explicitly permits a present null identifier
-   *
-   * @return string|null the nonsecret owner resource identifier when established
-   */
-  private function resultIdentifier(ResultMessage $result, string $path, bool $nullable): ?string
-  {
-    if (!preg_match('/^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*){0,3}$/D', $path)) {
-      throw new IdempotencyDeniedException('result_unavailable');
-    }
-    $value = $result;
-    foreach (explode('.', $path) as $segment) {
-      $fields = is_object($value) ? get_object_vars($value) : $value;
-      if (!is_array($fields) || !array_key_exists($segment, $fields)) {
-        throw new IdempotencyDeniedException('result_unavailable');
-      }
-      $value = $fields[$segment];
-    }
-    if (null === $value && $nullable) {
-      return null;
-    }
-    if (!is_string($value) || '' === $value) {
-      throw new IdempotencyDeniedException('result_unavailable');
-    }
-
-    return $value;
-  }
-
-  /**
-   * Method requestExternalReconciliation
-   *
-   * Delegates current-state reconciliation only after the owning connection has ended its transaction.
-   *
-   * @access private
-   *
-   * @param HttpIdempotencyExecutionState $state the durable unknown execution with nonsecret verified scope
-   *
-   * @return void
-   */
-  private function requestExternalReconciliation(HttpIdempotencyExecutionState $state): void
-  {
-    $connection = 'main' === $state->operation->database ? $this->mainConnection : $this->authConnection;
-    if (!$state->externalStarted || $state->reconciliationRequested || null === $state->begin->lease || $connection->isTransactionActive()) {
-      return;
-    }
-    $state->reconciliationRequested = true;
-    foreach ($this->reconciliation as $contributor) {
-      if ($contributor->supports($state->operation->name)) {
-        $contributor->requestReconciliation($state->operation, $state->begin->lease, $state->proof, array_keys($state->externalPurposes));
-      }
-    }
-  }
-
-  /**
-   * Method replayResult
-   *
-   * Reconstitutes only after activation's current gate and applies the owner's remaining-secret-lifetime policy.
-   *
-   * @access private
-   *
-   * @param HttpIdempotencyExecutionState $state the currently authorized request
-   * @param IdempotencySnapshot $snapshot the committed application outcome
-   * @param IdempotencyProof|null $reconciliationProof freshly authorized proof after a lost commit acknowledgement
-   *
-   * @return ResultMessage the original result adjusted only by its owner replay policy
-   */
-  private function replayResult(HttpIdempotencyExecutionState $state, IdempotencySnapshot $snapshot, ?IdempotencyProof $reconciliationProof = null): ResultMessage
-  {
-    if (null === $state->begin->replay && null !== $this->responseProjections) {
-      $projection = $this->codec->projection($snapshot->body);
-      if (null !== $projection) {
-        $this->responseProjections->replay($projection);
-      } elseif ([] !== $state->operation->queryProjections) {
-        throw new IdempotencyDeniedException('result_unavailable');
-      }
-    }
-    $result = $this->codec->decode($snapshot->body, $state->operation);
-
-    $proof = $reconciliationProof ?? $state->storedProof;
-
-    return null !== $state->proofPolicy && null !== $proof
-      ? $state->proofPolicy->replayResult($result, $proof)
-      : $result;
-  }
   // #endregion
 }

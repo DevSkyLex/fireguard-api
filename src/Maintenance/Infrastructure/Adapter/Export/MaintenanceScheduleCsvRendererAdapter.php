@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Maintenance\Infrastructure\Adapter\Export;
 
 use Maintenance\Application\Contract\Export\MaintenanceScheduleCsvSchema;
+use Maintenance\Application\Exception\MaintenanceScheduleExportRenderingException;
 use Maintenance\Application\Port\Outbound\Export\MaintenanceScheduleCsvRendererPort;
-use RuntimeException;
 
 use function fclose;
 use function fopen;
@@ -30,24 +30,24 @@ final readonly class MaintenanceScheduleCsvRendererAdapter implements Maintenanc
   {
     $stream = fopen('php://temp', 'w+b');
     if (false === $stream) {
-      throw new RuntimeException('The maintenance CSV stream could not be opened.');
+      throw new MaintenanceScheduleExportRenderingException('The maintenance CSV stream could not be opened.');
     }
 
     try {
       if (false === fputcsv($stream, MaintenanceScheduleCsvSchema::HEADER, escape: '\\')) {
-        throw new RuntimeException('The maintenance CSV header could not be rendered.');
+        throw new MaintenanceScheduleExportRenderingException('The maintenance CSV header could not be rendered.');
       }
       foreach ($rows as $row) {
         if (false === fputcsv($stream, MaintenanceScheduleCsvSchema::cells($row), escape: '\\')) {
-          throw new RuntimeException('A maintenance CSV row could not be rendered.');
+          throw new MaintenanceScheduleExportRenderingException('A maintenance CSV row could not be rendered.');
         }
       }
       if (!rewind($stream)) {
-        throw new RuntimeException('The maintenance CSV stream could not be rewound.');
+        throw new MaintenanceScheduleExportRenderingException('The maintenance CSV stream could not be rewound.');
       }
       $contents = stream_get_contents($stream);
       if (false === $contents) {
-        throw new RuntimeException('The maintenance CSV stream could not be read.');
+        throw new MaintenanceScheduleExportRenderingException('The maintenance CSV stream could not be read.');
       }
 
       return $contents;

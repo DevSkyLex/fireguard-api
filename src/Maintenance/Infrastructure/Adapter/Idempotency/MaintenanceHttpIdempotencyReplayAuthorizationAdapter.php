@@ -72,22 +72,37 @@ final readonly class MaintenanceHttpIdempotencyReplayAuthorizationAdapter implem
   public function authorize(HttpIdempotencyAuthorizationRequest $request, ?IdempotencyProof $storedProof): array
   {
     $this->assertSupported($request);
+    $context = $this->requestContext($request);
+    $organizationId = $context['organizationId'];
+    if (!is_string($organizationId) || '' === $organizationId || !$this->organizations->isMemberOf($request->principalId, $organizationId)) {
+      throw new IdempotencyDeniedException('access_denied');
+    }
+    $this->assertPermissions($request, $organizationId);
+    $this->assertForeignScope($organizationId, $context['equipmentId'], $context['facilityId']);
+    $this->assertOriginalResult($request, $storedProof, $organizationId);
+
+    return $this->authorizer->authorize($request, $storedProof, $organizationId);
+  }
+
+  /**
+   * Method requestContext
+   *
+   * Resolves submitted scope and current plan ownership without managed entities.
+   *
+   * @access private
+   *
+   * @param HttpIdempotencyAuthorizationRequest $request the canonical owner operation
+   *
+   * @return array{organizationId:mixed, facilityId:mixed, equipmentId:mixed} the uncached current context
+   */
+  private function requestContext(HttpIdempotencyAuthorizationRequest $request): array
+  {
     $name = $request->operation->name;
-    $body = $request->canonicalInput['body'] ?? [];
-    $body = is_array($body) ? $body : [];
-    $value = $body['value'] ?? [];
-    $value = is_array($value) ? $value : [];
-    $fields = $value['fields'] ?? [];
-    $fields = is_array($fields) ? $fields : [];
+    $fields = $this->fields($request);
     $organizationId = $request->uriVariables['organizationId'] ?? $fields['organizationId'] ?? null;
     $facilityId = $fields['facilityId'] ?? null;
     if ('maintenance_schedule_export' === $name) {
-      $query = $request->canonicalInput['query'] ?? [];
-      $query = is_array($query) ? $query : [];
-      $organization = $query['organization'] ?? null;
-      $organizationId = is_string($organization) && '' !== $organization ? ResourceIriParser::id($organization, 'organizations') : null;
-      $facility = $query['facility'] ?? null;
-      $facilityId = is_string($facility) && '' !== $facility ? ResourceIriParser::id($facility, 'facilities') : null;
+      [$organizationId, $facilityId] = $this->exportScope($request);
     }
     $id = $request->uriVariables['id'] ?? null;
     $equipmentId = $fields['equipmentId'] ?? null;
@@ -103,23 +118,120 @@ final readonly class MaintenanceHttpIdempotencyReplayAuthorizationAdapter implem
       $organizationId = $row['organization_id'];
       $equipmentId = $row['equipment_id'] ?? null;
     }
-    if (!is_string($organizationId) || '' === $organizationId || !$this->organizations->isMemberOf($request->principalId, $organizationId)) {
-      throw new IdempotencyDeniedException('access_denied');
+
+    return ['organizationId' => $organizationId, 'facilityId' => $facilityId, 'equipmentId' => $equipmentId];
+  }
+
+  /**
+   * Method fields
+   *
+   * Restores only canonical object fields without trusting malformed input shapes.
+   *
+   * @access private
+   *
+   * @param HttpIdempotencyAuthorizationRequest $request the canonical owner operation
+   *
+   * @return array<array-key, mixed> the canonical input fields
+   */
+  private function fields(HttpIdempotencyAuthorizationRequest $request): array
+  {
+    $body = $request->canonicalInput['body'] ?? [];
+    $body = is_array($body) ? $body : [];
+    $value = $body['value'] ?? [];
+    $value = is_array($value) ? $value : [];
+    $fields = $value['fields'] ?? [];
+
+    return is_array($fields) ? $fields : [];
+  }
+
+  /**
+   * Method exportScope
+   *
+   * Resolves the server-declared organization and facility query references.
+   *
+   * @access private
+   *
+   * @param HttpIdempotencyAuthorizationRequest $request the canonical export operation
+   *
+   * @return array{string|null, string|null} the declared export filters
+   */
+  private function exportScope(HttpIdempotencyAuthorizationRequest $request): array
+  {
+    $query = $request->canonicalInput['query'] ?? [];
+    $query = is_array($query) ? $query : [];
+    $organization = $query['organization'] ?? null;
+    $organizationId = is_string($organization) && '' !== $organization ? ResourceIriParser::id($organization, 'organizations') : null;
+    $facility = $query['facility'] ?? null;
+    $facilityId = is_string($facility) && '' !== $facility ? ResourceIriParser::id($facility, 'facilities') : null;
+
+    return [$organizationId, $facilityId];
+  }
+
+  /**
+   * Method assertPermissions
+   *
+   * Rechecks the owner's read, management and generation grants in their original order.
+   *
+   * @access private
+   *
+   * @param HttpIdempotencyAuthorizationRequest $request the selected owner operation
+   * @param string $organizationId the active owner scope
+   *
+   * @return void
+   */
+  private function assertPermissions(HttpIdempotencyAuthorizationRequest $request, string $organizationId): void
+  {
+    $permissions = ['organization.maintenance.manage'];
+    if ('maintenance_schedule_export' === $request->operation->name) {
+      $permissions = ['organization.maintenance.read'];
+    } elseif (in_array($request->operation->name, ['_api_/maintenance/campaigns_post', 'maintenance_plan_generate'], true)) {
+      $permissions = ['organization.maintenance.manage', 'organization.interventions.plan'];
     }
-    $permissions = 'maintenance_schedule_export' === $name ? ['organization.maintenance.read'] : (in_array($name, ['_api_/maintenance/campaigns_post', 'maintenance_plan_generate'], true)
-      ? ['organization.maintenance.manage', 'organization.interventions.plan']
-      : ['organization.maintenance.manage']);
     foreach ($permissions as $permission) {
       if (!$this->organizations->hasPermission($request->principalId, $organizationId, $permission)) {
         throw new IdempotencyDeniedException('access_denied');
       }
     }
+  }
+
+  /**
+   * Method assertForeignScope
+   *
+   * Rechecks published current equipment and facility ownership before result disclosure.
+   *
+   * @access private
+   *
+   * @param string $organizationId the active owner scope
+   * @param mixed $equipmentId the submitted or retained equipment
+   * @param mixed $facilityId the submitted facility filter
+   *
+   * @return void
+   */
+  private function assertForeignScope(string $organizationId, mixed $equipmentId, mixed $facilityId): void
+  {
     if (null !== $equipmentId && (!is_string($equipmentId) || $this->equipment->organizationId($equipmentId) !== $organizationId)) {
       throw new IdempotencyDeniedException('access_denied');
     }
     if (null !== $facilityId && (!is_string($facilityId) || $this->facilities->organizationId($facilityId) !== $organizationId)) {
       throw new IdempotencyDeniedException('access_denied');
     }
+  }
+
+  /**
+   * Method assertOriginalResult
+   *
+   * Validates the authenticated result kind and current owner organization.
+   *
+   * @access private
+   *
+   * @param HttpIdempotencyAuthorizationRequest $request the selected owner operation
+   * @param IdempotencyProof|null $storedProof authenticated original result identity
+   * @param string $organizationId the active owner scope
+   *
+   * @return void
+   */
+  private function assertOriginalResult(HttpIdempotencyAuthorizationRequest $request, ?IdempotencyProof $storedProof, string $organizationId): void
+  {
     if (null !== $storedProof && isset($storedProof->metadata['resourceId'])) {
       $resourceId = $storedProof->metadata['resourceId'];
       if (($storedProof->metadata['resourceKind'] ?? null) !== $request->operation->resourceKind) {
@@ -135,8 +247,6 @@ final readonly class MaintenanceHttpIdempotencyReplayAuthorizationAdapter implem
         throw new IdempotencyDeniedException('access_denied');
       }
     }
-
-    return $this->authorizer->authorize($request, $storedProof, $organizationId);
   }
 
   /**

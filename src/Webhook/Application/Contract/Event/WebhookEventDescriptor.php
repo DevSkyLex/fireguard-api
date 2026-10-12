@@ -15,6 +15,15 @@ use InvalidArgumentException;
  */
 final readonly class WebhookEventDescriptor
 {
+  // #region Properties
+  /**
+   * Property value
+   *
+   * The representation validated by the owner's open event contract.
+   */
+  public string $value;
+  // #endregion
+
   // #region Constructor
   /**
    * Constructor
@@ -25,10 +34,10 @@ final readonly class WebhookEventDescriptor
    * @param string $label the public display label
    * @param string $sourceEventName the dispatcher's owner-defined event name
    */
-  public function __construct(public string $value, public string $label, public string $sourceEventName)
+  public function __construct(string $value, public string $label, public string $sourceEventName)
   {
-    new WebhookEventType($value);
-    if ('' === $label || '' === $sourceEventName || WebhookEventType::PING === $value) {
+    $this->value = new WebhookEventType($value)->value;
+    if ('' === $label || '' === $sourceEventName || WebhookEventType::PING === $this->value) {
       throw new InvalidArgumentException('Invalid subscribable webhook event descriptor.');
     }
   }

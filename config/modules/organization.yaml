@@ -551,6 +551,7 @@ services:
     tags: [fireguard.import_kind_processor]
 
   Organization\Infrastructure\Adapter\Audit\AuditRecordEventAdapter: ~
+  Organization\Infrastructure\Adapter\Audit\OrganizationMembershipAuditRecordEventAdapter: ~
 
   Organization\Application\Port\Inbound\OrganizationQuotaCatalogPort: '@Organization\Application\Service\OrganizationQuotaRegistry'
   Organization\Application\Service\OrganizationQuotaRegistry:

@@ -63,12 +63,8 @@ final class TokenRevocationProofAdapter implements TokenRevocationProofPort
 
   private function refresh(string $token): ?TokenRevocationProof
   {
-    try {
-      $payload = json_decode($this->decrypt($token), true, 32, JSON_THROW_ON_ERROR);
-    } catch (Throwable) {
-      return null;
-    }
-    if (!is_array($payload) || !is_string($payload['refresh_token_id'] ?? null) || !is_string($payload['client_id'] ?? null)) {
+    $payload = $this->refreshPayload($token);
+    if (null === $payload || !is_string($payload['refresh_token_id'] ?? null) || !is_string($payload['client_id'] ?? null)) {
       return null;
     }
     $row = $this->connection->fetchAssociative(
@@ -83,6 +79,34 @@ final class TokenRevocationProofAdapter implements TokenRevocationProofPort
   }
 
   /**
+   * Method refreshPayload
+   *
+   * Decrypts authenticated native refresh material and rejects malformed grant payloads.
+   *
+   * @access private
+   *
+   * @param string $token authenticated encrypted grant credential
+   *
+   * @return array<mixed>|null decrypted grant facts without trusting malformed input
+   */
+  private function refreshPayload(string $token): ?array
+  {
+    try {
+      $payload = json_decode($this->decrypt($token), true, 32, JSON_THROW_ON_ERROR);
+
+      return is_array($payload) ? $payload : null;
+    } catch (Throwable) {
+      return null;
+    }
+  }
+
+  /**
+   * Method owner
+   *
+   * Keeps the current owner proof checks at their original boundary.
+   *
+   * @access private
+   *
    * @param array<string, mixed> $row verified native stored grant
    */
   private function owner(string $kind, array $row): ?TokenRevocationProof

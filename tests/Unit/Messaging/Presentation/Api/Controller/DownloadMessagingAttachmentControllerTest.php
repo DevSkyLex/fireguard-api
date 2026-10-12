@@ -14,6 +14,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
+use Shared\Infrastructure\Adapter\Attachment\AttachmentDownloadAdapter;
 use Shared\Infrastructure\Exception\FileStorageException;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\Request;
@@ -45,7 +46,7 @@ final class DownloadMessagingAttachmentControllerTest extends TestCase
     $controller = new DownloadMessagingAttachmentController(
       $this->createStub(QueryBusPort::class),
       $security,
-      new AttachmentDownloadResponder(),
+      new AttachmentDownloadResponder(new AttachmentDownloadAdapter()),
     );
 
     $this->expectException(AccessDeniedHttpException::class);
@@ -59,7 +60,7 @@ final class DownloadMessagingAttachmentControllerTest extends TestCase
     $controller = new DownloadMessagingAttachmentController(
       $this->createStub(QueryBusPort::class),
       $this->securityWithUser(),
-      new AttachmentDownloadResponder(),
+      new AttachmentDownloadResponder(new AttachmentDownloadAdapter()),
     );
 
     $this->expectException(NotFoundHttpException::class);
@@ -81,7 +82,7 @@ final class DownloadMessagingAttachmentControllerTest extends TestCase
     $controller = new DownloadMessagingAttachmentController(
       $queryBus,
       $this->securityWithUser(),
-      new AttachmentDownloadResponder(),
+      new AttachmentDownloadResponder(new AttachmentDownloadAdapter()),
     );
 
     $response = $controller($this->request());
@@ -134,7 +135,7 @@ final class DownloadMessagingAttachmentControllerTest extends TestCase
     $controller = new DownloadMessagingAttachmentController(
       $queryBus,
       $this->securityWithUser(),
-      new AttachmentDownloadResponder(),
+      new AttachmentDownloadResponder(new AttachmentDownloadAdapter()),
     );
 
     $controller($this->request());

@@ -72,19 +72,7 @@ final readonly class WebhookSecretIdempotencyProofAdapter implements SensitiveId
     ];
     $subscription = $message instanceof RotateWebhookSecretCommand ? $message->subscriptionId : null;
     if (null !== $storedProof) {
-      foreach ($facts as $key => $value) {
-        if (($storedProof->metadata[$key] ?? null) !== $value) {
-          $this->deny();
-        }
-      }
-      $id = $storedProof->metadata['resourceId'] ?? '';
-      if (($storedProof->metadata['resourceKind'] ?? null) !== 'webhook_subscription' || (null !== $subscription && $subscription !== $id)) {
-        $this->deny();
-      }
-      $ciphertext = $this->ciphertext($id, $message->organizationId);
-      if (!hash_equals($storedProof->metadata['webhookSecretAfterLineage'] ?? '', hash('sha256', $ciphertext))) {
-        $this->deny();
-      }
+      $this->assertOriginalLineage($message, $storedProof, $facts, $subscription);
       $facts = $storedProof->metadata;
     } else {
       $facts['webhookSecretBeforeLineage'] = null === $subscription ? 'new' : hash('sha256', $this->ciphertext($subscription, $message->organizationId));
@@ -141,6 +129,37 @@ final readonly class WebhookSecretIdempotencyProofAdapter implements SensitiveId
     }
 
     return $result;
+  }
+
+  /**
+   * Method assertOriginalLineage
+   *
+   * Checks durable actor revision and exact ciphertext lineage before secret replay.
+   *
+   * @access private
+   *
+   * @param CreateWebhookSubscriptionCommand|RotateWebhookSecretCommand $message the supported owner command
+   * @param IdempotencyProof $storedProof authenticated original secret proof
+   * @param array<string, string> $facts the current actor and organization facts
+   * @param string|null $subscription the current rotation target
+   *
+   * @return void
+   */
+  private function assertOriginalLineage(CreateWebhookSubscriptionCommand|RotateWebhookSecretCommand $message, IdempotencyProof $storedProof, array $facts, ?string $subscription): void
+  {
+    foreach ($facts as $key => $value) {
+      if (($storedProof->metadata[$key] ?? null) !== $value) {
+        $this->deny();
+      }
+    }
+    $id = $storedProof->metadata['resourceId'] ?? '';
+    if (($storedProof->metadata['resourceKind'] ?? null) !== 'webhook_subscription' || (null !== $subscription && $subscription !== $id)) {
+      $this->deny();
+    }
+    $ciphertext = $this->ciphertext($id, $message->organizationId);
+    if (!hash_equals($storedProof->metadata['webhookSecretAfterLineage'] ?? '', hash('sha256', $ciphertext))) {
+      $this->deny();
+    }
   }
 
   /**

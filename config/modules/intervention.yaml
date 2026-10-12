@@ -38,6 +38,9 @@ services:
 
   Intervention\Infrastructure\:
     resource: '../../src/Intervention/Infrastructure'
+    # Constructed only by the replay authorizer with its explicitly wired main connection.
+    exclude:
+      - '../../src/Intervention/Infrastructure/Service/Idempotency/InterventionHttpIdempotencyExecutionGuard.php'
 
   Intervention\Application\Port\Inbound\InterventionPublicationFactsPort:
     alias: Intervention\Infrastructure\Adapter\Publication\InterventionPublicationFactsAdapter

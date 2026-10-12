@@ -239,10 +239,7 @@ final readonly class SessionIssuer implements InteractiveSessionIssuerPort
     if (!$this->authenticationPolicy->mfaRequired()) {
       return false;
     }
-    if (!$this->authenticationPolicy->trustedDeviceMfaBypassEnabled()) {
-      return true;
-    }
-    if (null === $trustedDeviceToken || '' === $trustedDeviceToken) {
+    if (!$this->authenticationPolicy->trustedDeviceMfaBypassEnabled() || null === $trustedDeviceToken || '' === $trustedDeviceToken) {
       return true;
     }
 

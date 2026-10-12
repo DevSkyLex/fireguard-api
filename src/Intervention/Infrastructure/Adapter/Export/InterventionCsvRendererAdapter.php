@@ -4,9 +4,8 @@ declare(strict_types=1);
 
 namespace Intervention\Infrastructure\Adapter\Export;
 
-use Intervention\Application\Contract\Export\InterventionExportRow;
+use Intervention\Application\Contract\Export\{InterventionExportFailureException, InterventionExportRow};
 use Intervention\Application\Port\Outbound\InterventionCsvRendererPort;
-use RuntimeException;
 use Shared\Application\Port\Outbound\SpreadsheetSafeTextPort;
 
 use function array_map;
@@ -73,7 +72,7 @@ final readonly class InterventionCsvRendererAdapter implements InterventionCsvRe
   {
     $handle = fopen('php://temp', 'w+b');
     if (false === $handle) {
-      throw new RuntimeException('Unable to open the export buffer.');
+      throw new InterventionExportFailureException('Unable to open the export buffer.');
     }
 
     try {
@@ -81,7 +80,7 @@ final readonly class InterventionCsvRendererAdapter implements InterventionCsvRe
       rewind($handle);
       $bytes = stream_get_contents($handle);
       if (false === $bytes) {
-        throw new RuntimeException('Unable to read the export buffer.');
+        throw new InterventionExportFailureException('Unable to read the export buffer.');
       }
 
       return $bytes;

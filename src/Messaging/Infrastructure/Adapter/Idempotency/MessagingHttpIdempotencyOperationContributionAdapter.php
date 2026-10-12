@@ -27,6 +27,26 @@ final readonly class MessagingHttpIdempotencyOperationContributionAdapter implem
   public static function definitions(): array
   {
     return [
+      ...self::channelDefinitions(),
+      ...self::conversationDefinitions(),
+      ...self::messageDefinitions(),
+      ...self::messageInteractionDefinitions(),
+      ...self::attachmentAndPresenceDefinitions(),
+    ];
+  }
+
+  /**
+   * Method channelDefinitions
+   *
+   * Preserves the declared owner operations and their original replay metadata.
+   *
+   * @access private
+   *
+   * @return list<HttpIdempotencyOperation> ordered owner operation definitions
+   */
+  private static function channelDefinitions(): array
+  {
+    return [
       new HttpIdempotencyOperation(
         name: '_api_/channels_post',
         database: 'main',
@@ -116,6 +136,21 @@ final readonly class MessagingHttpIdempotencyOperationContributionAdapter implem
         resultIdentifierProperty: 'channel.id',
         resourceKind: 'messaging_conversation',
       ),
+    ];
+  }
+
+  /**
+   * Method conversationDefinitions
+   *
+   * Preserves the declared owner operations and their original replay metadata.
+   *
+   * @access private
+   *
+   * @return list<HttpIdempotencyOperation> ordered owner operation definitions
+   */
+  private static function conversationDefinitions(): array
+  {
+    return [
       new HttpIdempotencyOperation(
         name: '_api_/conversations_post',
         database: 'main',
@@ -216,6 +251,21 @@ final readonly class MessagingHttpIdempotencyOperationContributionAdapter implem
         resultIdentifierProperty: 'conversation.id',
         resourceKind: 'messaging_conversation',
       ),
+    ];
+  }
+
+  /**
+   * Method messageDefinitions
+   *
+   * Preserves the declared owner operations and their original replay metadata.
+   *
+   * @access private
+   *
+   * @return list<HttpIdempotencyOperation> ordered owner operation definitions
+   */
+  private static function messageDefinitions(): array
+  {
+    return [
       new HttpIdempotencyOperation(
         name: '_api_/conversations/{conversationId}/messages_post',
         database: 'main',
@@ -305,6 +355,21 @@ final readonly class MessagingHttpIdempotencyOperationContributionAdapter implem
           captureBeforePrimary: false,
         )],
       ),
+    ];
+  }
+
+  /**
+   * Method messageInteractionDefinitions
+   *
+   * Preserves the declared owner operations and their original replay metadata.
+   *
+   * @access private
+   *
+   * @return list<HttpIdempotencyOperation> ordered owner operation definitions
+   */
+  private static function messageInteractionDefinitions(): array
+  {
+    return [
       new HttpIdempotencyOperation(
         name: 'unpin_message',
         database: 'main',
@@ -401,6 +466,21 @@ final readonly class MessagingHttpIdempotencyOperationContributionAdapter implem
         resultIdentifierProperty: 'message.id',
         resourceKind: 'messaging_message',
       ),
+    ];
+  }
+
+  /**
+   * Method attachmentAndPresenceDefinitions
+   *
+   * Preserves the declared owner operations and their original replay metadata.
+   *
+   * @access private
+   *
+   * @return list<HttpIdempotencyOperation> ordered owner operation definitions
+   */
+  private static function attachmentAndPresenceDefinitions(): array
+  {
+    return [
       new HttpIdempotencyOperation(
         name: 'add_message_attachment',
         database: 'main',

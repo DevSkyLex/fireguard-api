@@ -10,7 +10,7 @@ use Doctrine\DBAL\{Connection, DriverManager};
 use Doctrine\DBAL\Exception\DriverException;
 use JsonException;
 use LogicException;
-use Shared\Application\Contract\Idempotency\{IdempotencyDeniedException, IdempotencyLease, IdempotencyReceipt};
+use Shared\Application\Contract\Idempotency\{IdempotencyCompletion, IdempotencyDeniedException, IdempotencyLease, IdempotencyReceipt};
 use Shared\Application\Port\Outbound\Idempotency\{IdempotencyReceiptPort, IdempotencyRetentionPort};
 
 use function hash_equals;
@@ -91,32 +91,7 @@ final class DoctrineIdempotencyReceiptRepository implements IdempotencyReceiptPo
       return $receipt;
     }
 
-    try {
-      return $reservation->transactional(function (Connection $reservation) use ($candidate, $now): IdempotencyReceipt {
-        $existing = $this->read($reservation, $candidate, true);
-        if (null === $existing) {
-          throw new IdempotencyDeniedException('in_progress');
-        }
-        if ('pending' !== $existing->state || $existing->leaseExpiresAt > $now || !hash_equals($candidate->fingerprint, $existing->fingerprint)) {
-          return $existing;
-        }
-        $changed = (int) $reservation->executeStatement(
-          'UPDATE http_idempotency_receipts SET owner_token = ?, lease_expires_at = ? WHERE scope_hash = ? AND key_hash = ? AND owner_token = ? AND state = ?',
-          [$candidate->ownerToken, $this->timestamp($candidate->expiresAt), $candidate->scopeHash, $candidate->keyHash, $existing->ownerToken, 'pending'],
-        );
-        if (1 !== $changed) {
-          throw new IdempotencyDeniedException('owner_lost');
-        }
-
-        return new IdempotencyReceipt($candidate->fingerprint, $candidate->ownerToken, 'pending', $candidate->expiresAt);
-      });
-    } catch (DriverException $exception) {
-      if ('55P03' !== $exception->getSQLState()) {
-        throw $exception;
-      }
-
-      throw new IdempotencyDeniedException('in_progress');
-    }
+    return $this->takeOverExpiredReservation($reservation, $candidate, $now);
   }
 
   /**
@@ -144,7 +119,7 @@ final class DoctrineIdempotencyReceiptRepository implements IdempotencyReceiptPo
   /**
    * {@inheritdoc}
    */
-  public function complete(IdempotencyLease $lease, string $payload, bool $secret, DateTimeImmutable $completedAt, DateTimeImmutable $expiresAt, array $proof = [], string $proofMac = '', ?string $organizationHash = null): void
+  public function complete(IdempotencyLease $lease, IdempotencyCompletion $completion): void
   {
     $this->assertWriteTransaction();
     if (!isset($this->claimed[$lease->ownerToken])) {
@@ -152,7 +127,7 @@ final class DoctrineIdempotencyReceiptRepository implements IdempotencyReceiptPo
     }
     $changed = (int) $this->connection->executeStatement(
       'UPDATE http_idempotency_receipts SET state = ?, result_payload = ?, secret_result = ?, completed_at = ?, result_expires_at = ?, proof_payload = ?, proof_mac = ?, organization_hash = COALESCE(?, organization_hash) WHERE scope_hash = ? AND key_hash = ? AND owner_token = ? AND fingerprint = ? AND state = ?',
-      ['completed', $payload, $secret ? 'true' : 'false', $this->timestamp($completedAt), $this->timestamp($expiresAt), json_encode($proof, JSON_THROW_ON_ERROR), $proofMac, $organizationHash, $lease->scopeHash, $lease->keyHash, $lease->ownerToken, $lease->fingerprint, 'writing'],
+      ['completed', $completion->payload, $completion->secret ? 'true' : 'false', $this->timestamp($completion->completedAt), $this->timestamp($completion->expiresAt), json_encode($completion->proof, JSON_THROW_ON_ERROR), $completion->proofMac, $completion->organizationHash, $lease->scopeHash, $lease->keyHash, $lease->ownerToken, $lease->fingerprint, 'writing'],
     );
     if (1 !== $changed) {
       throw new IdempotencyDeniedException('owner_lost');
@@ -251,6 +226,50 @@ final class DoctrineIdempotencyReceiptRepository implements IdempotencyReceiptPo
     $this->assertOutsideWriteTransaction();
 
     return (int) $this->reservation()->executeStatement('UPDATE http_idempotency_receipts SET result_payload = NULL WHERE state = ? AND result_expires_at <= ? AND result_payload IS NOT NULL', ['completed', $this->timestamp($now)]);
+  }
+
+  /**
+   * Method takeOverExpiredReservation
+   *
+   * Rechecks the pending fence under a nonblocking lock before replacing its owner.
+   *
+   * @access private
+   *
+   * @param Connection $reservation the independent owning database connection
+   * @param IdempotencyLease $candidate the proposed new owner
+   * @param DateTimeImmutable $now the reservation time
+   *
+   * @return IdempotencyReceipt the locked authoritative fence
+   */
+  private function takeOverExpiredReservation(Connection $reservation, IdempotencyLease $candidate, DateTimeImmutable $now): IdempotencyReceipt
+  {
+
+    try {
+      return $reservation->transactional(function (Connection $reservation) use ($candidate, $now): IdempotencyReceipt {
+        $existing = $this->read($reservation, $candidate, true);
+        if (null === $existing) {
+          throw new IdempotencyDeniedException('in_progress');
+        }
+        if ('pending' !== $existing->state || $existing->leaseExpiresAt > $now || !hash_equals($candidate->fingerprint, $existing->fingerprint)) {
+          return $existing;
+        }
+        $changed = (int) $reservation->executeStatement(
+          'UPDATE http_idempotency_receipts SET owner_token = ?, lease_expires_at = ? WHERE scope_hash = ? AND key_hash = ? AND owner_token = ? AND state = ?',
+          [$candidate->ownerToken, $this->timestamp($candidate->expiresAt), $candidate->scopeHash, $candidate->keyHash, $existing->ownerToken, 'pending'],
+        );
+        if (1 !== $changed) {
+          throw new IdempotencyDeniedException('owner_lost');
+        }
+
+        return new IdempotencyReceipt($candidate->fingerprint, $candidate->ownerToken, 'pending', $candidate->expiresAt);
+      });
+    } catch (DriverException $exception) {
+      if ('55P03' !== $exception->getSQLState()) {
+        throw $exception;
+      }
+
+      throw new IdempotencyDeniedException('in_progress');
+    }
   }
 
   /**

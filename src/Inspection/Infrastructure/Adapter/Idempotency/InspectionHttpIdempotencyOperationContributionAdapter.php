@@ -28,11 +28,47 @@ final readonly class InspectionHttpIdempotencyOperationContributionAdapter imple
   public static function definitions(): array
   {
     return [
+      ...self::exportDefinitions(),
+      ...self::canonicalInspectionDefinitions(),
+      ...self::checklistDefinitions(),
+      ...self::attachmentDefinitions(),
+      ...self::inspectionDefinitions(),
+      ...self::responseDefinitions(),
+      ...self::nonConformityDefinitions(),
+    ];
+  }
+
+  /**
+   * Method exportDefinitions
+   *
+   * Keeps the owner descriptors grouped without altering operation order, result schemas or transaction ownership.
+   *
+   * @access private
+   *
+   * @return list<HttpIdempotencyOperation> owner operation descriptors
+   */
+  private static function exportDefinitions(): array
+  {
+    return [
       new HttpIdempotencyOperation(name: 'inspection_export', database: 'main', transactionMode: 'bus_owner', primaryCommand: \Inspection\Application\UseCase\Command\Export\ExportInspectionsDocument\ExportInspectionsDocumentCommand::class, resultClass: \Inspection\Application\Contract\Export\InspectionExportDocument::class, statusCode: 200, requiredKey: true),
       new HttpIdempotencyOperation(name: 'inspection_export_non_conformities', database: 'main', transactionMode: 'bus_owner', primaryCommand: \Inspection\Application\UseCase\Command\Export\ExportNonConformitiesDocument\ExportNonConformitiesDocumentCommand::class, resultClass: \Inspection\Application\Contract\Export\InspectionExportDocument::class, statusCode: 200, requiredKey: true),
       new HttpIdempotencyOperation(name: 'inspection_export_report', database: 'main', transactionMode: 'bus_owner', primaryCommand: \Inspection\Application\UseCase\Command\Export\ExportInspectionReportDocument\ExportInspectionReportDocumentCommand::class, resultClass: \Inspection\Application\Contract\Export\InspectionExportDocument::class, statusCode: 200, requiredKey: true, resultIdentifierProperty: 'resourceId', resourceKind: 'inspection'),
       new HttpIdempotencyOperation(name: 'inspection_export_non_conformities_report', database: 'main', transactionMode: 'bus_owner', primaryCommand: \Inspection\Application\UseCase\Command\Export\ExportNonConformitiesReportDocument\ExportNonConformitiesReportDocumentCommand::class, resultClass: \Inspection\Application\Contract\Export\InspectionExportDocument::class, statusCode: 200, requiredKey: true),
+    ];
+  }
 
+  /**
+   * Method canonicalInspectionDefinitions
+   *
+   * Keeps the owner descriptors grouped without altering operation order, result schemas or transaction ownership.
+   *
+   * @access private
+   *
+   * @return list<HttpIdempotencyOperation> owner operation descriptors
+   */
+  private static function canonicalInspectionDefinitions(): array
+  {
+    return [
       new HttpIdempotencyOperation(
         name: '_api_/inspections_post',
         database: 'main',
@@ -84,6 +120,21 @@ final readonly class InspectionHttpIdempotencyOperationContributionAdapter imple
           new HttpIdempotencyQueryProjection(\Inspection\Application\UseCase\Query\Inspection\GetCanonicalInspection\GetCanonicalInspectionQuery::class, \Inspection\Application\UseCase\Query\Inspection\GetCanonicalInspection\GetCanonicalInspectionResult::class, [\Inspection\Application\Contract\Inspection\CanonicalInspectionView::class], captureBeforePrimary: true, refreshBeforeCommit: false),
         ],
       ),
+    ];
+  }
+
+  /**
+   * Method checklistDefinitions
+   *
+   * Keeps the owner descriptors grouped without altering operation order, result schemas or transaction ownership.
+   *
+   * @access private
+   *
+   * @return list<HttpIdempotencyOperation> owner operation descriptors
+   */
+  private static function checklistDefinitions(): array
+  {
+    return [
       new HttpIdempotencyOperation(
         name: 'inspection_create_checklist',
         database: 'main',
@@ -121,6 +172,21 @@ final readonly class InspectionHttpIdempotencyOperationContributionAdapter imple
           new HttpIdempotencyQueryProjection(\Inspection\Application\UseCase\Query\Checklist\GetChecklist\GetChecklistQuery::class, \Inspection\Application\UseCase\Query\Checklist\GetChecklist\GetChecklistResult::class, [\Inspection\Application\UseCase\Query\Checklist\GetChecklist\ChecklistItemResult::class], captureBeforePrimary: false, refreshBeforeCommit: true),
         ],
       ),
+    ];
+  }
+
+  /**
+   * Method attachmentDefinitions
+   *
+   * Keeps the owner descriptors grouped without altering operation order, result schemas or transaction ownership.
+   *
+   * @access private
+   *
+   * @return list<HttpIdempotencyOperation> owner operation descriptors
+   */
+  private static function attachmentDefinitions(): array
+  {
+    return [
       new HttpIdempotencyOperation(
         name: 'add_inspection_attachment',
         database: 'main',
@@ -162,6 +228,21 @@ final readonly class InspectionHttpIdempotencyOperationContributionAdapter imple
           new HttpIdempotencyQueryProjection(\Inspection\Application\UseCase\Query\Attachment\ResolveInspectionMedia\ResolveInspectionMediaQuery::class, \Inspection\Application\UseCase\Query\Attachment\ResolveInspectionMedia\ResolveInspectionMediaResult::class, [\Inspection\Application\Contract\Attachment\InspectionAttachmentView::class], captureBeforePrimary: true, refreshBeforeCommit: false),
         ],
       ),
+    ];
+  }
+
+  /**
+   * Method inspectionDefinitions
+   *
+   * Keeps the owner descriptors grouped without altering operation order, result schemas or transaction ownership.
+   *
+   * @access private
+   *
+   * @return list<HttpIdempotencyOperation> owner operation descriptors
+   */
+  private static function inspectionDefinitions(): array
+  {
+    return [
       new HttpIdempotencyOperation(
         name: 'inspection_create',
         database: 'main',
@@ -223,6 +304,21 @@ final readonly class InspectionHttpIdempotencyOperationContributionAdapter imple
         requiredKey: true,
         resourceKind: 'inspection',
       ),
+    ];
+  }
+
+  /**
+   * Method responseDefinitions
+   *
+   * Keeps the owner descriptors grouped without altering operation order, result schemas or transaction ownership.
+   *
+   * @access private
+   *
+   * @return list<HttpIdempotencyOperation> owner operation descriptors
+   */
+  private static function responseDefinitions(): array
+  {
+    return [
       new HttpIdempotencyOperation(
         name: '_api_/inspection-responses_post',
         database: 'main',
@@ -276,6 +372,21 @@ final readonly class InspectionHttpIdempotencyOperationContributionAdapter imple
           new HttpIdempotencyQueryProjection(\Inspection\Application\UseCase\Query\Response\GetInspectionResponse\GetInspectionResponseQuery::class, \Inspection\Application\UseCase\Query\Response\GetInspectionResponse\GetInspectionResponseResult::class, [\Inspection\Application\Contract\Response\InspectionResponseView::class], captureBeforePrimary: true, refreshBeforeCommit: false),
         ],
       ),
+    ];
+  }
+
+  /**
+   * Method nonConformityDefinitions
+   *
+   * Keeps the owner descriptors grouped without altering operation order, result schemas or transaction ownership.
+   *
+   * @access private
+   *
+   * @return list<HttpIdempotencyOperation> owner operation descriptors
+   */
+  private static function nonConformityDefinitions(): array
+  {
+    return [
       new HttpIdempotencyOperation(
         name: 'inspection_add_non_conformity',
         database: 'main',

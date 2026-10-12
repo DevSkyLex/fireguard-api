@@ -158,17 +158,34 @@ final readonly class OrganizationSettingsPolicyRegistry implements OrganizationS
         continue;
       }
       if (is_array($value)) {
-        $map = is_array($current[$field] ?? null) ? $current[$field] : [];
-        foreach ($value as $key => $entry) {
-          if (null === $entry) {
-            unset($map[$key]);
-          } else {
-            $map[$key] = $entry;
-          }
-        }
-        $current[$field] = $map;
+        $current[$field] = $this->mergeMap(is_array($current[$field] ?? null) ? $current[$field] : [], $value);
       } else {
         $current[$field] = $value;
+      }
+    }
+
+    return $current;
+  }
+
+  /**
+   * Method mergeMap
+   *
+   * Preserves existing entries and applies null as an explicit map-key removal.
+   *
+   * @access private
+   *
+   * @param array<array-key, mixed> $current persisted owner map
+   * @param array<array-key, mixed> $partial submitted map changes
+   *
+   * @return array<array-key, mixed> merged owner map
+   */
+  private function mergeMap(array $current, array $partial): array
+  {
+    foreach ($partial as $key => $entry) {
+      if (null === $entry) {
+        unset($current[$key]);
+      } else {
+        $current[$key] = $entry;
       }
     }
 
@@ -193,26 +210,43 @@ final readonly class OrganizationSettingsPolicyRegistry implements OrganizationS
       throw new InvalidArgumentException(sprintf('Invalid value for organization settings field "%s".', $definition->key));
     }
     if (is_array($value)) {
-      foreach ($value as $key => $entry) {
-        if (null !== $definition->allowedKeys && !in_array((string) $key, $definition->allowedKeys, true)) {
-          throw new InvalidArgumentException(sprintf('Unknown key "%s" for organization settings field "%s".', (string) $key, $definition->key));
-        }
-        if (null === $entry) {
-          continue;
-        }
-        $entryValid = match ($definition->type) {
-          OrganizationSettingsValueType::INTEGER_MAP => is_int($entry),
-          OrganizationSettingsValueType::TEXT_MAP => is_string($entry),
-          OrganizationSettingsValueType::OBJECT_MAP => is_array($entry),
-          default => true,
-        };
-        if (!$entryValid) {
-          throw new InvalidArgumentException(sprintf('Invalid map entry for organization settings field "%s".', $definition->key));
-        }
-        $this->validateBounds($definition, $entry);
-      }
+      $this->validateMap($definition, $value);
     } else {
       $this->validateBounds($definition, $value);
+    }
+  }
+
+  /**
+   * Method validateMap
+   *
+   * Checks registered keys before nullable map entries and their numeric bounds.
+   *
+   * @access private
+   *
+   * @param OrganizationSettingsPolicyDefinition $definition owner field contract
+   * @param array<array-key, mixed> $value submitted owner map
+   *
+   * @return void
+   */
+  private function validateMap(OrganizationSettingsPolicyDefinition $definition, array $value): void
+  {
+    foreach ($value as $key => $entry) {
+      if (null !== $definition->allowedKeys && !in_array((string) $key, $definition->allowedKeys, true)) {
+        throw new InvalidArgumentException(sprintf('Unknown key "%s" for organization settings field "%s".', (string) $key, $definition->key));
+      }
+      if (null === $entry) {
+        continue;
+      }
+      $entryValid = match ($definition->type) {
+        OrganizationSettingsValueType::INTEGER_MAP => is_int($entry),
+        OrganizationSettingsValueType::TEXT_MAP => is_string($entry),
+        OrganizationSettingsValueType::OBJECT_MAP => is_array($entry),
+        default => true,
+      };
+      if (!$entryValid) {
+        throw new InvalidArgumentException(sprintf('Invalid map entry for organization settings field "%s".', $definition->key));
+      }
+      $this->validateBounds($definition, $entry);
     }
   }
 

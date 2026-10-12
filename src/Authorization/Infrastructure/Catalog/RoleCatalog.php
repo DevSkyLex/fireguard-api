@@ -60,18 +60,8 @@ final readonly class RoleCatalog implements RoleCatalogPort
         if (isset($entries[$definition->name])) {
           throw new LogicException('Duplicate role catalog key: ' . $definition->name);
         }
-        if (null !== $definition->reference) {
-          if (isset($references[$definition->reference])) {
-            throw new LogicException('Duplicate role fixture reference: ' . $definition->reference);
-          }
-          $references[$definition->reference] = true;
-        }
-        if ($definition->defaultForNewUsers) {
-          if (null !== $defaultName) {
-            throw new LogicException('Multiple default role catalog contributions.');
-          }
-          $defaultName = $definition->name;
-        }
+        $this->registerReference($definition, $references);
+        $defaultName = $this->registerDefault($definition, $defaultName);
         $entries[$definition->name] = $definition;
       }
     }
@@ -79,9 +69,7 @@ final readonly class RoleCatalog implements RoleCatalogPort
     $this->entries = $entries;
     $this->defaultName = $defaultName;
   }
-  // #endregion
 
-  // #region Methods
   /**
    * Method definitions
    *
@@ -128,6 +116,54 @@ final readonly class RoleCatalog implements RoleCatalogPort
         }
       }
     }
+  }
+  // #endregion
+
+  // #region Methods
+  /**
+   * Method registerReference
+   *
+   * Rejects duplicate fixture ownership without changing catalog ordering.
+   *
+   * @access private
+   *
+   * @param RoleDefinition $definition the contributed role
+   * @param array<string, true> $references selected fixture references
+   *
+   * @return void
+   */
+  private function registerReference(RoleDefinition $definition, array &$references): void
+  {
+    if (null !== $definition->reference) {
+      if (isset($references[$definition->reference])) {
+        throw new LogicException('Duplicate role fixture reference: ' . $definition->reference);
+      }
+      $references[$definition->reference] = true;
+    }
+  }
+
+  /**
+   * Method registerDefault
+   *
+   * Keeps one explicit default assignment across selected contributors.
+   *
+   * @access private
+   *
+   * @param RoleDefinition $definition the contributed role
+   * @param string|null $defaultName the already registered default
+   *
+   * @return string|null the single selected default
+   */
+  private function registerDefault(RoleDefinition $definition, ?string $defaultName): ?string
+  {
+    if ($definition->defaultForNewUsers) {
+      if (null !== $defaultName) {
+        throw new LogicException('Multiple default role catalog contributions.');
+      }
+      $defaultName = $definition->name;
+    }
+
+    return $defaultName;
   }
   // #endregion
 }

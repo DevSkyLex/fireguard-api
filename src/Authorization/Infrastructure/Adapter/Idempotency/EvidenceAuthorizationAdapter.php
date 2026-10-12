@@ -78,15 +78,12 @@ final readonly class EvidenceAuthorizationAdapter implements AuthorizationPort
     if (null === $user || !$user->active) {
       return false;
     }
-    foreach ($roleNames as $name) {
-      if ($this->fresh->hasRole($userId, $name, $user->tenantId)) {
-        $this->evidence->recordPlatform($userId, 'roles_any', array_values($roleNames));
-
-        return true;
-      }
+    $granted = $this->anyRoleGranted($userId, $roleNames, $user->tenantId);
+    if ($granted) {
+      $this->evidence->recordPlatform($userId, 'roles_any', array_values($roleNames));
     }
 
-    return false;
+    return $granted;
   }
 
   /**
@@ -101,14 +98,12 @@ final readonly class EvidenceAuthorizationAdapter implements AuthorizationPort
     if (null === $user || !$user->active) {
       return false;
     }
-    foreach ($roleNames as $name) {
-      if (!$this->fresh->hasRole($userId, $name, $user->tenantId)) {
-        return false;
-      }
+    $granted = $this->allRolesGranted($userId, $roleNames, $user->tenantId);
+    if ($granted) {
+      $this->evidence->recordPlatform($userId, 'roles_all', array_values($roleNames));
     }
-    $this->evidence->recordPlatform($userId, 'roles_all', array_values($roleNames));
 
-    return true;
+    return $granted;
   }
 
   /**
@@ -125,6 +120,54 @@ final readonly class EvidenceAuthorizationAdapter implements AuthorizationPort
   public function getUserPermissionNames(string $userId): array
   {
     return $this->inner->getUserPermissionNames($userId);
+  }
+
+  /**
+   * Method anyRoleGranted
+   *
+   * Evaluates the fresh disjunctive predicate before recording its original requirement.
+   *
+   * @access private
+   *
+   * @param string $userId the current principal
+   * @param array<string> $roleNames the alternative grants
+   * @param string|null $tenantId the current account scope
+   *
+   * @return bool whether any alternative is currently granted
+   */
+  private function anyRoleGranted(string $userId, array $roleNames, ?string $tenantId): bool
+  {
+    foreach ($roleNames as $name) {
+      if ($this->fresh->hasRole($userId, $name, $tenantId)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * Method allRolesGranted
+   *
+   * Evaluates every required role without recording a partially satisfied predicate.
+   *
+   * @access private
+   *
+   * @param string $userId the current principal
+   * @param array<string> $roleNames the required grants
+   * @param string|null $tenantId the current account scope
+   *
+   * @return bool whether every role is currently granted
+   */
+  private function allRolesGranted(string $userId, array $roleNames, ?string $tenantId): bool
+  {
+    foreach ($roleNames as $name) {
+      if (!$this->fresh->hasRole($userId, $name, $tenantId)) {
+        return false;
+      }
+    }
+
+    return true;
   }
   // #endregion
 }

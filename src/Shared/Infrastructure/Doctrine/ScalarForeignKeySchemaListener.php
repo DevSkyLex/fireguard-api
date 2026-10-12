@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Shared\Infrastructure\Doctrine;
 
+use Doctrine\DBAL\Schema\Schema;
 use Doctrine\ORM\Tools\Event\GenerateSchemaEventArgs;
+use Shared\Application\Contract\Schema\ScalarForeignKeyDefinition;
 use Shared\Application\Port\Outbound\Schema\SchemaContributionPort;
 
 /**
@@ -50,29 +52,39 @@ final readonly class ScalarForeignKeySchemaListener
     $schema = $args->getSchema();
     foreach ($this->contributions as $contribution) {
       foreach ($contribution->foreignKeys() as $key) {
-        if (!$schema->hasTable($key->table) || !$schema->hasTable($key->foreignTable)) {
-          continue;
-        }
-
-        foreach ($key->requiredTables as $requiredTable) {
-          if (!$schema->hasTable($requiredTable)) {
-            continue 2;
-          }
-        }
-
-        $table = $schema->getTable($key->table);
-        if ($table->hasForeignKey($key->name)) {
-          continue;
-        }
-
-        $options = ['deferrable' => $key->deferrable];
-        if (null !== $key->onDelete) {
-          $options['onDelete'] = $key->onDelete;
-        }
-
-        $table->addForeignKeyConstraint($key->foreignTable, $key->columns, $key->foreignColumns, $options, $key->name);
+        $this->applyForeignKey($schema, $key);
       }
     }
+  }
+
+  /**
+   * Method applyForeignKey
+   *
+   * Applies one contribution only when its complete owning schema is present.
+   *
+   * @access private
+   *
+   * @param Schema $schema the current manager's schema
+   * @param ScalarForeignKeyDefinition $key the owner-declared constraint
+   *
+   * @return void
+   */
+  private function applyForeignKey(Schema $schema, ScalarForeignKeyDefinition $key): void
+  {
+    foreach ([$key->table, $key->foreignTable, ...$key->requiredTables] as $requiredTable) {
+      if (!$schema->hasTable($requiredTable)) {
+        return;
+      }
+    }
+    $table = $schema->getTable($key->table);
+    if ($table->hasForeignKey($key->name)) {
+      return;
+    }
+    $options = ['deferrable' => $key->deferrable];
+    if (null !== $key->onDelete) {
+      $options['onDelete'] = $key->onDelete;
+    }
+    $table->addForeignKeyConstraint($key->foreignTable, $key->columns, $key->foreignColumns, $options, $key->name);
   }
   // #endregion
 }

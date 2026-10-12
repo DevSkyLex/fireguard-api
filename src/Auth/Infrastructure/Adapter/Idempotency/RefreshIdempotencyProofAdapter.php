@@ -25,6 +25,15 @@ use function time;
  */
 final readonly class RefreshIdempotencyProofAdapter implements SensitiveIdempotencyProofPort
 {
+  // #region Constants
+  /**
+   * Constant INVALID_TOKEN_MESSAGE
+   *
+   * Preserves the neutral refresh denial across parent, daughter and current account checks.
+   */
+  private const string INVALID_TOKEN_MESSAGE = 'Invalid or expired refresh token';
+  // #endregion
+
   // #region Constructor
   /**
    * Method __construct
@@ -61,26 +70,14 @@ final readonly class RefreshIdempotencyProofAdapter implements SensitiveIdempote
     }
     $parent = $this->tokens->decodeRefreshToken($message->refreshToken);
     if (null === $parent || '' === $parent['user_id'] || $parent['expires_at'] <= time()) {
-      throw new UnauthorizedHttpException('Bearer', 'Invalid or expired refresh token');
+      throw new UnauthorizedHttpException('Bearer', self::INVALID_TOKEN_MESSAGE);
     }
     $current = $this->users->current($parent['user_id']);
     if (null === $current || !$current->active) {
-      throw new UnauthorizedHttpException('Bearer', 'Invalid or expired refresh token');
+      throw new UnauthorizedHttpException('Bearer', self::INVALID_TOKEN_MESSAGE);
     }
     if (null !== $storedProof) {
-      $proof = $storedProof->metadata;
-      if (($proof['authorization_fingerprint'] ?? null) !== $this->grants->currentFingerprint($current->userId)) {
-        throw new UnauthorizedHttpException('Bearer', 'Invalid or expired refresh token');
-      }
-      $parentMatches = ($proof['parent_refresh_id'] ?? null) === $parent['refresh_token_id'] && ($proof['parent_access_id'] ?? null) === $parent['access_token_id'];
-      $daughterMatches = ($proof['daughter_refresh_id'] ?? null) === $parent['refresh_token_id'] && ($proof['daughter_access_id'] ?? null) === $parent['access_token_id'];
-      if ((!$parentMatches && !$daughterMatches) || ($proof['user_id'] ?? null) !== $current->userId || ($proof['security_revision'] ?? null) !== (string) $current->securityRevision || (int) ($proof['refresh_expires_at'] ?? 0) <= time()) {
-        throw new UnauthorizedHttpException('Bearer', 'Invalid or expired refresh token');
-      }
-      $sessionId = $this->sessions->currentSessionId($current->userId, $proof['daughter_access_id'] ?? '', $proof['daughter_refresh_id'] ?? '');
-      if (null === $sessionId || ($proof['session_id'] ?? null) !== $sessionId) {
-        throw new UnauthorizedHttpException('Bearer', 'Invalid or expired refresh token');
-      }
+      $this->assertReplayRotation($current->userId, $current->securityRevision, $parent, $storedProof);
     }
 
     return new SensitiveIdempotencyAuthorization($current->userId, [
@@ -132,6 +129,37 @@ final readonly class RefreshIdempotencyProofAdapter implements SensitiveIdempote
     }
 
     return new RefreshTokenResult($result->success, $result->userId, $result->accessToken, $result->refreshToken, $result->tokenType, max(0, (int) ($proof->metadata['access_expires_at'] ?? 0) - time()), $result->scopes, $result->errorMessage, $result->accessTokenId, $result->refreshTokenId, $result->rememberMe);
+  }
+
+  /**
+   * Method assertReplayRotation
+   *
+   * Requires receipt-authenticated parent or daughter membership and the same live daughter session.
+   *
+   * @access private
+   *
+   * @param string $userId current account owner
+   * @param int $securityRevision current account revision
+   * @param array{refresh_token_id:string,access_token_id:string,user_id:string,scopes:array<string>,expires_at:int,remember_me?:bool} $parent verified incoming pair
+   * @param IdempotencyProof $storedProof authenticated receipt envelope
+   *
+   * @return void
+   */
+  private function assertReplayRotation(string $userId, int $securityRevision, array $parent, IdempotencyProof $storedProof): void
+  {
+    $proof = $storedProof->metadata;
+    if (($proof['authorization_fingerprint'] ?? null) !== $this->grants->currentFingerprint($userId)) {
+      throw new UnauthorizedHttpException('Bearer', self::INVALID_TOKEN_MESSAGE);
+    }
+    $parentMatches = ($proof['parent_refresh_id'] ?? null) === $parent['refresh_token_id'] && ($proof['parent_access_id'] ?? null) === $parent['access_token_id'];
+    $daughterMatches = ($proof['daughter_refresh_id'] ?? null) === $parent['refresh_token_id'] && ($proof['daughter_access_id'] ?? null) === $parent['access_token_id'];
+    if ((!$parentMatches && !$daughterMatches) || ($proof['user_id'] ?? null) !== $userId || ($proof['security_revision'] ?? null) !== (string) $securityRevision || (int) ($proof['refresh_expires_at'] ?? 0) <= time()) {
+      throw new UnauthorizedHttpException('Bearer', self::INVALID_TOKEN_MESSAGE);
+    }
+    $sessionId = $this->sessions->currentSessionId($userId, $proof['daughter_access_id'] ?? '', $proof['daughter_refresh_id'] ?? '');
+    if (null === $sessionId || ($proof['session_id'] ?? null) !== $sessionId) {
+      throw new UnauthorizedHttpException('Bearer', self::INVALID_TOKEN_MESSAGE);
+    }
   }
   // #endregion
 }

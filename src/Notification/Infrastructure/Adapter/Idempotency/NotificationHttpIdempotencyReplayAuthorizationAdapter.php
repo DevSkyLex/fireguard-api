@@ -78,20 +78,7 @@ final readonly class NotificationHttpIdempotencyReplayAuthorizationAdapter imple
       if (!is_string($target) || '' === $target) {
         throw new IdempotencyDeniedException('access_denied');
       }
-      $row = $this->connection->fetchAssociative('SELECT id, recipient_user_id, organization_id FROM notifications WHERE id = ?', [$target]);
-      if (false === $row) {
-        if (null === $storedProof || ($storedProof->metadata['notificationRecipientId'] ?? null) !== $request->principalId || ($storedProof->metadata['targetId'] ?? null) !== $target) {
-          throw new IdempotencyDeniedException('access_denied');
-        }
-      } else {
-        if (($row['recipient_user_id'] ?? null) !== $request->principalId) {
-          throw new IdempotencyDeniedException('access_denied');
-        }
-        $organization = is_string($row['organization_id'] ?? null) ? $row['organization_id'] : null;
-        if (null !== $storedProof && ($storedProof->metadata['notificationOrganizationId'] ?? null) !== ($organization ?? '')) {
-          throw new IdempotencyDeniedException('access_denied');
-        }
-      }
+      $organization = $this->targetOrganization($request, $storedProof, $target);
     }
     $facts = $this->authorizer->authorize($request, $storedProof, null);
     if (null !== $target) {
@@ -101,6 +88,40 @@ final readonly class NotificationHttpIdempotencyReplayAuthorizationAdapter imple
     }
 
     return $facts;
+  }
+
+  /**
+   * Method targetOrganization
+   *
+   * Checks current recipient ownership or authenticated original deletion scope.
+   *
+   * @access private
+   *
+   * @param HttpIdempotencyAuthorizationRequest $request the verified recipient
+   * @param IdempotencyProof|null $storedProof authenticated original ownership
+   * @param string $target the notification identifier
+   *
+   * @return string|null the current notification organization
+   */
+  private function targetOrganization(HttpIdempotencyAuthorizationRequest $request, ?IdempotencyProof $storedProof, string $target): ?string
+  {
+    $row = $this->connection->fetchAssociative('SELECT id, recipient_user_id, organization_id FROM notifications WHERE id = ?', [$target]);
+    if (false === $row) {
+      if (null === $storedProof || ($storedProof->metadata['notificationRecipientId'] ?? null) !== $request->principalId || ($storedProof->metadata['targetId'] ?? null) !== $target) {
+        throw new IdempotencyDeniedException('access_denied');
+      }
+
+      return null;
+    }
+    if (($row['recipient_user_id'] ?? null) !== $request->principalId) {
+      throw new IdempotencyDeniedException('access_denied');
+    }
+    $organization = is_string($row['organization_id'] ?? null) ? $row['organization_id'] : null;
+    if (null !== $storedProof && ($storedProof->metadata['notificationOrganizationId'] ?? null) !== ($organization ?? '')) {
+      throw new IdempotencyDeniedException('access_denied');
+    }
+
+    return $organization;
   }
   // #endregion
 }

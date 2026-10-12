@@ -5,10 +5,9 @@ declare(strict_types=1);
 namespace Inspection\Presentation\Api\Controller;
 
 use Auth\Application\Contract\User\AuthenticatedUser;
-use Inspection\Application\Contract\Export\InspectionExportDocument;
+use Inspection\Application\Contract\Export\{InspectionExportDocument, InspectionExportFailureException};
 use Inspection\Application\UseCase\Command\Export\ExportInspectionReportDocument\ExportInspectionReportDocumentCommand;
 use Inspection\Presentation\Api\Trait\InspectionExportExceptionMapperTrait;
-use RuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -52,7 +51,7 @@ final class ExportInspectionReportController extends AbstractController
     }
     $bytes = base64_decode($result->documentBase64, true);
     if (false === $bytes) {
-      throw new RuntimeException('The committed export document is invalid.');
+      throw new InspectionExportFailureException('The committed export document is invalid.');
     }
 
     return new Response($bytes, Response::HTTP_OK, [

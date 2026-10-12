@@ -93,6 +93,13 @@ final readonly class FederatedAuthenticationService implements FederationFlowPor
   private const string INVALID_FLOW_MESSAGE = 'This connection request is no longer valid.';
 
   /**
+   * Constant PROVIDER_CHANGED_MESSAGE
+   *
+   * Rejects an identity whose retained issuer no longer matches its provider configuration.
+   */
+  private const string PROVIDER_CHANGED_MESSAGE = 'This sign-in provider configuration has changed.';
+
+  /**
    * Method __construct
    *
    * Initializes federated provider, flow, identity, session and user services.
@@ -187,7 +194,7 @@ final readonly class FederatedAuthenticationService implements FederationFlowPor
 
       if (null !== $connection) {
         if ($connection->issuer !== $profile->issuer) {
-          throw new FederatedAuthException('issuer_mismatch', 'This sign-in provider configuration has changed.');
+          throw new FederatedAuthException('issuer_mismatch', self::PROVIDER_CHANGED_MESSAGE);
         }
         $user = $this->users->recordSuccessfulLogin($connection->userId);
         if (null === $user) {
@@ -447,7 +454,7 @@ final readonly class FederatedAuthenticationService implements FederationFlowPor
       throw new FederatedAuthException('issuer_mismatch', 'The identity provider returned an unexpected issuer.');
     }
     if (null !== $profile->issuer && $this->identities->hasIssuerConflict($provider, $profile->issuer)) {
-      throw new FederatedAuthException('issuer_mismatch', 'This sign-in provider configuration has changed.');
+      throw new FederatedAuthException('issuer_mismatch', self::PROVIDER_CHANGED_MESSAGE);
     }
     if (!$profile->emailVerified) {
       throw new FederatedAuthException('email_unverified', 'The provider email is not verified.');
@@ -502,7 +509,7 @@ final readonly class FederatedAuthenticationService implements FederationFlowPor
   private function touchConnection(FederatedConnection $connection, FederatedProfile $profile): void
   {
     if ($connection->issuer !== $profile->issuer) {
-      throw new FederatedAuthException('issuer_mismatch', 'This sign-in provider configuration has changed.');
+      throw new FederatedAuthException('issuer_mismatch', self::PROVIDER_CHANGED_MESSAGE);
     }
     $this->identities->save(new FederatedConnection(
       id: $connection->id,
