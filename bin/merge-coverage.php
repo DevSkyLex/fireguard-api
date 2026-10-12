@@ -64,6 +64,7 @@ try {
     } else {
       $merged->merge($part);
     }
+    unset($part);
   }
 
   if (!$merged instanceof CodeCoverage) {

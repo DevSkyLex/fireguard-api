@@ -470,7 +470,7 @@ jobs:
       - name: Merge complete application coverage
         id: merge
         run: |
-          php -d memory_limit=1G bin/merge-coverage.php \
+          php -d memory_limit=4G bin/merge-coverage.php \
             var/coverage/full/clover.xml \
             var/coverage/parts/unit-and-architecture.php \
             var/coverage/parts/integration-and-functional.php \
