@@ -111,6 +111,32 @@ expired or uncertain operation rather than retrying it with a new key. See
 [the security invariants](SECURITY.md#durable-http-idempotency) and
 [the recurring retention command](docs/operations/workers-and-scheduler.md#http-idempotency-result-retention).
 
+### Failed development Webhook cutover
+
+The installed transport probe resolves the active YAML composition and production
+overrides before stopping producers. Unknown transports or configuration remain
+closed; no queued message is discarded or automatically provisioned.
+
+For a reviewed development failure at the transport preflight, `Deploy VPS` accepts
+`recover_cutover_run_id`. It requires the original completed failed deployment,
+successful source guard, exact unsupported-transport failure before snapshots or
+migrations, and ancestry from the failed source to the new CI-approved source.
+Other active development deployment controllers prevent recovery.
+
+Before releasing that run's empty lock, the isolated recovery helper verifies its
+creation window, stable inode, stopped producers from the failed source, the running
+main Webhook worker, an empty auth queue and the absence of active local operations.
+It removes only the verified empty lock; the ordinary deployment immediately
+reacquires the installation mutex. Unknown state, remaining auth work or a newer
+lock refuses recovery. Production and ordinary deployments retain their existing
+lock acquisition and snapshot/migration gates.
+
+Publish the correction through a normal `develop` PR and its complete CI/Sonar gates,
+then dispatch the new approved source with the failed run ID. Do not rerun an old
+image's deployment helper or pass `--already-drained=true` to bypass this refusal.
+Verify the actual Kernel idempotency parameter, workers and public health before
+declaring the forward recovery complete.
+
 ## Health Checks
 
 See the [health checks](docs/operations/monitoring-and-troubleshooting.md) procedure.

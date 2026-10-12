@@ -18,14 +18,124 @@ WRITERS = {"app", "async_worker", "webhook_worker", "assistant_worker", "schedul
 STATE_FORMAT = "{{.State.Running}} {{.State.ExitCode}} {{.State.OOMKilled}}"
 TRANSPORT_PROBE = r'''
 require 'vendor/autoload.php';
-$config = Symfony\Component\Yaml\Yaml::parseFile('config/packages/messenger.yaml');
-$transport = $config['framework']['messenger']['transports']['webhook'] ?? null;
-$dsn = is_array($transport) ? ($transport['dsn'] ?? '') : $transport;
-if (is_string($dsn) && preg_match('/^%env\(([A-Z_]+)\)%$/D', $dsn, $match)) {
-  $dsn = getenv($match[1]);
+// Inspect configuration as data, without compiling services or opening a database.
+// Follow MicroKernelTrait's production roots and YamlFileLoader's import order.
+set_error_handler(static function () { throw new RuntimeException(); });
+try {
+  $reader = new class {
+    private string $root;
+    private array $loading = [];
+    private int $files = 0;
+    private int $bytes = 0;
+    private mixed $dsn = null;
+
+    public function __construct() {
+      $root = realpath('config');
+      if (false === $root) { throw new RuntimeException(); }
+      $this->root = str_replace('\\', '/', $root);
+    }
+
+    private function confined(string $path): string {
+      $resolved = realpath($path);
+      if (false === $resolved) { throw new RuntimeException(); }
+      $resolved = str_replace('\\', '/', $resolved);
+      $relative = substr($resolved, strlen($this->root) + 1);
+      if (!str_starts_with(strtolower($resolved), strtolower($this->root . '/'))
+          || preg_match('~^(?:jwt|secrets)(?:/|$)~i', $relative)) {
+        throw new RuntimeException();
+      }
+      return $resolved;
+    }
+
+    private function resource(string $resource, string $directory, int $depth, bool $optional = false): void {
+      if ('' === $resource || str_contains($resource, "\0") || str_contains($resource, '%')
+          || str_contains($resource, '://') || str_contains($resource, "\n")) {
+        throw new RuntimeException();
+      }
+      $path = $directory . '/' . $resource;
+      $wildcard = strcspn($path, '*?{[');
+      if ($wildcard < strlen($path)) {
+        $prefix = dirname(substr($path, 0, $wildcard + 1));
+        if (!is_dir($prefix) && $optional) { return; }
+        $resolved = $this->confined($prefix);
+        $pattern = substr($path, strlen($prefix));
+        foreach (new Symfony\Component\Config\Resource\GlobResource($resolved, $pattern, false) as $file => $info) {
+          $this->file($file, $depth);
+        }
+        return;
+      }
+      if (!file_exists($path) && $optional) { return; }
+      $this->file($path, $depth);
+    }
+
+    private function content(array $content, string $directory, int $depth): void {
+      if (array_key_exists('imports', $content)) {
+        if (!is_array($content['imports'])) { throw new RuntimeException(); }
+        foreach ($content['imports'] as $import) {
+          if (!is_array($import) || !is_string($import['resource'] ?? null)
+              || !in_array($import['type'] ?? null, [null, 'yaml', 'glob'], true)
+              || !is_bool($import['ignore_errors'] ?? false)) { throw new RuntimeException(); }
+          $this->resource($import['resource'], $directory, $depth + 1, $import['ignore_errors'] ?? false);
+        }
+      }
+      if (!array_key_exists('framework', $content)) { return; }
+      $framework = $content['framework'];
+      if (!is_array($framework)) { throw new RuntimeException(); }
+      if (!array_key_exists('messenger', $framework)) { return; }
+      $messenger = $framework['messenger'];
+      if (!is_array($messenger)) { throw new RuntimeException(); }
+      if (!array_key_exists('transports', $messenger)) { return; }
+      $transports = $messenger['transports'];
+      if (!is_array($transports)) { throw new RuntimeException(); }
+      if (!array_key_exists('webhook', $transports)) { return; }
+      $transport = $transports['webhook'];
+      if (is_string($transport)) { $this->dsn = $transport; }
+      elseif (is_array($transport)) {
+        if (array_key_exists('dsn', $transport)) { $this->dsn = $transport['dsn']; }
+      } else { throw new RuntimeException(); }
+    }
+
+    private function file(string $path, int $depth): void {
+      $path = $this->confined($path);
+      if ($depth > 32 || ++$this->files > 512 || isset($this->loading[$path])
+          || !is_file($path) || !preg_match('/\.ya?ml$/D', $path)) { throw new RuntimeException(); }
+      $size = filesize($path);
+      if (false === $size || $size > 1048576 || ($this->bytes += $size) > 4194304) { throw new RuntimeException(); }
+      $this->loading[$path] = true;
+      try {
+        $content = Symfony\Component\Yaml\Yaml::parseFile($path, Symfony\Component\Yaml\Yaml::PARSE_CUSTOM_TAGS);
+        if (null === $content) { return; }
+        if (!is_array($content)) { throw new RuntimeException(); }
+        $this->content($content, dirname($path), $depth);
+        if (array_key_exists('when@prod', $content)) {
+          if (!is_array($content['when@prod'])) { throw new RuntimeException(); }
+          $this->content($content['when@prod'], dirname($path), $depth);
+        }
+      } finally { unset($this->loading[$path]); }
+    }
+
+    public function connection(): string {
+      $this->resource('packages/*.{php,yaml}', $this->root, 0);
+      $this->resource('packages/prod/*.{php,yaml}', $this->root, 0, true);
+      if (is_file($this->root . '/services.yaml')) {
+        $this->resource('services.yaml', $this->root, 0);
+        $this->resource('services_prod.yaml', $this->root, 0, true);
+      } elseif (is_file($this->root . '/services.php')) { throw new RuntimeException(); }
+      $dsn = $this->dsn;
+      if (is_string($dsn) && preg_match('/^%env\(([A-Z_][A-Z0-9_]*)\)%$/D', $dsn, $match)) {
+        $dsn = getenv($match[1]);
+      }
+      return is_string($dsn) && preg_match('/^doctrine:\/\/(auth|main)(?:\?|$)/D', $dsn, $match)
+        ? $match[1] : 'unsupported';
+    }
+  };
+  $connection = $reader->connection();
+} catch (Throwable) {
+  $connection = 'unsupported';
+} finally {
+  restore_error_handler();
 }
-echo is_string($dsn) && preg_match('/^doctrine:\/\/(auth|main)(?:\?|$)/D', $dsn, $match)
-  ? $match[1] : 'unsupported';
+echo $connection;
 '''
 TABLE_PROBE = '''exec psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -AtX -v ON_ERROR_STOP=1 -c "SELECT CASE WHEN to_regclass('public.messenger_messages') IS NULL THEN 'absent' ELSE 'present' END"'''
 COUNT_PROBE = '''exec psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -AtX -v ON_ERROR_STOP=1 -c "SELECT COUNT(*) FROM public.messenger_messages WHERE queue_name = 'webhook'"'''
@@ -108,8 +218,6 @@ def cutover(app_dir, projects, *, deadline=900, poll=5, grace=120, defer_bootstr
     if len(workers) > 1:
         raise CutoverError("Multiple installed Webhook workers were found; cutover was refused.")
     database = databases[0]
-    # HTTP and every producer, including main_outbox, finish before the drain.
-    stop([identifier for identifier in writers if identifier not in workers], grace)
     connection = None
     if workers:
         if state(workers[0])[0]:
@@ -118,6 +226,9 @@ def cutover(app_dir, projects, *, deadline=900, poll=5, grace=120, defer_bootstr
                 raise CutoverError("The installed Webhook transport is unsupported; cutover was refused without discarding its work.")
         elif not already_drained:
             raise CutoverError("The installed Webhook worker is stopped and its transport is unverified; restore that exact worker before retrying.")
+    # Refuse unknown installed configuration before interrupting healthy producers.
+    # HTTP and every producer, including main_outbox, finish before the drain.
+    stop([identifier for identifier in writers if identifier not in workers], grace)
     remaining = queue_count(database, fresh=not writers)
     if remaining:
         if len(workers) != 1 or not state(workers[0])[0]:
