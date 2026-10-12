@@ -123,7 +123,7 @@ final class ArchiveConversationHandlerTest extends TestCase
     return Conversation::reconstitute(
       ConversationId::fromString(self::CONVERSATION_ID),
       self::ORG_ID,
-      MessagingSubjectType::FACILITY,
+      MessagingSubjectType::from('facility'),
       'facility-1',
       new RestoredConversationActivity(
         ConversationVisibility::SUBJECT,

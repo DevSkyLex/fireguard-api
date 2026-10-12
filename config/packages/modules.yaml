@@ -1,5 +1,5 @@
-# Import module configurations
-# Each module has its own service configuration file in config/modules/
+# Full production composition: each module owns its services, ORM mappings,
+# API resource discovery, Messenger routing and environment-specific seeds.
 
 imports:
   - { resource: '../modules/shared.yaml' }

@@ -7,18 +7,17 @@ namespace Tests\Unit\Intervention\Presentation\Api\Controller;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Intervention\Application\Contract\Event\Export\InterventionsExportedEvent;
 use Intervention\Application\Contract\Export\InterventionExportRow;
-use Intervention\Application\UseCase\Command\Export\RecordInterventionExport\RecordInterventionExportCommand;
 use Intervention\Application\UseCase\Query\ExportInterventions\ExportInterventionsResult;
 use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionNotFoundException};
 use Intervention\Domain\Exception\InterventionExportTooLargeException;
 use Intervention\Presentation\Api\Controller\ExportInterventionsController;
-use Intervention\Presentation\Api\Service\{InterventionCsvWriter, InterventionExportCriteriaFactory};
+use Intervention\Presentation\Api\Service\InterventionExportCriteriaFactory;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
-use Shared\Application\Message\VoidResult;
-use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
+use Shared\Application\Port\Inbound\QueryBusPort;
+use Shared\Application\Port\Outbound\EventDispatcherPort;
 use Shared\Infrastructure\Csv\SpreadsheetSafeTextAdapter;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, StreamedResponse};
@@ -40,6 +39,7 @@ use function ob_start;
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 #[CoversClass(ExportInterventionsController::class)]
+#[CoversClass(\Intervention\Application\UseCase\Command\Export\ExportInterventionsDocument\ExportInterventionsDocumentHandler::class)]
 final class ExportInterventionsControllerTest extends TestCase
 {
   private const string USER_ID = '550e8400-e29b-41d4-a716-446655507001';
@@ -69,7 +69,7 @@ final class ExportInterventionsControllerTest extends TestCase
     $queryBus = $this->createStub(QueryBusPort::class);
     $queryBus->method('ask')->willReturn(new ExportInterventionsResult(rows: [$row], total: 1));
 
-    $response = $this->createController($queryBus, $this->createStub(CommandBusPort::class))->__invoke($request);
+    $response = $this->createController($queryBus, $this->createStub(EventDispatcherPort::class))->__invoke($request);
 
     self::assertSame('text/csv; charset=utf-8', $response->headers->get('Content-Type'));
     self::assertSame('no', $response->headers->get('X-Accel-Buffering'));
@@ -97,7 +97,7 @@ final class ExportInterventionsControllerTest extends TestCase
     $this->expectException(BadRequestHttpException::class);
     $this->expectExceptionMessage('The organization filter is required.');
 
-    $this->createController($queryBus, $this->createStub(CommandBusPort::class))->__invoke(new Request());
+    $this->createController($queryBus, $this->createStub(EventDispatcherPort::class))->__invoke(new Request());
   }
 
   #[Test]
@@ -114,14 +114,14 @@ final class ExportInterventionsControllerTest extends TestCase
 
     $dispatched = null;
 
-    /** @var CommandBusPort&MockObject $commandBus */
-    $commandBus = $this->createMock(CommandBusPort::class);
+    /** @var EventDispatcherPort&MockObject $commandBus */
+    $commandBus = $this->createMock(EventDispatcherPort::class);
     $commandBus->expects(self::once())
       ->method('dispatch')
-      ->willReturnCallback(static function (RecordInterventionExportCommand $command) use (&$dispatched): VoidResult {
-        $dispatched = $command->event;
+      ->willReturnCallback(static function (object $event) use (&$dispatched): void {
+        $dispatched = $event;
 
-        return new VoidResult();
+
       });
 
     $this->createController($queryBus, $commandBus)->__invoke($request);
@@ -143,13 +143,7 @@ final class ExportInterventionsControllerTest extends TestCase
     $queryBus = $this->createMock(QueryBusPort::class);
     $queryBus->expects(self::never())->method('ask');
 
-    $controller = new ExportInterventionsController(
-      queryBus: $queryBus,
-      commandBus: $this->createStub(CommandBusPort::class),
-      security: $security,
-      criteriaFactory: new InterventionExportCriteriaFactory(),
-      csvWriter: new InterventionCsvWriter(new SpreadsheetSafeTextAdapter()),
-    );
+    $controller = new ExportInterventionsController(commandBus: $this->documents(new \Intervention\Application\UseCase\Command\Export\ExportInterventionsDocument\ExportInterventionsDocumentHandler(queryBus: $queryBus, csvRenderer: new \Intervention\Infrastructure\Adapter\Export\InterventionCsvRendererAdapter(new SpreadsheetSafeTextAdapter()), events: $this->createStub(EventDispatcherPort::class), transactions: $this->transactions(), authorization: $this->authorization())), security: $security, criteriaFactory: new InterventionExportCriteriaFactory());
 
     $this->expectException(AccessDeniedHttpException::class);
     $this->expectExceptionMessage('Authentication required.');
@@ -165,7 +159,7 @@ final class ExportInterventionsControllerTest extends TestCase
 
     $this->expectException(AccessDeniedHttpException::class);
 
-    $this->createController($queryBus, $this->createStub(CommandBusPort::class))
+    $this->createController($queryBus, $this->createStub(EventDispatcherPort::class))
       ->__invoke(new Request(['organization' => '/api/organizations/' . self::ORGANIZATION_ID]));
   }
 
@@ -177,7 +171,7 @@ final class ExportInterventionsControllerTest extends TestCase
 
     $this->expectException(NotFoundHttpException::class);
 
-    $this->createController($queryBus, $this->createStub(CommandBusPort::class))
+    $this->createController($queryBus, $this->createStub(EventDispatcherPort::class))
       ->__invoke(new Request(['organization' => '/api/organizations/' . self::ORGANIZATION_ID]));
   }
 
@@ -198,8 +192,8 @@ final class ExportInterventionsControllerTest extends TestCase
       ),
     ));
 
-    /** @var CommandBusPort&MockObject $commandBus */
-    $commandBus = $this->createMock(CommandBusPort::class);
+    /** @var EventDispatcherPort&MockObject $commandBus */
+    $commandBus = $this->createMock(EventDispatcherPort::class);
     $commandBus->expects(self::never())->method('dispatch');
 
     $this->expectException(UnprocessableEntityHttpException::class);
@@ -208,7 +202,7 @@ final class ExportInterventionsControllerTest extends TestCase
       ->__invoke(new Request(['organization' => '/api/organizations/' . self::ORGANIZATION_ID]));
   }
 
-  private function createController(QueryBusPort $queryBus, CommandBusPort $commandBus): ExportInterventionsController
+  private function createController(QueryBusPort $queryBus, EventDispatcherPort $commandBus): ExportInterventionsController
   {
     $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn(new SecurityUser(
@@ -220,12 +214,30 @@ final class ExportInterventionsControllerTest extends TestCase
       isActive: true,
     ));
 
-    return new ExportInterventionsController(
-      queryBus: $queryBus,
-      commandBus: $commandBus,
-      security: $security,
-      criteriaFactory: new InterventionExportCriteriaFactory(),
-      csvWriter: new InterventionCsvWriter(new SpreadsheetSafeTextAdapter()),
-    );
+    return new ExportInterventionsController(commandBus: $this->documents(new \Intervention\Application\UseCase\Command\Export\ExportInterventionsDocument\ExportInterventionsDocumentHandler(queryBus: $queryBus, csvRenderer: new \Intervention\Infrastructure\Adapter\Export\InterventionCsvRendererAdapter(new SpreadsheetSafeTextAdapter()), events: $commandBus, transactions: $this->transactions(), authorization: $this->authorization())), security: $security, criteriaFactory: new InterventionExportCriteriaFactory());
+  }
+
+  private function documents(\Intervention\Application\UseCase\Command\Export\ExportInterventionsDocument\ExportInterventionsDocumentHandler $handler): \Shared\Application\Port\Inbound\CommandBusPort
+  {
+    $documents = $this->createStub(\Shared\Application\Port\Inbound\CommandBusPort::class);
+    $documents->method('dispatch')->willReturnCallback($handler(...));
+
+    return $documents;
+  }
+
+  private function transactions(): \Shared\Application\Port\Outbound\TransactionManagerPort
+  {
+    $transactions = $this->createStub(\Shared\Application\Port\Outbound\TransactionManagerPort::class);
+    $transactions->method('transactional')->willReturnCallback(static fn (callable $operation): mixed => $operation());
+
+    return $transactions;
+  }
+
+  private function authorization(): \Organization\Application\Port\Inbound\OrganizationAuthorizationPort
+  {
+    $authorization = $this->createStub(\Organization\Application\Port\Inbound\OrganizationAuthorizationPort::class);
+    $authorization->method('resolveAccess')->willReturn(\Organization\Application\Contract\Authorization\OrganizationAccessDecision::GRANTED);
+
+    return $authorization;
   }
 }

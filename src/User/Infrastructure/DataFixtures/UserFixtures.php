@@ -479,6 +479,7 @@ class UserFixtures extends Fixture implements FixtureGroupInterface
     );
     $clientUserRecord = $this->userMapper->toRecord($clientUser);
     $manager->persist($clientUserRecord);
+    $this->roles->assign($clientUserRecord->id, 'super_admin', Uuid::v7()->toRfc4122(), new DateTimeImmutable());
 
     $manager->flush();
   }

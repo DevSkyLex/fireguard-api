@@ -1,3 +1,7 @@
+imports:
+  - { resource: 'maintenance_export/doctrine.yaml' }
+  - { resource: 'maintenance_export/api_platform.yaml' }
+
 services:
   _defaults:
     autowire: true
@@ -33,3 +37,12 @@ services:
 
   MaintenanceExport\Application\UseCase\Query\ReadMaintenanceExport\ReadMaintenanceExportHandler:
     tags: ['messenger.message_handler']
+
+  MaintenanceExport\Infrastructure\Adapter\Event\IntegrationEventConverterAdapter: ~
+
+  MaintenanceExport\Infrastructure\Adapter\Idempotency\MaintenanceExportHttpIdempotencyOperationContributionAdapter:
+    tags: [http.idempotency_operation]
+  MaintenanceExport\Infrastructure\Adapter\Idempotency\MaintenanceExportHttpIdempotencyReplayAuthorizationAdapter:
+    arguments:
+      $connection: '@doctrine.dbal.main_connection'
+    tags: [http.idempotency_replay_authorization]

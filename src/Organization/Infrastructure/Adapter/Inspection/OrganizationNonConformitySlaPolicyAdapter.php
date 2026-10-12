@@ -6,10 +6,13 @@ namespace Organization\Infrastructure\Adapter\Inspection;
 
 use Inspection\Application\Contract\Sla\NonConformitySlaPolicy;
 use Inspection\Application\Port\Outbound\Compliance\NonConformitySlaPolicyPort;
+use Organization\Application\Port\Inbound\OrganizationSettingsPolicyCatalogPort;
 use Organization\Application\Port\Outbound\Internal\OrganizationRepositoryPort;
-use Organization\Domain\Catalog\OrganizationComplianceDefaults;
 use Organization\Domain\ValueObject\OrganizationId;
 use Shared\Domain\Exception\InvalidValueException;
+
+use function is_array;
+use function is_int;
 
 /**
  * Adapter OrganizationNonConformitySlaPolicyAdapter.
@@ -38,6 +41,7 @@ final readonly class OrganizationNonConformitySlaPolicyAdapter implements NonCon
    */
   public function __construct(
     private OrganizationRepositoryPort $organizationRepository,
+    private OrganizationSettingsPolicyCatalogPort $settingsPolicies,
   ) {
   }
 
@@ -59,15 +63,33 @@ final readonly class OrganizationNonConformitySlaPolicyAdapter implements NonCon
     try {
       $organization = $this->organizationRepository->findById(OrganizationId::fromString($organizationId));
     } catch (InvalidValueException) {
-      return new NonConformitySlaPolicy(OrganizationComplianceDefaults::NON_CONFORMITY_SLA_DAYS);
+      return new NonConformitySlaPolicy($this->defaultSlaDays());
     }
 
     $settings = $organization?->settings()->compliance;
     if (null === $settings) {
-      return new NonConformitySlaPolicy(OrganizationComplianceDefaults::NON_CONFORMITY_SLA_DAYS);
+      return new NonConformitySlaPolicy($this->defaultSlaDays());
     }
 
     return new NonConformitySlaPolicy($settings->effectiveNonConformitySlaDays());
+  }
+
+  /**
+   * @return array<string, int>
+   */
+  private function defaultSlaDays(): array
+  {
+    $value = $this->settingsPolicies->get('compliance.non_conformity_sla_days')->default;
+    $defaults = [];
+    if (is_array($value)) {
+      foreach ($value as $key => $days) {
+        if (is_int($days)) {
+          $defaults[(string) $key] = $days;
+        }
+      }
+    }
+
+    return $defaults;
   }
   // #endregion
 }

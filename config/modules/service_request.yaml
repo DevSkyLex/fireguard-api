@@ -1,3 +1,7 @@
+imports:
+  - { resource: 'service_request/doctrine.yaml' }
+  - { resource: 'service_request/api_platform.yaml' }
+
 services:
   _defaults:
     autowire: true
@@ -26,7 +30,8 @@ services:
     class: Shared\Infrastructure\Symfony\Adapter\Outbound\DoctrineTransactionManagerAdapter
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
-
+      $database: main
+      $idempotency: '@Shared\Infrastructure\Idempotency\HttpIdempotencyExecutionContext'
   ServiceRequest\Application\UseCase\Command\CreateServiceRequest\CreateServiceRequestHandler:
     arguments:
       $transactions: '@service_request.main_transaction_manager'
@@ -50,3 +55,12 @@ services:
 
   ServiceRequest\Application\UseCase\Query\ListServiceRequests\ListServiceRequestsHandler:
     tags: ['messenger.message_handler']
+
+  ServiceRequest\Infrastructure\Adapter\Event\IntegrationEventConverterAdapter: ~
+
+  ServiceRequest\Infrastructure\Adapter\Idempotency\ServiceRequestHttpIdempotencyOperationContributionAdapter:
+    tags: [http.idempotency_operation]
+  ServiceRequest\Infrastructure\Adapter\Idempotency\ServiceRequestHttpIdempotencyReplayAuthorizationAdapter:
+    arguments:
+      $connection: '@doctrine.dbal.main_connection'
+    tags: [http.idempotency_replay_authorization]

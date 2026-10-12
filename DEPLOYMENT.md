@@ -136,6 +136,7 @@ Application secrets specific to each environment:
 - `POSTGRES_AUTH_PASSWORD`, `POSTGRES_MAIN_PASSWORD`
 - `MERCURE_JWT_SECRET`
 - `OAUTH_ENCRYPTION_KEY`, `WEBHOOK_ENCRYPTION_KEY`
+- `HTTP_IDEMPOTENCY_HMAC_KEY`, `HTTP_IDEMPOTENCY_ENCRYPTION_KEYS`: dedicated HTTP receipt keys
 - `BASIC_AUTH_USERS`, `BASIC_AUTH_CREDENTIALS` in `development`
 - `SECURITY_LOG_PII_SALT`
 - `GOOGLE_OIDC_CLIENT_SECRET`, `MICROSOFT_OIDC_CLIENT_SECRET` when the providers are enabled
@@ -150,6 +151,40 @@ Traefik. `VPS_APP_DIR` and `VPS_HEALTHCHECK_URL` control Ansible.
 Managed mode (`FIREGUARD_MANAGED_ENV=true`) renders `.env` from GitHub variables
 and secrets. Deployment rejects any missing, empty, or unsafe required value
 before stopping the application or running migrations.
+
+HTTP idempotency is enabled by default and requires dedicated keys before deployment.
+`HTTP_IDEMPOTENCY_REQUIRED` is a GitHub environment variable with the strict default
+`true`. A reviewed temporary `false` value lets the development environment accept
+older clients during the [client rollout](OPERATIONS.md#http-idempotency-rollout).
+It only relaxes the missing-header requirement: receipts, replay checks and key validation
+remain active. Both dedicated secrets and the active encryption version are required
+even during that compatibility window.
+Configure `HTTP_IDEMPOTENCY_HMAC_KEY` as base64 encoding of at least 32 random bytes,
+and `HTTP_IDEMPOTENCY_ENCRYPTION_KEYS` as a nonempty JSON object mapping version names
+to base64 encodings of exactly 32-byte AES-256-GCM keys. Store both in the matching
+GitHub environment secrets. `HTTP_IDEMPOTENCY_ENCRYPTION_ACTIVE_VERSION` is a GitHub
+variable selecting an existing key version, such as `v1`. Version names use at most
+32 letters, digits, underscores or hyphens; use named versions rather than numeric JSON keys.
+Do not reuse application, OAuth or TOTP keys.
+
+Ansible privately validates the effective `app.environment` after Compose resolves
+overrides and the environment file, for both managed and manually maintained installations.
+Invalid encoding, key sizes, keyring structure or active version stop deployment before
+service interruption or migrations. Diagnostics expose key names without their values.
+Application validators also fail closed if these services are instantiated with invalid keys.
+
+For a managed development rollout, deploy the reviewed API SHA with
+`HTTP_IDEMPOTENCY_REQUIRED=false`, deploy and verify compatible clients, then set the
+variable to `true` and rerun `Deploy VPS` on `develop`, supplying the original immutable
+image digest through `image_ref`. Its verified source SHA stays the same. Do not rebuild
+or change application code to perform this cutover. For a manually maintained installation,
+apply the same explicit values to its server environment before each deployment.
+
+Keep the HMAC key stable across deployments and rollbacks so retained receipts and their
+tombstones preserve their identities. Changing it requires an explicit receipt migration
+plan. For AES rotation, add a new named key, select it for new encryption, and retain old
+versions while any replay payload uses them. Development and production use independent
+key material. No workflow generates or replaces deployment keys automatically.
 
 ## Development and Mailpit
 

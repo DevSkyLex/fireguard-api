@@ -42,7 +42,7 @@ final class StartPortalHandlerTest extends TestCase
     $subscriptions = $this->createStub(SubscriptionRepositoryPort::class);
     $subscriptions->method('findByOrganizationId')->willReturn($subscription);
 
-    $handler = new StartPortalHandler($subscriptions, $stripe, 'https://app.fireguard.local/');
+    $handler = new StartPortalHandler($subscriptions, $stripe, new \Billing\Infrastructure\Adapter\Product\BillingReturnUrlAdapter(\Tests\Support\Shared\ProductConfigFixture::create(['product.frontend_url' => 'https://app.fireguard.local/']), \Tests\Support\Shared\ProductConfigFixture::parameters()['product.billing_settings_path']));
 
     $result = $handler(new StartPortalCommand('org-1'));
 
@@ -64,7 +64,7 @@ final class StartPortalHandlerTest extends TestCase
     $subscriptions = $this->createStub(SubscriptionRepositoryPort::class);
     $subscriptions->method('findByOrganizationId')->willReturn($subscription);
 
-    $handler = new StartPortalHandler($subscriptions, $stripe, 'https://app.fireguard.local');
+    $handler = new StartPortalHandler($subscriptions, $stripe, new \Billing\Infrastructure\Adapter\Product\BillingReturnUrlAdapter(\Tests\Support\Shared\ProductConfigFixture::create(['product.frontend_url' => 'https://app.fireguard.local']), \Tests\Support\Shared\ProductConfigFixture::parameters()['product.billing_settings_path']));
 
     $result = $handler(new StartPortalCommand('org-1'));
 
@@ -80,7 +80,7 @@ final class StartPortalHandlerTest extends TestCase
     $subscriptions = $this->createStub(SubscriptionRepositoryPort::class);
     $subscriptions->method('findByOrganizationId')->willReturn(null);
 
-    $handler = new StartPortalHandler($subscriptions, $stripe, 'https://app.fireguard.local');
+    $handler = new StartPortalHandler($subscriptions, $stripe, new \Billing\Infrastructure\Adapter\Product\BillingReturnUrlAdapter(\Tests\Support\Shared\ProductConfigFixture::create(['product.frontend_url' => 'https://app.fireguard.local']), \Tests\Support\Shared\ProductConfigFixture::parameters()['product.billing_settings_path']));
 
     $this->expectException(BillingCustomerNotFoundException::class);
 

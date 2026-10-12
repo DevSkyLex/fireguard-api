@@ -1,0 +1,4 @@
+framework:
+    messenger:
+        routing:
+            'Maintenance\Application\UseCase\Command\Sweep\RecomputeMaintenanceSchedules\RecomputeMaintenanceSchedulesCommand': async

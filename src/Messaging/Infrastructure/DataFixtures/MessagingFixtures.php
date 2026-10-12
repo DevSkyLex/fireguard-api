@@ -8,7 +8,7 @@ use DateTimeImmutable;
 use Doctrine\Bundle\FixturesBundle\{Fixture, FixtureGroupInterface};
 use Doctrine\Persistence\ObjectManager;
 use Messaging\Domain\Service\DirectConversationKey;
-use Messaging\Domain\ValueObject\{ConversationVisibility, MessagingSubjectType};
+use Messaging\Domain\ValueObject\ConversationVisibility;
 use Messaging\Infrastructure\Persistence\Doctrine\Record\{MessagingConversationRecord, MessagingMessageRecord, MessagingParticipantRecord, MessagingReactionRecord, MessagingReadMarkerRecord};
 use Organization\Application\Contract\Seed\SeedCatalog as OrganizationFixtures;
 use Shared\Application\Contract\Seed\SeedReference;
@@ -197,7 +197,7 @@ final class MessagingFixtures extends Fixture implements FixtureGroupInterface, 
     $direct = new MessagingConversationRecord();
     $direct->id = self::DIRECT_CONVERSATION_ID;
     $direct->organizationId = $organization->id;
-    $direct->subjectType = MessagingSubjectType::DIRECT->value;
+    $direct->subjectType = 'direct';
     $direct->subjectId = DirectConversationKey::for(self::OWNER_MEMBER_ID, self::INSPECTOR_MEMBER_ID);
     $direct->visibility = ConversationVisibility::PARTICIPANTS->value;
     $direct->name = null;
@@ -326,7 +326,7 @@ final class MessagingFixtures extends Fixture implements FixtureGroupInterface, 
     $channel = new MessagingConversationRecord();
     $channel->id = $id;
     $channel->organizationId = $organization->id;
-    $channel->subjectType = MessagingSubjectType::CHANNEL->value;
+    $channel->subjectType = 'channel';
     $channel->subjectId = null;
     $channel->visibility = ConversationVisibility::PARTICIPANTS->value;
     $channel->name = $name;

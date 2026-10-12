@@ -5,8 +5,7 @@ declare(strict_types=1);
 namespace Import\Application\UseCase\Command\ConfirmImportSimulation;
 
 use Import\Application\Port\Outbound\{ImportConfirmationLockPort, ImportJobQueuePort};
-use Import\Application\Port\Outbound\Internal\ImportJobRepositoryPort;
-use Import\Application\Service\ImportPermissions;
+use Import\Application\Port\Outbound\Internal\{ImportJobRepositoryPort, ImportKindRegistryPort};
 use Import\Application\UseCase\Query\GetImportJob\GetImportJobResult;
 use Import\Domain\Exception\{ImportAccessDeniedException, ImportConfirmationNotAllowedException, ImportJobNotFoundException};
 use Import\Domain\Model\ImportJob\ImportJob;
@@ -44,6 +43,7 @@ final readonly class ConfirmImportSimulationHandler implements CommandHandler
     private FileStoragePort $files,
     private UuidGeneratorPort $ids,
     private ClockPort $clock,
+    private ImportKindRegistryPort $kinds,
   ) {
   }
 
@@ -64,7 +64,7 @@ final readonly class ConfirmImportSimulationHandler implements CommandHandler
   {
     return $this->lock->synchronized($command->simulationId, function () use ($command): GetImportJobResult {
       $source = $this->jobs->findById(ImportJobId::fromString($command->simulationId)) ?? throw ImportJobNotFoundException::withId($command->simulationId);
-      $permission = ImportPermissions::write($source->kind());
+      $permission = $this->kinds->get($source->kind()->value)->descriptor()->writePermission;
       $access = $this->authorization->resolveAccess($command->userId, $source->organizationId(), $permission);
       if ($access->isOutsideScope()) {
         throw ImportJobNotFoundException::withId($command->simulationId);

@@ -4,67 +4,130 @@ declare(strict_types=1);
 
 namespace Authorization\Infrastructure\Catalog;
 
+use Authorization\Application\Contract\Catalog\RoleDefinition;
+use Authorization\Application\Port\Inbound\RoleCatalogContributionPort;
+use Authorization\Application\Port\Outbound\{PermissionCatalogPort, RoleCatalogPort};
+use LogicException;
+
+use function array_values;
+use function strcmp;
+use function uasort;
+
 /**
- * RoleCatalog.
+ * Class RoleCatalog
  *
- * Defines default permission sets for system roles.
+ * Composes bootstrap policy and rejects ambiguous roles, fixture references and defaults.
+ *
+ * @category Catalog
  */
-final class RoleCatalog
+final readonly class RoleCatalog implements RoleCatalogPort
 {
+  // #region Properties
   /**
-   * @return list<string>
+   * Property entries
+   *
+   * @var array<string, RoleDefinition>
    */
-  public static function superAdminPermissionNames(): array
+  private array $entries;
+
+  /**
+   * Property defaultName
+   */
+  private ?string $defaultName;
+  // #endregion
+
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Uses the same validation for runtime contributors and compiler-provided classes.
+   *
+   * @access public
+   *
+   * @param iterable<RoleCatalogContributionPort|class-string<RoleCatalogContributionPort>> $contributors owner contributions
+   *
+   * @return void
+   *
+   * @throws LogicException on ambiguous bootstrap policy
+   */
+  public function __construct(iterable $contributors)
   {
-    return ['*.*'];
+    $entries = [];
+    $references = [];
+    $defaultName = null;
+    foreach ($contributors as $contributor) {
+      foreach ($contributor::definitions() as $definition) {
+        if (isset($entries[$definition->name])) {
+          throw new LogicException('Duplicate role catalog key: ' . $definition->name);
+        }
+        if (null !== $definition->reference) {
+          if (isset($references[$definition->reference])) {
+            throw new LogicException('Duplicate role fixture reference: ' . $definition->reference);
+          }
+          $references[$definition->reference] = true;
+        }
+        if ($definition->defaultForNewUsers) {
+          if (null !== $defaultName) {
+            throw new LogicException('Multiple default role catalog contributions.');
+          }
+          $defaultName = $definition->name;
+        }
+        $entries[$definition->name] = $definition;
+      }
+    }
+    uasort($entries, static fn (RoleDefinition $left, RoleDefinition $right): int => ($left->order <=> $right->order) ?: strcmp($left->name, $right->name));
+    $this->entries = $entries;
+    $this->defaultName = $defaultName;
+  }
+  // #endregion
+
+  // #region Methods
+  /**
+   * Method definitions
+   *
+   * @access public
+   *
+   * @return list<RoleDefinition> deterministic bootstrap definitions
+   */
+  public function definitions(): array
+  {
+    return array_values($this->entries);
   }
 
   /**
-   * @return list<string>
+   * Method defaultRoleName
+   *
+   * @access public
+   *
+   * @return string|null single registered default
    */
-  public static function adminPermissionNames(): array
+  public function defaultRoleName(): ?string
   {
-    return [
-      'users.*',
-      'clients.*',
-      'roles.read',
-      'roles.create',
-      'roles.update',
-      'roles.assign',
-      'permissions.read',
-      'tenants.create',
-      'tenants.read',
-      'profile.read',
-      'profile.update',
-      'sessions.read',
-      'sessions.revoke',
-      'audit.read',
-      'audit.export',
-      'otp_config.read',
-      'otp_challenges.*',
-      'otp_totp.setup',
-      'otp_totp.confirm',
-      'otp_totp.disable',
-      'trusted_devices.*',
-    ];
+    return $this->defaultName;
   }
 
   /**
-   * @return list<string>
+   * Method validatePermissions
+   *
+   * Lets composition reject unresolved grants before fixtures or commands run.
+   *
+   * @access public
+   *
+   * @param PermissionCatalogPort $permissions composed vocabulary
+   *
+   * @return void
+   *
+   * @throws LogicException on unregistered grants
    */
-  public static function userPermissionNames(): array
+  public function validatePermissions(PermissionCatalogPort $permissions): void
   {
-    return [
-      'profile.read',
-      'profile.update',
-      'sessions.read',
-      'sessions.revoke',
-      'otp_config.read',
-      'otp_challenges.*',
-      'otp_totp.setup',
-      'otp_totp.confirm',
-      'otp_totp.disable',
-      'trusted_devices.*',
-    ];
+    foreach ($this->entries as $definition) {
+      foreach ($definition->permissionNames as $name) {
+        if (!$permissions->contains($name)) {
+          throw new LogicException('Unknown permission catalog key ' . $name . ' in role ' . $definition->name);
+        }
+      }
+    }
   }
+  // #endregion
 }

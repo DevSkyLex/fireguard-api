@@ -54,6 +54,7 @@ final class PlanUseCaseHandlersTest extends TestCase
       planRepository: $planRepository,
       uuidFactory: $this->uuidFactory(),
       transactionManager: $this->transactionManager(),
+      quotaCatalog: \Tests\Support\OrganizationCatalogTestFactory::quota(),
     );
 
     $result = $handler(new CreatePlanCommand(key: 'pro', name: 'Pro', limits: ['members' => 50]));
@@ -71,6 +72,7 @@ final class PlanUseCaseHandlersTest extends TestCase
       planRepository: $planRepository,
       uuidFactory: $this->uuidFactory(),
       transactionManager: $this->transactionManager(),
+      quotaCatalog: \Tests\Support\OrganizationCatalogTestFactory::quota(),
     );
 
     $this->expectException(PlanKeyAlreadyExistsException::class);
@@ -93,6 +95,7 @@ final class PlanUseCaseHandlersTest extends TestCase
       planRepository: $planRepository,
       uuidFactory: $this->uuidFactory(),
       transactionManager: $this->transactionManager(),
+      quotaCatalog: \Tests\Support\OrganizationCatalogTestFactory::quota(),
     );
 
     $handler(new CreatePlanCommand(key: 'pro', name: 'Pro', limits: [], isDefault: true));
@@ -113,6 +116,7 @@ final class PlanUseCaseHandlersTest extends TestCase
       planRepository: $planRepository,
       uuidFactory: $this->uuidFactory(),
       transactionManager: $this->transactionManager(),
+      quotaCatalog: \Tests\Support\OrganizationCatalogTestFactory::quota(),
     );
 
     $handler(new CreatePlanCommand(key: 'pro', name: 'Pro', limits: [], isDefault: true));
@@ -131,6 +135,7 @@ final class PlanUseCaseHandlersTest extends TestCase
     $handler = new UpdatePlanHandler(
       planRepository: $planRepository,
       transactionManager: $this->transactionManager(),
+      quotaCatalog: \Tests\Support\OrganizationCatalogTestFactory::quota(),
     );
 
     $result = $handler(new UpdatePlanCommand(
@@ -163,6 +168,7 @@ final class PlanUseCaseHandlersTest extends TestCase
     $handler = new UpdatePlanHandler(
       planRepository: $planRepository,
       transactionManager: $this->transactionManager(),
+      quotaCatalog: \Tests\Support\OrganizationCatalogTestFactory::quota(),
     );
 
     $handler(new UpdatePlanCommand(planId: self::PLAN_ID));
@@ -186,6 +192,7 @@ final class PlanUseCaseHandlersTest extends TestCase
     $handler = new UpdatePlanHandler(
       planRepository: $planRepository,
       transactionManager: $this->transactionManager(),
+      quotaCatalog: \Tests\Support\OrganizationCatalogTestFactory::quota(),
     );
 
     $handler(new UpdatePlanCommand(planId: self::PLAN_ID, isDefault: true));
@@ -203,6 +210,7 @@ final class PlanUseCaseHandlersTest extends TestCase
     $handler = new UpdatePlanHandler(
       planRepository: $planRepository,
       transactionManager: $this->transactionManager(),
+      quotaCatalog: \Tests\Support\OrganizationCatalogTestFactory::quota(),
     );
 
     $this->expectException(PlanNotFoundException::class);

@@ -10,7 +10,7 @@ use Shared\Application\Message\CommandMessage;
 /**
  * UseCase DispatchWebhookEventCommand.
  *
- * Dispatched by `WebhookEventSubscriber` (fire-and-forget, via the raw
+ * Dispatched by `WebhookEventPublisherAdapter` (fire-and-forget, via the raw
  * Symfony message bus) whenever a curated internal domain event occurs.
  * Routed to the `webhook` transport (see `config/packages/messenger.yaml`).
  *

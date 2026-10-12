@@ -64,7 +64,7 @@ final readonly class BindChannelTeamHandler implements CommandHandler
   public function __invoke(BindChannelTeamCommand $command): BindChannelTeamResult
   {
     $conversation = $this->conversations->findAggregateById($command->conversationId);
-    if (null === $conversation || MessagingSubjectType::CHANNEL !== $conversation->subjectType()) {
+    if (null === $conversation || MessagingSubjectType::CHANNEL !== $conversation->subjectType()->value) {
       throw MessagingNotFoundException::conversation($command->conversationId);
     }
 

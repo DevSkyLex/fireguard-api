@@ -100,11 +100,13 @@ final class OrganizationSettingsOutputTest extends TestCase
       nonConformitySlaDays: ['critical' => 2],
       inspectionPeriodicityDefaults: ['fire_extinguisher' => 'P6M'],
       reminderWindowDays: 12,
+      defaultSlaDays: \Tests\Support\OrganizationCatalogTestFactory::complianceSlaDefaults(),
+      defaultPeriodicities: \Tests\Support\OrganizationCatalogTestFactory::compliancePeriodicityDefaults(),
     ));
 
     self::assertSame(2, $output->nonConformitySlaDays['critical']);
     self::assertSame(
-      OrganizationComplianceDefaults::NON_CONFORMITY_SLA_DAYS['low'],
+      \Tests\Support\OrganizationCatalogTestFactory::complianceSlaDefaults()['low'],
       $output->nonConformitySlaDays['low'],
     );
     self::assertSame('P6M', $output->inspectionPeriodicityDefaults['fire_extinguisher']);
@@ -116,7 +118,7 @@ final class OrganizationSettingsOutputTest extends TestCase
   #[Test]
   public function testComplianceOutputReportsNoCustomizationForDefaults(): void
   {
-    $output = OrganizationComplianceSettingsOutput::fromDomain(new OrganizationComplianceSettings());
+    $output = OrganizationComplianceSettingsOutput::fromDomain(new OrganizationComplianceSettings(defaultSlaDays: \Tests\Support\OrganizationCatalogTestFactory::complianceSlaDefaults(), defaultPeriodicities: \Tests\Support\OrganizationCatalogTestFactory::compliancePeriodicityDefaults()));
 
     self::assertSame([], $output->customizedSlaSeverities);
     self::assertSame([], $output->customizedPeriodicityTypes);
@@ -191,7 +193,7 @@ final class OrganizationSettingsOutputTest extends TestCase
     $output = OrganizationSettingsOutput::fromDomain(new OrganizationSettings(
       notifications: OrganizationNotificationSettings::fromArray(['email_enabled' => false]),
       regional: new OrganizationRegionalSettings(timezone: 'Europe/Paris'),
-      compliance: new OrganizationComplianceSettings(reminderWindowDays: 7),
+      compliance: new OrganizationComplianceSettings(reminderWindowDays: 7, defaultSlaDays: \Tests\Support\OrganizationCatalogTestFactory::complianceSlaDefaults(), defaultPeriodicities: \Tests\Support\OrganizationCatalogTestFactory::compliancePeriodicityDefaults()),
       automation: new OrganizationAutomationSettings(autoCreateInterventionOnCriticalNc: true),
       approval: new OrganizationApprovalSettings(allowSelfApproval: true),
       assistant: new OrganizationAssistantSettings(enabled: true, model: 'claude-model'),

@@ -1,3 +1,7 @@
+imports:
+  - { resource: 'session/doctrine.yaml' }
+  - { resource: 'session/api_platform.yaml' }
+
 services:
     _defaults:
         autowire: true
@@ -73,3 +77,19 @@ services:
 
     Session\Application\Port\Inbound\SessionRevocationPort:
         alias: Session\Infrastructure\Persistence\Doctrine\Repository\SessionRepository
+
+    Session\Infrastructure\Adapter\Authorization\SessionPermissionContributionAdapter:
+      tags: [authorization.permission_catalog_contribution]
+
+    Session\Application\Port\Inbound\SessionReplayProofPort: '@Session\Infrastructure\Adapter\Idempotency\SessionReplayProofAdapter'
+    Session\Infrastructure\Adapter\Idempotency\SessionReplayProofAdapter:
+      arguments:
+        $entityManager: '@doctrine.orm.auth_entity_manager'
+
+    Session\Infrastructure\Adapter\Idempotency\SessionHttpIdempotencyOperationContributionAdapter:
+      tags: [http.idempotency_operation]
+
+    Session\Infrastructure\Adapter\Idempotency\SessionHttpIdempotencyReplayAuthorizationAdapter:
+      arguments:
+        $connection: '@doctrine.dbal.auth_connection'
+      tags: [http.idempotency_replay_authorization]

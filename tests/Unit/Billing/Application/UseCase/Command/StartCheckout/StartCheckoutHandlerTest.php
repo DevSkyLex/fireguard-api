@@ -15,9 +15,12 @@ use Billing\Domain\Model\Subscription\Subscription;
 use Billing\Domain\ValueObject\{SubscriptionId, SubscriptionStatus};
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use Shared\Application\Port\Outbound\Idempotency\HttpIdempotencyExecutionPort;
 use Shared\Application\Port\Outbound\UuidGeneratorPort;
 use Shared\Domain\Exception\InvalidValueException;
 use Tests\Support\Billing\ImmediateBillingReconciliation;
+
+use function in_array;
 
 /**
  * Test StartCheckoutHandlerTest.
@@ -40,6 +43,9 @@ final class StartCheckoutHandlerTest extends TestCase
   #[Test]
   public function itCreatesTheSubscriptionLinkAndOpensCheckoutWhenNoneExists(): void
   {
+    $httpExecution = $this->createMock(HttpIdempotencyExecutionPort::class);
+    $httpExecution->expects(self::once())->method('providerKey')->with('stripe.checkout')->willReturn('stable-provider-intention');
+    $httpExecution->expects(self::exactly(2))->method('externalEffectStarted')->with(self::callback(static fn (string $purpose): bool => in_array($purpose, ['stripe.customer', 'stripe.checkout'], true)));
     $subscriptionId = SubscriptionId::fromString(self::SUBSCRIPTION_ID);
 
     $uuidFactory = $this->createMock(UuidGeneratorPort::class);
@@ -54,7 +60,7 @@ final class StartCheckoutHandlerTest extends TestCase
       ->willReturn('cus_new');
     $stripe->expects(self::once())
       ->method('createCheckoutSession')
-      ->with('cus_new', 'price_pro_month', 'org-42', 'pro', self::SUCCESS_URL . '&checkoutPlan=pro&checkoutInterval=month', self::CANCEL_URL)
+      ->with('cus_new', 'price_pro_month', 'org-42', 'pro', self::SUCCESS_URL . '&checkoutPlan=pro&checkoutInterval=month', self::CANCEL_URL, 'stable-provider-intention')
       ->willReturn('https://checkout.stripe.test/c/session_123');
 
     $subscriptions = $this->createMock(SubscriptionRepositoryPort::class);
@@ -76,7 +82,8 @@ final class StartCheckoutHandlerTest extends TestCase
       $subscriptions,
       $uuidFactory,
       $this->transactionManager(),
-      self::FRONTEND_URL,
+      new \Billing\Infrastructure\Adapter\Product\BillingReturnUrlAdapter(\Tests\Support\Shared\ProductConfigFixture::create(['product.frontend_url' => self::FRONTEND_URL]), \Tests\Support\Shared\ProductConfigFixture::parameters()['product.billing_settings_path']),
+      $httpExecution,
     );
 
     $result = $handler(new StartCheckoutCommand('org-42', 'pro', 'month'));
@@ -117,7 +124,7 @@ final class StartCheckoutHandlerTest extends TestCase
       $subscriptions,
       $uuidFactory,
       $this->transactionManager(),
-      self::FRONTEND_URL,
+      new \Billing\Infrastructure\Adapter\Product\BillingReturnUrlAdapter(\Tests\Support\Shared\ProductConfigFixture::create(['product.frontend_url' => self::FRONTEND_URL]), \Tests\Support\Shared\ProductConfigFixture::parameters()['product.billing_settings_path']),
     );
 
     $result = $handler(new StartCheckoutCommand('org-42', 'max', 'year'));
@@ -142,7 +149,7 @@ final class StartCheckoutHandlerTest extends TestCase
       $subscriptions,
       $this->createStub(UuidGeneratorPort::class),
       $this->transactionManager(),
-      self::FRONTEND_URL,
+      new \Billing\Infrastructure\Adapter\Product\BillingReturnUrlAdapter(\Tests\Support\Shared\ProductConfigFixture::create(['product.frontend_url' => self::FRONTEND_URL]), \Tests\Support\Shared\ProductConfigFixture::parameters()['product.billing_settings_path']),
     );
 
     $this->expectException(InvalidValueException::class);
@@ -168,7 +175,7 @@ final class StartCheckoutHandlerTest extends TestCase
       $subscriptions,
       $this->createStub(UuidGeneratorPort::class),
       $this->transactionManager(),
-      self::FRONTEND_URL,
+      new \Billing\Infrastructure\Adapter\Product\BillingReturnUrlAdapter(\Tests\Support\Shared\ProductConfigFixture::create(['product.frontend_url' => self::FRONTEND_URL]), \Tests\Support\Shared\ProductConfigFixture::parameters()['product.billing_settings_path']),
     );
 
     $this->expectException(InvalidValueException::class);

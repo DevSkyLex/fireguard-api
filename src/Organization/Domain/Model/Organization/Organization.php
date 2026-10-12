@@ -581,6 +581,20 @@ final class Organization
   }
 
   /**
+   * Method updatePolicySection
+   *
+   * @param string $section owner policy section
+   * @param array<string, mixed> $values structurally validated values
+   *
+   * @return void
+   */
+  public function updatePolicySection(string $section, array $values): void
+  {
+    $this->settings = $this->settings->withPolicySection($section, $values);
+    $this->touch();
+  }
+
+  /**
    * Method updateNotificationSettings.
    *
    * Replaces the organization notification policy sub-section.

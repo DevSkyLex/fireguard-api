@@ -1,0 +1,11 @@
+doctrine:
+  orm:
+    entity_managers:
+      main:
+        mappings:
+          Inspection:
+            is_bundle: false
+            type: attribute
+            dir: '%kernel.project_dir%/src/Inspection/Infrastructure/Persistence/Doctrine/Record'
+            prefix: 'Inspection\Infrastructure\Persistence\Doctrine\Record'
+            alias: Inspection

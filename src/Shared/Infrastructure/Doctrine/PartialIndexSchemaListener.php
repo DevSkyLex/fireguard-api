@@ -5,106 +5,69 @@ declare(strict_types=1);
 namespace Shared\Infrastructure\Doctrine;
 
 use Doctrine\ORM\Tools\Event\GenerateSchemaEventArgs;
+use Shared\Application\Port\Outbound\Schema\SchemaContributionPort;
 
 /**
  * Class PartialIndexSchemaListener
  *
- * Re-declares the PostgreSQL partial indexes that Doctrine ORM's mapping layer
- * cannot express.
- *
- * A partial index (`CREATE INDEX ... WHERE <predicate>`) is a first-class
- * PostgreSQL feature but has no representation in ORM attributes, so a
- * migration-created partial index is invisible to `doctrine:schema:validate`:
- * the database has it, the mapping-derived schema does not, and validation
- * reports the table as out of sync forever. Left unaddressed, `migrations:diff`
- * would even generate a DROP for these indexes — silently removing a business
- * guarantee (the "one pending approval per subject" uniqueness) and a query
- * index.
- *
- * This listener injects those indexes into the schema Doctrine derives from the
- * mappings, so both sides match and validation passes without dropping them.
- * It only touches the `main` entity manager (see service registration); the
- * `hasTable()` guards make it a no-op anywhere the tables are absent.
+ * Applies loaded owner declarations without discovering or coupling to business tables.
  *
  * @category EventListener
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final class PartialIndexSchemaListener
+final readonly class PartialIndexSchemaListener
 {
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Accepts only the contributors included by the application composition.
+   *
+   * @access public
+   *
+   * @param iterable<SchemaContributionPort> $contributions loaded module declarations
+   *
+   * @return void
+   */
+  public function __construct(private iterable $contributions)
+  {
+  }
+  // #endregion
+
   // #region Methods
   /**
    * Method postGenerateSchema
    *
-   * @description
-   * Adds the unmappable partial indexes to the generated schema.
+   * Preserves existing invariants only for tables in this entity manager's schema.
    *
    * @access public
    * @since 1.0.0
    *
-   * @param GenerateSchemaEventArgs $args the schema-generation event
+   * @param GenerateSchemaEventArgs $args the owning entity manager's schema
    *
    * @return void
    */
   public function postGenerateSchema(GenerateSchemaEventArgs $args): void
   {
     $schema = $args->getSchema();
+    foreach ($this->contributions as $contribution) {
+      foreach ($contribution->partialIndexes() as $index) {
+        if (!$schema->hasTable($index->table)) {
+          continue;
+        }
 
-    if ($schema->hasTable('approval_requests')) {
-      $table = $schema->getTable('approval_requests');
+        $table = $schema->getTable($index->table);
+        if ($table->hasIndex($index->name)) {
+          continue;
+        }
 
-      if (!$table->hasIndex('uniq_approval_request_org_action_subject_pending')) {
-        // The predicate must match, character for character, what DBAL
-        // reads back via pg_get_expr(indpred, ...) — PostgreSQL stores
-        // the normalized form, and the schema comparator compares the
-        // two verbatim. Any textual difference makes it recreate the
-        // index on every diff.
-        $table->addUniqueIndex(
-          ['organization_id', 'action_type', 'subject_id'],
-          'uniq_approval_request_org_action_subject_pending',
-          ['where' => "((status)::text = 'pending'::text)"],
-        );
-      }
-    }
-
-    if ($schema->hasTable('intervention_attachments')) {
-      $table = $schema->getTable('intervention_attachments');
-
-      if (!$table->hasIndex('uniq_intervention_attachment_signature')) {
-        $table->addUniqueIndex(
-          ['intervention_id'],
-          'uniq_intervention_attachment_signature',
-          ['where' => "((kind)::text = 'signature'::text)"],
-        );
-      }
-    }
-
-    if ($schema->hasTable('facility_attachments')) {
-      $table = $schema->getTable('facility_attachments');
-
-      if (!$table->hasIndex('uniq_facility_attachment_primary_plan')) {
-        // No parentheses and no cast: a bare boolean column is stored by
-        // PostgreSQL exactly as written, unlike the `(x)::text = 'y'::text`
-        // form a varchar comparison normalizes to. Read back from
-        // pg_indexes to confirm rather than assumed.
-        $table->addUniqueIndex(
-          ['facility_id'],
-          'uniq_facility_attachment_primary_plan',
-          ['where' => 'is_primary_plan'],
-        );
-      }
-    }
-
-    if ($schema->hasTable('messaging_messages')) {
-      $table = $schema->getTable('messaging_messages');
-
-      if (!$table->hasIndex('idx_messaging_message_pinned')) {
-        $table->addIndex(
-          ['conversation_id', 'pinned_at'],
-          'idx_messaging_message_pinned',
-          [],
-          ['where' => '(pinned_at IS NOT NULL)'],
-        );
+        $options = ['where' => $index->predicate];
+        if ($index->unique) {
+          $table->addUniqueIndex($index->columns, $index->name, $options);
+        } else {
+          $table->addIndex($index->columns, $index->name, [], $options);
+        }
       }
     }
   }

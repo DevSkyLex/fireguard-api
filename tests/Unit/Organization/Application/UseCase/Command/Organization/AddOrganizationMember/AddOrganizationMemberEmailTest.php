@@ -130,6 +130,7 @@ final class AddOrganizationMemberEmailTest extends TestCase
       });
     $twig = new Environment(new FilesystemLoader(dirname(__DIR__, 8) . '/templates'), ['autoescape' => 'html']);
     $twig->addExtension(new TranslationExtension(new Translator('en')));
+    $twig->addGlobal('product', \Tests\Support\Shared\ProductConfigFixture::create());
     $notificationService = new NotificationService(new SendNotificationHandler(
       notificationRepository: $notificationRepository,
       preferenceRepository: $preferences,

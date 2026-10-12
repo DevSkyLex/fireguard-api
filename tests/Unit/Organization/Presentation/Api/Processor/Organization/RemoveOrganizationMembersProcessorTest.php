@@ -6,10 +6,9 @@ namespace Tests\Unit\Organization\Presentation\Api\Processor\Organization;
 
 use ApiPlatform\Metadata\Post;
 use Auth\Infrastructure\Security\User\SecurityUser;
-use Organization\Application\Contract\Exception\OrganizationNotFoundException;
 use Organization\Application\Port\Inbound\Internal\OrganizationLastAdminGuardPort;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Application\UseCase\Command\Organization\RemoveOrganizationMember\RemoveOrganizationMemberCommand;
+use Organization\Application\UseCase\Command\Organization\RemoveOrganizationMembers\{RemoveOrganizationMembersCommand, RemoveOrganizationMembersResult};
 use Organization\Domain\Exception\OrganizationLastAdminException;
 use Organization\Presentation\Api\Dto\Input\Organization\RemoveOrganizationMembersInput;
 use Organization\Presentation\Api\Dto\Output\Organization\RemoveOrganizationMembersOutput;
@@ -19,7 +18,6 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Application\Contract\Exception\MessengerRuntimeException;
-use Shared\Application\Message\ResultMessage;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException};
@@ -116,7 +114,7 @@ final class RemoveOrganizationMembersProcessorTest extends TestCase
   }
 
   #[Test]
-  public function testProcessCallsGuardOnceWithBatchIdsThenDispatchesPerMember(): void
+  public function testProcessCallsGuardOnceThenDispatchesOneBatchWithItsExactResult(): void
   {
     $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441600'));
@@ -136,17 +134,17 @@ final class RemoveOrganizationMembersProcessorTest extends TestCase
         ['550e8400-e29b-41d4-a716-446655441611', '550e8400-e29b-41d4-a716-446655441612'],
       );
 
-    $dispatchResult = $this->createStub(ResultMessage::class);
+    $dispatchResult = new RemoveOrganizationMembersResult(['550e8400-e29b-41d4-a716-446655441611', '550e8400-e29b-41d4-a716-446655441612'], []);
     $dispatchedMemberIds = [];
 
     /** @var CommandBusPort&MockObject $commandBus */
     $commandBus = $this->createMock(CommandBusPort::class);
-    $commandBus->expects(self::exactly(2))
+    $commandBus->expects(self::once())
       ->method('dispatch')
       ->willReturnCallback(
-        static function (RemoveOrganizationMemberCommand $command) use (&$dispatchedMemberIds, $dispatchResult): ResultMessage {
+        static function (RemoveOrganizationMembersCommand $command) use (&$dispatchedMemberIds, $dispatchResult): RemoveOrganizationMembersResult {
           self::assertSame('550e8400-e29b-41d4-a716-446655441610', $command->organizationId);
-          $dispatchedMemberIds[] = $command->memberId;
+          $dispatchedMemberIds = $command->memberIds;
 
           return $dispatchResult;
         },
@@ -209,27 +207,33 @@ final class RemoveOrganizationMembersProcessorTest extends TestCase
   }
 
   #[Test]
-  public function testProcessCollectsMembersWhoseRemovalFailedWithADomainNotFound(): void
+  public function testProcessPreservesTheBatchHandlersOrderedMissingTargetResult(): void
   {
-    $processor = $this->processorWithFailingCommandBus(MessengerRuntimeException::wrap(
-      OrganizationNotFoundException::withId('550e8400-e29b-41d4-a716-446655441610'),
-    ));
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441600'));
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn(true);
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())->method('dispatch')->with(self::callback(
+      static fn (RemoveOrganizationMembersCommand $command): bool => '550e8400-e29b-41d4-a716-446655441610' === $command->organizationId
+        && ['550e8400-e29b-41d4-a716-446655441611', '550e8400-e29b-41d4-a716-446655441612'] === $command->memberIds,
+    ))->willReturn(new RemoveOrganizationMembersResult(['550e8400-e29b-41d4-a716-446655441611'], ['550e8400-e29b-41d4-a716-446655441612']));
+    $processor = new RemoveOrganizationMembersProcessor($commandBus, $authorization, $this->createStub(OrganizationLastAdminGuardPort::class), $security);
 
     $output = $processor->process($this->createInput(), new Post(), ['organizationId' => '550e8400-e29b-41d4-a716-446655441610']);
 
-    self::assertSame([], $output->removedIds);
+    self::assertSame(['550e8400-e29b-41d4-a716-446655441611'], $output->removedIds);
     self::assertSame(
-      ['550e8400-e29b-41d4-a716-446655441611', '550e8400-e29b-41d4-a716-446655441612'],
+      ['550e8400-e29b-41d4-a716-446655441612'],
       $output->failedIds,
     );
   }
 
   /**
    * The batch pre-check is advisory and unlocked; each removal re-runs the
-   * guard under the advisory lock inside its own handler transaction. A refusal
-   * arriving mid-batch is therefore a 409 about the invariant, not a per-id
-   * failure — tallying it into failedIds would report a partial success and
-   * hide the lockout that stopped the batch.
+   * guard under the advisory lock inside the one owning batch transaction. A refusal
+   * aborts that transaction and remains a 409 about the invariant rather than a
+   * missing-target result.
    */
   #[Test]
   public function testProcessThrowsConflictWhenAMidBatchRemovalIsRefusedByTheLastAdminGuard(): void

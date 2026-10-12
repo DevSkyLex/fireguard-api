@@ -74,7 +74,7 @@ final class ConfirmImportSimulationHandlerTest extends TestCase
 
   private function simulation(bool $failed = false): ImportJob
   {
-    $job = ImportJob::create(ImportJobId::fromString(self::SOURCE), 'org', ImportKind::FACILITY, 'retained.csv', 'facilities.csv', 'uploader', true);
+    $job = ImportJob::create(ImportJobId::fromString(self::SOURCE), 'org', ImportKind::from('facility'), 'retained.csv', 'facilities.csv', 'uploader', true);
     $now = new DateTimeImmutable();
     $job->markProcessing($now);
     $job->setTotalRows(1);
@@ -101,6 +101,6 @@ final class ConfirmImportSimulationHandlerTest extends TestCase
     $clock = $this->createStub(ClockPort::class);
     $clock->method('now')->willReturn(new DateTimeImmutable());
 
-    return new ConfirmImportSimulationHandler($jobs, $authorization, $lock, $queue, $files, $ids, $clock);
+    return new ConfirmImportSimulationHandler($jobs, $authorization, $lock, $queue, $files, $ids, $clock, \Tests\Support\Import\BuiltinImportProcessors::create());
   }
 }

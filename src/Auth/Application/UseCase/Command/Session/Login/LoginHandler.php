@@ -11,7 +11,9 @@ use Auth\Application\Port\Outbound\UserAuthenticationPort;
 use Auth\Domain\Event\Session\LoginFailedEvent;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, RateLimiterPort};
+use Shared\Application\Port\Outbound\Idempotency\HttpIdempotencyExecutionPort;
 use Shared\Application\Port\Outbound\LoggerPort;
+use Shared\Domain\ValueObject\RateLimitResult;
 use Throwable;
 
 use function hash;
@@ -50,6 +52,7 @@ final readonly class LoginHandler implements CommandHandler
     private readonly RateLimiterPort $rateLimiter,
     private readonly InteractiveSessionIssuerPort $sessionIssuer,
     private readonly LoggerPort $logger,
+    private ?HttpIdempotencyExecutionPort $idempotency = null,
   ) {
   }
   // #endregion
@@ -70,7 +73,7 @@ final readonly class LoginHandler implements CommandHandler
   {
     // Check rate limit
     $rateLimitKey = $this->getRateLimitKey($command);
-    $rateLimit = $this->rateLimiter->consume($rateLimitKey);
+    $rateLimit = null !== $this->idempotency?->executionLease() ? RateLimitResult::accepted() : $this->rateLimiter->consume($rateLimitKey);
 
     if (!$rateLimit->accepted) {
       $this->eventDispatcher->dispatch(new LoginFailedEvent(

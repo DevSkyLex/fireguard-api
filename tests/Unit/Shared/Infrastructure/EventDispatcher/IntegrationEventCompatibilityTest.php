@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Tests\Unit\Shared\Infrastructure\EventDispatcher;
 
 use Audit\Application\UseCase\Command\RecordAuditEvent\{RecordAuditEventCommand, RecordAuditEventResult};
-use Audit\Infrastructure\EventSubscriber\OrganizationLifecycleAuditEventSubscriber;
 use Audit\Infrastructure\Service\AuditPiiSanitizer;
 use Organization\Application\Contract\Event\Plan\OrganizationPlanChangedEvent;
 use Organization\Infrastructure\Adapter\Event\IntegrationEventConverterAdapter as OrganizationEventConverter;
@@ -25,6 +24,7 @@ use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\Middleware\{MiddlewareInterface, StackInterface};
 use Symfony\Component\Messenger\Stamp\{DelayStamp, RedeliveryStamp};
 use Symfony\Component\Messenger\Transport\Serialization\PhpSerializer;
+use Tests\Unit\Audit\Infrastructure\EventSubscriber\AuditSubscriberSet;
 use User\Application\Contract\Event\UserCreatedEvent;
 use User\Infrastructure\Adapter\Event\IntegrationEventConverterAdapter as UserEventConverter;
 
@@ -90,7 +90,7 @@ final class IntegrationEventCompatibilityTest extends TestCase
     };
     $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn(null);
-    $subscriber = new OrganizationLifecycleAuditEventSubscriber(
+    $subscribers = AuditSubscriberSet::create(
       $commandBus,
       new AuditPiiSanitizer(false, 'test-only-salt'),
       new RequestStack(),
@@ -100,7 +100,9 @@ final class IntegrationEventCompatibilityTest extends TestCase
       $receipts,
     );
     $dispatcher = new EventDispatcher();
-    $dispatcher->addSubscriber($subscriber);
+    foreach ($subscribers as $subscriber) {
+      $dispatcher->addSubscriber($subscriber);
+    }
     $delivered = [];
     $dispatcher->addListener('organization.organization_plan_changed_event', static function (OrganizationPlanChangedEvent $event) use (&$delivered): void {
       $delivered[] = $event;

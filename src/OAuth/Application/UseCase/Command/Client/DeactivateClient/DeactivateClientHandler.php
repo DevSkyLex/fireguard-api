@@ -8,7 +8,7 @@ use OAuth\Application\Port\Outbound\Internal\Client\ClientRepositoryPort;
 use OAuth\Domain\Exception\Client\InvalidClientException;
 use OAuth\Domain\ValueObject\Client\ClientId;
 use Shared\Application\Message\CommandHandler;
-use Shared\Application\Port\Outbound\EventBusPort;
+use Shared\Application\Port\Outbound\{EventBusPort, TransactionManagerPort};
 use Shared\Domain\Service\EventIdProvider;
 
 /**
@@ -36,6 +36,7 @@ final readonly class DeactivateClientHandler implements CommandHandler
     private readonly ClientRepositoryPort $clientRepository,
     private readonly EventBusPort $eventBus,
     private readonly EventIdProvider $eventIdProvider,
+    private ?TransactionManagerPort $transactionManager = null,
   ) {
   }
   // #endregion
@@ -55,6 +56,18 @@ final readonly class DeactivateClientHandler implements CommandHandler
    * @throws InvalidClientException if the client is not found
    */
   public function __invoke(DeactivateClientCommand $command): void
+  {
+    if (null === $this->transactionManager) {
+      $this->execute($command);
+
+      return;
+    }
+    $this->transactionManager->transactional(function () use ($command): void {
+      $this->execute($command);
+    });
+  }
+
+  private function execute(DeactivateClientCommand $command): void
   {
     // Find the client
     $clientId = new ClientId(value: $command->clientId);

@@ -6,6 +6,7 @@ namespace Organization\Infrastructure\DataFixtures;
 
 use Doctrine\Bundle\FixturesBundle\{Fixture, FixtureGroupInterface};
 use Doctrine\Persistence\ObjectManager;
+use Organization\Application\Port\Inbound\OrganizationSystemRoleCatalogPort;
 use Organization\Domain\Catalog\OrganizationSystemRoleCatalog;
 use Organization\Domain\ValueObject\{OrganizationInvitationStatus, OrganizationStatus};
 use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationInvitationRecord, OrganizationInvitationRoleRecord, OrganizationMemberRecord, OrganizationMemberRoleRecord, OrganizationRecord, OrganizationRoleRecord, TeamMemberRecord, TeamRecord};
@@ -471,6 +472,13 @@ final class OrganizationFixtures extends Fixture implements FixtureGroupInterfac
 
   // #endregion
 
+  /**
+   * Method __construct
+   */
+  public function __construct(private readonly OrganizationSystemRoleCatalogPort $systemRoles)
+  {
+  }
+
   // #region Methods
   /**
    * Method getGroups
@@ -521,7 +529,7 @@ final class OrganizationFixtures extends Fixture implements FixtureGroupInterfac
     $adminRole->id = '7c99e153-c6f0-470b-9711-1719cbc421d2';
     $adminRole->organization = $organization;
     $adminRole->name = OrganizationSystemRoleCatalog::ADMIN;
-    $adminRole->permissions = OrganizationSystemRoleCatalog::permissionsFor(OrganizationSystemRoleCatalog::ADMIN);
+    $adminRole->permissions = $this->systemRoles->permissionsFor(OrganizationSystemRoleCatalog::ADMIN);
     $adminRole->description = 'Seeded administrator role';
     $adminRole->isSystem = true;
     $adminRole->createdAt = $roleCreatedAt;
@@ -532,7 +540,7 @@ final class OrganizationFixtures extends Fixture implements FixtureGroupInterfac
     $memberRole->id = '958b13b0-be0f-4a07-807a-cf66f8dc21b9';
     $memberRole->organization = $organization;
     $memberRole->name = OrganizationSystemRoleCatalog::MEMBER;
-    $memberRole->permissions = OrganizationSystemRoleCatalog::permissionsFor(OrganizationSystemRoleCatalog::MEMBER);
+    $memberRole->permissions = $this->systemRoles->permissionsFor(OrganizationSystemRoleCatalog::MEMBER);
     $memberRole->description = 'Seeded member role';
     $memberRole->isSystem = true;
     $memberRole->createdAt = $roleCreatedAt;
@@ -820,7 +828,7 @@ final class OrganizationFixtures extends Fixture implements FixtureGroupInterfac
       $adminRole->id = SeedUuid::from(sprintf('%s:admin-role', $seed['reference']));
       $adminRole->organization = $organization;
       $adminRole->name = OrganizationSystemRoleCatalog::ADMIN;
-      $adminRole->permissions = OrganizationSystemRoleCatalog::permissionsFor(OrganizationSystemRoleCatalog::ADMIN);
+      $adminRole->permissions = $this->systemRoles->permissionsFor(OrganizationSystemRoleCatalog::ADMIN);
       $adminRole->description = 'Seeded administrator role';
       $adminRole->isSystem = true;
       $adminRole->createdAt = $createdAt;
@@ -830,7 +838,7 @@ final class OrganizationFixtures extends Fixture implements FixtureGroupInterfac
       $memberRole->id = SeedUuid::from(sprintf('%s:member-role', $seed['reference']));
       $memberRole->organization = $organization;
       $memberRole->name = OrganizationSystemRoleCatalog::MEMBER;
-      $memberRole->permissions = OrganizationSystemRoleCatalog::permissionsFor(OrganizationSystemRoleCatalog::MEMBER);
+      $memberRole->permissions = $this->systemRoles->permissionsFor(OrganizationSystemRoleCatalog::MEMBER);
       $memberRole->description = 'Seeded member role';
       $memberRole->isSystem = true;
       $memberRole->createdAt = $createdAt;

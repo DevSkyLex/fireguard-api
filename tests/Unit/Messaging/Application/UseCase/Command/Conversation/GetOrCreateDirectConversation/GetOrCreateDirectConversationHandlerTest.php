@@ -53,7 +53,7 @@ final class GetOrCreateDirectConversationHandlerTest extends TestCase
     $conversations = $this->createMock(MessagingConversationRepositoryPort::class);
     $conversations->expects(self::once())
       ->method('getOrCreate')
-      ->with(self::ORG_ID, MessagingSubjectType::DIRECT, $expectedKey, ConversationVisibility::PARTICIPANTS)
+      ->with(self::ORG_ID, MessagingSubjectType::from(MessagingSubjectType::DIRECT), $expectedKey, ConversationVisibility::PARTICIPANTS)
       ->willReturn($view);
 
     $participants = $this->createMock(MessagingParticipantRepositoryPort::class);

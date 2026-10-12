@@ -11,6 +11,7 @@ use Auth\Domain\Exception\Session\AuthorizationException;
 use Auth\Presentation\Api\Dto\Input\Auth\MfaResendInput;
 use Auth\Presentation\Api\Dto\Output\Auth\LoginOutput;
 use InvalidArgumentException;
+use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\{BadRequestHttpException, NotFoundHttpException, TooManyRequestsHttpException, UnauthorizedHttpException};
@@ -51,6 +52,7 @@ final readonly class MfaResendProcessor implements ProcessorInterface
     private readonly RequestStack $requestStack,
     #[Autowire(service: 'limiter.mfa_resend')]
     private readonly RateLimiterFactory $rateLimiter,
+    private readonly ?CommandBusPort $commandBus = null,
   ) {
   }
   // #endregion
@@ -91,7 +93,8 @@ final readonly class MfaResendProcessor implements ProcessorInterface
     );
 
     try {
-      $result = $this->handler->__invoke($command);
+      /** @var MfaResendResult $result */
+      $result = null === $this->commandBus ? $this->handler->__invoke($command) : $this->commandBus->dispatch($command);
     } catch (AuthorizationException $exception) {
       throw new UnauthorizedHttpException(
         challenge: 'Bearer',

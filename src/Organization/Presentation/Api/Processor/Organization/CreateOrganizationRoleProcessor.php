@@ -8,9 +8,9 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use Auth\Application\Contract\User\AuthenticatedUser;
 use InvalidArgumentException;
-use Organization\Application\Contract\Authorization\OrganizationPermissionCatalog;
 use Organization\Application\Contract\Exception\{OrganizationAccessDeniedException, OrganizationNotFoundException};
 use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationPermissionGrantGuardPort};
+use Organization\Application\Port\Inbound\OrganizationPermissionCatalogPort;
 use Organization\Application\UseCase\Command\Organization\CreateOrganizationRole\{CreateOrganizationRoleCommand, CreateOrganizationRoleResult};
 use Organization\Presentation\Api\Dto\Input\Organization\CreateOrganizationRoleInput;
 use Organization\Presentation\Api\Dto\Output\Organization\{OrganizationPermissionOutput, OrganizationRoleOutput};
@@ -67,6 +67,7 @@ final readonly class CreateOrganizationRoleProcessor implements ProcessorInterfa
     private OrganizationAuthorizationPort $authorization,
     private OrganizationPermissionGrantGuardPort $grantGuard,
     private Security $security,
+    private OrganizationPermissionCatalogPort $permissionCatalog,
   ) {
   }
   // #endregion
@@ -143,10 +144,10 @@ final readonly class CreateOrganizationRoleProcessor implements ProcessorInterfa
     $output->organizationId = $result->organizationId;
     $output->name = $result->name;
     $output->permissions = array_map(
-      static function (string $name): OrganizationPermissionOutput {
+      function (string $name): OrganizationPermissionOutput {
         $perm = new OrganizationPermissionOutput();
         $perm->name = $name;
-        $perm->description = OrganizationPermissionCatalog::descriptionFor($name);
+        $perm->description = $this->permissionCatalog->descriptionFor($name);
 
         return $perm;
       },

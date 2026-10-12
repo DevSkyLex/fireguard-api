@@ -57,6 +57,16 @@ class DeploymentTopologyTest(unittest.TestCase):
         self.assertLess(setup, self.names.index("Start application service"))
         task = self.entries[setup]
         persisted = yaml.safe_load((ROOT / "config/packages/messenger.yaml").read_text())["framework"]["messenger"]["transports"]
+        composition_path = ROOT / "config/packages/modules.yaml"
+        composition = yaml.safe_load(composition_path.read_text())
+        for module in composition["imports"]:
+            module_path = (composition_path.parent / module["resource"]).resolve()
+            # Service tags are irrelevant here; inspect only imports contributed by active owners.
+            module_config = yaml.load(module_path.read_text(), Loader=yaml.BaseLoader)
+            for contribution in module_config.get("imports", []):
+                contribution_path = (module_path.parent / contribution["resource"]).resolve()
+                config = yaml.load(contribution_path.read_text(), Loader=yaml.BaseLoader)
+                persisted.update(config.get("framework", {}).get("messenger", {}).get("transports", {}))
         self.assertEqual(set(persisted) - {"sync"}, set(task["loop"]))
         self.assertEqual(7, len(task["loop"]))
         for name, command in zip(task["loop"], self.transport_setup_commands()):

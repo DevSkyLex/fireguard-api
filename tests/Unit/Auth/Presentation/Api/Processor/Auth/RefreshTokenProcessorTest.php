@@ -6,14 +6,14 @@ namespace Tests\Unit\Auth\Presentation\Api\Processor\Auth;
 
 use ApiPlatform\Metadata\Post;
 use Auth\Application\Port\Outbound\JwtTokenServicePort;
-use Auth\Application\UseCase\Query\Session\RefreshToken\RefreshTokenResult;
+use Auth\Application\UseCase\Command\Session\RefreshToken\RefreshTokenResult;
 use Auth\Presentation\Api\Dto\Output\Auth\LoginOutput;
 use Auth\Presentation\Api\Processor\Auth\RefreshTokenProcessor;
 use Auth\Presentation\Api\Service\RefreshTokenCookieService;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Port\Inbound\QueryBusPort;
+use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
 use Symfony\Component\HttpKernel\Exception\{TooManyRequestsHttpException, UnauthorizedHttpException};
 use Symfony\Component\RateLimiter\RateLimiterFactory;
@@ -22,6 +22,7 @@ use Symfony\Component\RateLimiter\Storage\InMemoryStorage;
 use function hash;
 use function sprintf;
 use function substr;
+use function time;
 
 /**
  * Test RefreshTokenProcessorTest.
@@ -41,7 +42,7 @@ final class RefreshTokenProcessorTest extends TestCase
   public function testProcessReturnsNullWhenNoRequest(): void
   {
     $processor = new RefreshTokenProcessor(
-      queryBus: $this->createStub(QueryBusPort::class),
+      commandBus: $this->createStub(CommandBusPort::class),
       requestStack: new RequestStack(),
       cookieService: $this->createStub(RefreshTokenCookieService::class),
       jwtService: $this->createStub(JwtTokenServicePort::class),
@@ -60,7 +61,7 @@ final class RefreshTokenProcessorTest extends TestCase
     $requestStack->push(new Request());
 
     $processor = new RefreshTokenProcessor(
-      queryBus: $this->createStub(QueryBusPort::class),
+      commandBus: $this->createStub(CommandBusPort::class),
       requestStack: $requestStack,
       cookieService: $this->createStub(RefreshTokenCookieService::class),
       jwtService: $this->createStub(JwtTokenServicePort::class),
@@ -82,10 +83,10 @@ final class RefreshTokenProcessorTest extends TestCase
     $requestStack = new RequestStack();
     $requestStack->push($request);
 
-    /** @var QueryBusPort&MockObject $queryBus */
-    $queryBus = $this->createMock(QueryBusPort::class);
-    $queryBus->expects(self::once())
-      ->method('ask')
+    /** @var CommandBusPort&MockObject $commandBus */
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())
+      ->method('dispatch')
       ->willReturn(RefreshTokenResult::failed('Invalid refresh token'));
 
     $cookieService = new RefreshTokenCookieService(
@@ -96,7 +97,7 @@ final class RefreshTokenProcessorTest extends TestCase
     );
 
     $processor = new RefreshTokenProcessor(
-      queryBus: $queryBus,
+      commandBus: $commandBus,
       requestStack: $requestStack,
       cookieService: $cookieService,
       jwtService: $this->createStub(JwtTokenServicePort::class),
@@ -134,15 +135,23 @@ final class RefreshTokenProcessorTest extends TestCase
       rememberMe: true,
     );
 
-    /** @var QueryBusPort&MockObject $queryBus */
-    $queryBus = $this->createMock(QueryBusPort::class);
-    $queryBus->expects(self::once())
-      ->method('ask')
+    /** @var CommandBusPort&MockObject $commandBus */
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())
+      ->method('dispatch')
       ->willReturn($result);
 
     /** @var JwtTokenServicePort&MockObject $jwtService */
     $jwtService = $this->createMock(JwtTokenServicePort::class);
-    $jwtService->expects(self::never())->method('decodeRefreshToken');
+    $absoluteExpiry = time() + 7200;
+    $jwtService->expects(self::once())->method('decodeRefreshToken')->with('refresh-new')->willReturn([
+      'refresh_token_id' => 'refresh-id',
+      'access_token_id' => 'access-id',
+      'user_id' => 'user-id',
+      'scopes' => ['READ', 'WRITE'],
+      'expires_at' => $absoluteExpiry,
+      'remember_me' => true,
+    ]);
 
     $cookieService = new RefreshTokenCookieService(
       environment: 'test',
@@ -152,7 +161,7 @@ final class RefreshTokenProcessorTest extends TestCase
     );
 
     $processor = new RefreshTokenProcessor(
-      queryBus: $queryBus,
+      commandBus: $commandBus,
       requestStack: $requestStack,
       cookieService: $cookieService,
       jwtService: $jwtService,
@@ -169,6 +178,7 @@ final class RefreshTokenProcessorTest extends TestCase
     $cookie = $request->attributes->get('_refresh_token_cookie');
     $this->assertInstanceOf(\Symfony\Component\HttpFoundation\Cookie::class, $cookie);
     $this->assertSame('refresh-new', $cookie->getValue());
+    $this->assertSame($absoluteExpiry, $cookie->getExpiresTime());
   }
 
   #[Test]
@@ -190,10 +200,10 @@ final class RefreshTokenProcessorTest extends TestCase
       rememberMe: null,
     );
 
-    /** @var QueryBusPort&MockObject $queryBus */
-    $queryBus = $this->createMock(QueryBusPort::class);
-    $queryBus->expects(self::once())
-      ->method('ask')
+    /** @var CommandBusPort&MockObject $commandBus */
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())
+      ->method('dispatch')
       ->willReturn($result);
 
     /** @var JwtTokenServicePort&MockObject $jwtService */
@@ -211,7 +221,7 @@ final class RefreshTokenProcessorTest extends TestCase
     );
 
     $processor = new RefreshTokenProcessor(
-      queryBus: $queryBus,
+      commandBus: $commandBus,
       requestStack: $requestStack,
       cookieService: $cookieService,
       jwtService: $jwtService,
@@ -255,7 +265,7 @@ final class RefreshTokenProcessorTest extends TestCase
     );
 
     $processor = new RefreshTokenProcessor(
-      queryBus: $this->createStub(QueryBusPort::class),
+      commandBus: $this->createStub(CommandBusPort::class),
       requestStack: $requestStack,
       cookieService: $cookieService,
       jwtService: $jwtService,
@@ -287,10 +297,10 @@ final class RefreshTokenProcessorTest extends TestCase
       rememberMe: true,
     );
 
-    /** @var QueryBusPort&MockObject $queryBus */
-    $queryBus = $this->createMock(QueryBusPort::class);
-    $queryBus->expects(self::once())
-      ->method('ask')
+    /** @var CommandBusPort&MockObject $commandBus */
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())
+      ->method('dispatch')
       ->willReturn($result);
 
     /** @var JwtTokenServicePort&MockObject $jwtService */
@@ -308,7 +318,7 @@ final class RefreshTokenProcessorTest extends TestCase
     );
 
     $processor = new RefreshTokenProcessor(
-      queryBus: $queryBus,
+      commandBus: $commandBus,
       requestStack: $requestStack,
       cookieService: $cookieService,
       jwtService: $jwtService,

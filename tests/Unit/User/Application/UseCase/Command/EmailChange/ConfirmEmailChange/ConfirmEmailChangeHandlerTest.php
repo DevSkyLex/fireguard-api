@@ -574,6 +574,7 @@ final class ConfirmEmailChangeHandlerTest extends TestCase
         notificationPort: $notifications,
         frontendUrl: 'https://app.fireguard.test',
         translator: new \Shared\Infrastructure\Symfony\Adapter\Outbound\TranslatorAdapter(EmailTranslatorTestFactory::create()),
+        product: \Tests\Support\Shared\ProductConfigFixture::create(),
       ),
       clock: $clock,
       eventDispatcher: $dispatcher,

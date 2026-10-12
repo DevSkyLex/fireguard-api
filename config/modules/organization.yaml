@@ -1,3 +1,8 @@
+imports:
+  - { resource: 'organization/doctrine.yaml' }
+  - { resource: 'organization/api_platform.yaml' }
+  - { resource: 'organization/framework.yaml' }
+
 services:
   Organization\Application\Port\Inbound\OrganizationWorkforceDirectoryPort:
     alias: Organization\Infrastructure\Adapter\Workforce\OrganizationWorkforceDirectoryAdapter
@@ -25,7 +30,8 @@ services:
     class: Shared\Infrastructure\Symfony\Adapter\Outbound\DoctrineTransactionManagerAdapter
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
-
+      $database: main
+      $idempotency: '@Shared\Infrastructure\Idempotency\HttpIdempotencyExecutionContext'
   # Command handlers
   Organization\Application\UseCase\Command\Organization\CreateOrganization\CreateOrganizationHandler:
     arguments:
@@ -526,3 +532,117 @@ services:
     alias: Organization\Infrastructure\Adapter\Onboarding\OrganizationOnboardingDirectoryAdapter
 
   Organization\Infrastructure\Adapter\Onboarding\OrganizationOnboardingDirectoryAdapter: ~
+
+  Organization\Infrastructure\Adapter\Event\IntegrationEventConverterAdapter: ~
+
+  Organization\Infrastructure\Adapter\Onboarding\CreateOrganizationStepAdapter:
+    tags:
+      - { name: onboarding.organization_step_contribution }
+
+  Organization\Infrastructure\Adapter\Onboarding\SelectPlanStepAdapter:
+    tags:
+      - { name: onboarding.organization_step_contribution }
+
+  Organization\Infrastructure\Adapter\Onboarding\InviteMembersStepAdapter:
+    tags:
+      - { name: onboarding.organization_step_contribution }
+
+  Organization\Infrastructure\Adapter\Import\MemberImportKindProcessorAdapter:
+    tags: [fireguard.import_kind_processor]
+
+  Organization\Infrastructure\Adapter\Audit\AuditRecordEventAdapter: ~
+
+  Organization\Application\Port\Inbound\OrganizationQuotaCatalogPort: '@Organization\Application\Service\OrganizationQuotaRegistry'
+  Organization\Application\Service\OrganizationQuotaRegistry:
+    arguments:
+      $contributions: !tagged_iterator organization.quota_contribution
+
+  Organization\Infrastructure\Adapter\Catalog\MemberQuotaContributionAdapter:
+    tags: [organization.quota_contribution]
+
+  Organization\Application\Port\Inbound\OrganizationSystemRoleCatalogPort: '@Organization\Application\Service\OrganizationSystemRoleRegistry'
+  Organization\Application\Service\OrganizationSystemRoleRegistry:
+    arguments:
+      $contributions: !tagged_iterator organization.system_role_contribution
+
+  Organization\Infrastructure\Adapter\Catalog\OrganizationSystemRoleContributionAdapter:
+    tags: [organization.system_role_contribution]
+
+  Organization\Application\Port\Inbound\OrganizationSettingsPolicyCatalogPort: '@Organization\Application\Service\OrganizationSettingsPolicyRegistry'
+  Organization\Application\Service\OrganizationSettingsPolicyRegistry:
+    arguments:
+      $contributions: !tagged_iterator organization.settings_policy_contribution
+
+  Organization\Application\Port\Inbound\OrganizationPermissionCatalogPort: '@Organization\Application\Service\OrganizationPermissionRegistry'
+  Organization\Application\Service\OrganizationPermissionRegistry:
+    arguments:
+      $contributions: !tagged_iterator organization.permission_contribution
+  Organization\Infrastructure\Adapter\Catalog\FireGuardOrganizationPermissionContributionAdapter:
+    tags: [organization.permission_contribution]
+
+  Organization\Infrastructure\Adapter\Idempotency\EvidenceOrganizationAuthorizationAdapter:
+    decorates: Organization\Application\Port\Inbound\OrganizationAuthorizationPort
+    arguments:
+      $inner: '@Organization\Infrastructure\Adapter\Idempotency\EvidenceOrganizationAuthorizationAdapter.inner'
+
+  Shared\Application\Port\Outbound\Idempotency\HttpIdempotencyOrganizationAuthorityPort: '@Organization\Infrastructure\Adapter\Idempotency\OrganizationHttpIdempotencyAuthorityAdapter'
+  Organization\Infrastructure\Adapter\Idempotency\OrganizationHttpIdempotencyAuthorityAdapter: ~
+  Organization\Application\Port\Inbound\FreshOrganizationAuthorizationPort: '@Organization\Infrastructure\Adapter\Idempotency\FreshOrganizationAuthorizationAdapter'
+  Organization\Infrastructure\Adapter\Idempotency\FreshOrganizationAuthorizationAdapter:
+    arguments:
+      $connection: '@doctrine.dbal.main_connection'
+
+  Organization\Infrastructure\Adapter\Idempotency\FreshOrganizationApprovalPolicyAdapter:
+    arguments:
+      $connection: '@doctrine.dbal.main_connection'
+
+  Organization\Application\Port\Inbound\FreshOrganizationMemberScopePort: '@Organization\Infrastructure\Adapter\Idempotency\FreshOrganizationMemberScopeAdapter'
+  Organization\Infrastructure\Adapter\Idempotency\FreshOrganizationMemberScopeAdapter:
+    arguments:
+      $connection: '@doctrine.dbal.main_connection'
+  Organization\Application\Port\Inbound\FreshOrganizationMemberDirectoryPort: '@Organization\Infrastructure\Adapter\Idempotency\FreshOrganizationMemberDirectoryAdapter'
+  Organization\Infrastructure\Adapter\Idempotency\FreshOrganizationMemberDirectoryAdapter:
+    arguments:
+      $connection: '@doctrine.dbal.main_connection'
+
+  Organization\Application\UseCase\Command\Organization\RemoveOrganizationMembers\RemoveOrganizationMembersHandler:
+    arguments:
+      $transactions: '@organization.main_transaction_manager'
+    tags: [messenger.message_handler]
+
+  Organization\Application\Port\Inbound\FreshOrganizationWorkforceDirectoryPort: '@Organization\Infrastructure\Adapter\Idempotency\FreshOrganizationWorkforceDirectoryAdapter'
+  Organization\Infrastructure\Adapter\Idempotency\FreshOrganizationWorkforceDirectoryAdapter:
+    arguments:
+      $connection: '@doctrine.dbal.main_connection'
+
+  Organization\Infrastructure\Adapter\Idempotency\OrganizationHttpIdempotencyOperationContributionAdapter:
+    tags: [http.idempotency_operation]
+
+  Organization\Infrastructure\Adapter\Idempotency\FreshOrganizationAutomationPolicyAdapter:
+    arguments:
+      $connection: '@doctrine.dbal.main_connection'
+
+  Organization\Infrastructure\Adapter\Idempotency\FreshOrganizationAssistantSettingsAdapter:
+    arguments:
+      $connection: '@doctrine.dbal.main_connection'
+
+  Organization\Infrastructure\Adapter\Idempotency\OrganizationHttpIdempotencyReplayAuthorizationAdapter:
+    arguments:
+      $connection: '@doctrine.dbal.main_connection'
+    tags: [http.idempotency_replay_authorization]
+  Organization\Infrastructure\Adapter\Idempotency\FreshOrganizationExportEntitlementAdapter:
+    arguments:
+      $connection: '@doctrine.dbal.main_connection'
+
+  Organization\Infrastructure\Adapter\Idempotency\OrganizationHttpIdempotencyResponseProjectionAdapter:
+    tags: [shared.http_idempotency_response_projection]
+
+  Organization\Application\UseCase\Command\Organization\ListOrganizationInvitations\ListOrganizationInvitationsHandler:
+    tags: [messenger.message_handler]
+when@dev:
+  imports:
+    - { resource: 'organization/seeds.yaml' }
+
+when@test:
+  imports:
+    - { resource: 'organization/seeds.yaml' }

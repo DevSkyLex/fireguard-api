@@ -1,3 +1,8 @@
+imports:
+  - { resource: 'import/doctrine.yaml' }
+  - { resource: 'import/api_platform.yaml' }
+  - { resource: 'import/framework.yaml' }
+
 services:
   _defaults:
     autowire: true
@@ -44,7 +49,8 @@ services:
   # Command handlers
   Import\Application\UseCase\Command\CreateImportJob\CreateImportJobHandler:
     arguments:
-      $transactionManager: '@Shared\Infrastructure\Messaging\Outbox\DbalTransactionManagerAdapter'
+      $idempotency: '@Shared\Application\Port\Outbound\Idempotency\HttpIdempotencyExecutionPort'
+      $transactionManager: '@Shared\Infrastructure\Messaging\Outbox\RootTransactionManagerAdapter'
     tags: ['messenger.message_handler']
 
   Import\Application\UseCase\Command\ProcessImportJob\ProcessImportJobHandler:
@@ -74,3 +80,20 @@ services:
 
   Import\Application\UseCase\Query\GetImportTemplate\GetImportTemplateHandler:
     tags: ['messenger.message_handler']
+
+  Import\Infrastructure\Adapter\Event\IntegrationEventConverterAdapter: ~
+
+  Import\Application\Port\Outbound\Internal\ImportKindRegistryPort: '@Import\Application\Service\ImportKindProcessorRegistry'
+  Import\Application\Service\ImportKindProcessorRegistry:
+    arguments:
+      $processors: !tagged_iterator fireguard.import_kind_processor
+
+  Import\Infrastructure\Adapter\Audit\AuditRecordEventAdapter: ~
+
+  Import\Infrastructure\Adapter\Idempotency\ImportHttpIdempotencyOperationContributionAdapter:
+    tags: [http.idempotency_operation]
+
+  Import\Infrastructure\Adapter\Idempotency\ImportHttpIdempotencyReplayAuthorizationAdapter:
+    arguments:
+      $connection: '@doctrine.dbal.main_connection'
+    tags: [http.idempotency_replay_authorization]

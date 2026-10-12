@@ -71,7 +71,7 @@ final class MessagingChannelHierarchyGuardTest extends TestCase
     $subjectThread = Conversation::create(
       ConversationId::fromString(self::PARENT_ID),
       self::ORG_ID,
-      MessagingSubjectType::FACILITY,
+      MessagingSubjectType::from('facility'),
       'facility-1',
     );
 

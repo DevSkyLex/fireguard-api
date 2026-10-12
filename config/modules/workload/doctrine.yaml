@@ -1,0 +1,11 @@
+doctrine:
+  orm:
+    entity_managers:
+      main:
+        mappings:
+          Workload:
+            is_bundle: false
+            type: attribute
+            dir: '%kernel.project_dir%/src/Workload/Infrastructure/Persistence/Doctrine/Record'
+            prefix: 'Workload\Infrastructure\Persistence\Doctrine\Record'
+            alias: Workload

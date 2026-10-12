@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Organization\Application\UseCase\Query\Organization\ListOrganizationPermissions;
 
-use Organization\Application\Contract\Authorization\OrganizationPermissionCatalog;
+use Organization\Application\Port\Inbound\OrganizationPermissionCatalogPort;
 use Shared\Application\Message\QueryHandler;
 
 /**
@@ -17,6 +17,13 @@ use Shared\Application\Message\QueryHandler;
  */
 final readonly class ListOrganizationPermissionsHandler implements QueryHandler
 {
+  /**
+   * Method __construct
+   */
+  public function __construct(private OrganizationPermissionCatalogPort $permissionCatalog)
+  {
+  }
+
   // #region Methods
 
   /**
@@ -32,10 +39,10 @@ final readonly class ListOrganizationPermissionsHandler implements QueryHandler
   {
     $results = [];
 
-    foreach (OrganizationPermissionCatalog::definitions() as $definition) {
+    foreach ($this->permissionCatalog->definitions() as $definition) {
       $results[] = new GetOrganizationPermissionResult(
-        name: $definition['name'],
-        description: $definition['description'],
+        name: $definition->name,
+        description: $definition->description,
       );
     }
 

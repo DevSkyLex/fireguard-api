@@ -5,10 +5,9 @@ declare(strict_types=1);
 namespace Tests\Unit\Audit\Infrastructure\EventSubscriber;
 
 use Audit\Application\UseCase\Command\RecordAuditEvent\{RecordAuditEventCommand, RecordAuditEventResult};
-use Audit\Infrastructure\EventSubscriber\{AbstractAuditEventSubscriber, InterventionAuditEventSubscriber};
 use Audit\Infrastructure\Service\AuditPiiSanitizer;
 use Intervention\Application\Contract\Event\Publication\{InterventionPublicationFailedEvent, InterventionPublishedEvent};
-use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use Shared\Application\Port\Inbound\CommandBusPort;
@@ -32,8 +31,6 @@ use function sprintf;
  *
  * @category Event Subscriber Tests
  */
-#[CoversClass(className: AbstractAuditEventSubscriber::class)]
-#[CoversClass(className: InterventionAuditEventSubscriber::class)]
 final class InterventionAuditWiringTest extends TestCase
 {
   // #region Tests

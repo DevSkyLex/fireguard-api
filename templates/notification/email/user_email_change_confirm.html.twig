@@ -7,7 +7,7 @@
 
 {% block content %}
   <h1>{{ 'emailChange.confirmHeading'|trans({}, 'emails', lang) }}</h1>
-  <p>{{ 'emailChange.confirmIntro'|trans({}, 'emails', lang) }}</p>
+  <p>{{ 'emailChange.confirmIntro'|trans({ '%product%': product.identity.publicName }, 'emails', lang) }}</p>
   {{ ui.button(confirmUrl, 'emailChange.confirmCta'|trans({}, 'emails', lang)) }}
   {{ ui.linkFallback('emailChange.confirmFallback'|trans({}, 'emails', lang), confirmUrl) }}
   <p class="muted">

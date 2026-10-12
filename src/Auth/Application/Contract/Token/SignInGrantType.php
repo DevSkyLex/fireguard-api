@@ -33,6 +33,11 @@ enum SignInGrantType: string
   case MICROSOFT = 'federated_microsoft';
 
   /**
+   * Case OIDC
+   */
+  case OIDC = 'federated_oidc';
+
+  /**
    * Returns the stable method exposed by account-security contracts.
    *
    * @since 1.0.0
@@ -45,6 +50,7 @@ enum SignInGrantType: string
       self::PASSWORD => 'password',
       self::GOOGLE => 'google',
       self::MICROSOFT => 'microsoft',
+      self::OIDC => 'oidc',
     };
   }
 }

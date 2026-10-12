@@ -5,21 +5,19 @@ declare(strict_types=1);
 namespace Equipment\Presentation\Api\Controller;
 
 use Auth\Application\Contract\User\AuthenticatedUser;
-use DateTimeImmutable;
-use Equipment\Application\UseCase\Query\ExportEquipments\{ExportEquipmentsQuery, ExportEquipmentsResult};
+use Equipment\Application\UseCase\Command\Export\GenerateEquipmentExport\{GenerateEquipmentExportCommand, GenerateEquipmentExportResult};
 use Equipment\Domain\Exception\{EquipmentAccessDeniedException, EquipmentExportTooLargeException, EquipmentNotFoundException};
-use Equipment\Presentation\Api\Service\EquipmentCsvWriter;
 use Equipment\Presentation\Api\Trait\Equipment\EquipmentExceptionUnwrapperTrait;
 use InvalidArgumentException;
-use Shared\Application\Port\Inbound\QueryBusPort;
+use LogicException;
+use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, StreamedResponse};
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException, UnprocessableEntityHttpException};
 use Throwable;
 
-use function fclose;
-use function fopen;
+use function base64_decode;
 use function is_string;
 use function sprintf;
 
@@ -55,14 +53,12 @@ final class ExportEquipmentsController extends AbstractController
    *
    * @since 1.0.0
    *
-   * @param QueryBusPort $queryBus the query bus
+   * @param CommandBusPort $commands generates the artifact inside its owning transaction
    * @param Security $security the security service
-   * @param EquipmentCsvWriter $csvWriter the CSV row writer
    */
   public function __construct(
-    private readonly QueryBusPort $queryBus,
+    private readonly CommandBusPort $commands,
     private readonly Security $security,
-    private readonly EquipmentCsvWriter $csvWriter,
   ) {
   }
   // #endregion
@@ -90,10 +86,11 @@ final class ExportEquipmentsController extends AbstractController
     }
 
     try {
-      /** @var ExportEquipmentsResult $result */
-      $result = $this->queryBus->ask(new ExportEquipmentsQuery(
+      /** @var GenerateEquipmentExportResult $result */
+      $result = $this->commands->dispatch(new GenerateEquipmentExportCommand(
         userId: $user->getId(),
         organizationId: $organizationId,
+        format: 'csv',
       ));
     } catch (Throwable $exception) {
       // The query bus wraps handler exceptions, so a direct catch of the
@@ -101,21 +98,18 @@ final class ExportEquipmentsController extends AbstractController
       throw $this->mapExportException($exception);
     }
 
-    $fileName = sprintf('equipments-export-%s.csv', new DateTimeImmutable()->format('Ymd-His'));
-
-    $response = new StreamedResponse(function () use ($result): void {
-      $handle = fopen('php://output', 'wb');
-      if (false === $handle) {
-        return;
-      }
-
-      $this->csvWriter->write($result->rows, $handle);
-      fclose($handle);
+    $contents = base64_decode($result->contentsBase64, true);
+    if (false === $contents) {
+      throw new LogicException('Saved CSV artifact is invalid.');
+    }
+    $response = new StreamedResponse(static function () use ($contents): void {
+      echo $contents;
     });
-
-    $response->headers->set('Content-Type', 'text/csv; charset=utf-8');
-    $response->headers->set('Content-Disposition', sprintf('attachment; filename="%s"', $fileName));
-    $response->headers->set('X-Accel-Buffering', 'no');
+    $response->headers->set('Content-Type', $result->contentType);
+    $response->headers->set('Content-Disposition', sprintf('attachment; filename="%s"', $result->fileName));
+    foreach ($result->headers as $name => $value) {
+      $response->headers->set($name, $value);
+    }
 
     return $response;
   }

@@ -73,17 +73,19 @@ final class OnboardingTargetResolver
    *
    * @param OrganizationOnboardingSession $session the onboarding session aggregate
    * @param OnboardingOrganizationCandidate $organization the organization the member already belongs to
+   * @param list<string> $stepKeys currently registered flow keys
    *
    * @return ComputedOnboardingState the completed flow state
    */
   public static function completeForAlreadyJoinedOrganization(
     OrganizationOnboardingSession $session,
     OnboardingOrganizationCandidate $organization,
+    array $stepKeys,
   ): ComputedOnboardingState {
     $session->setTargetOrganization($organization->id, $organization->name);
     $session->clearRollbackStack();
 
-    foreach (OrganizationOnboardingStep::all() as $step) {
+    foreach ($stepKeys as $step) {
       $session->markStepCompleted($step);
     }
 

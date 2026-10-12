@@ -6,7 +6,6 @@ namespace Tests\Unit\Organization\Infrastructure\Adapter\Automation;
 
 use Automation\Application\Contract\Policy\AutomationPolicy;
 use Organization\Application\Port\Outbound\Internal\OrganizationRepositoryPort;
-use Organization\Domain\Catalog\OrganizationComplianceDefaults;
 use Organization\Domain\Model\Organization\{Organization, OrganizationCreationOptions};
 use Organization\Domain\ValueObject\{
   OrganizationAutomationSettings,
@@ -52,7 +51,7 @@ final class OrganizationAutomationPolicyAdapterTest extends TestCase
       ownerUserId: self::OWNER_USER_ID,
       options: new OrganizationCreationOptions(
         settings: new OrganizationSettings(
-          compliance: new OrganizationComplianceSettings(nonConformitySlaDays: ['critical' => 3]),
+          compliance: new OrganizationComplianceSettings(nonConformitySlaDays: ['critical' => 3], defaultSlaDays: \Tests\Support\OrganizationCatalogTestFactory::complianceSlaDefaults(), defaultPeriodicities: \Tests\Support\OrganizationCatalogTestFactory::compliancePeriodicityDefaults()),
           automation: new OrganizationAutomationSettings(autoCreateInterventionOnCriticalNc: true),
         ),
       ),
@@ -72,6 +71,10 @@ final class OrganizationAutomationPolicyAdapterTest extends TestCase
       id: OrganizationId::fromString(self::ORGANIZATION_ID),
       name: new OrganizationName('Fireguard Test'),
       ownerUserId: self::OWNER_USER_ID,
+      options: new OrganizationCreationOptions(settings: OrganizationSettings::fromArray(
+        [],
+        \Tests\Support\OrganizationCatalogTestFactory::settingsPolicies()->allDefaults(),
+      )),
     );
 
     $this->assertIsDefaultPolicy($this->adapterFor($organization)->policyFor(self::ORGANIZATION_ID));
@@ -93,7 +96,7 @@ final class OrganizationAutomationPolicyAdapterTest extends TestCase
   {
     self::assertFalse($policy->autoCreateInterventionOnCriticalNc);
     self::assertSame(
-      OrganizationComplianceDefaults::NON_CONFORMITY_SLA_DAYS,
+      \Tests\Support\OrganizationCatalogTestFactory::complianceSlaDefaults(),
       $policy->nonConformitySlaDays,
     );
   }
@@ -103,7 +106,7 @@ final class OrganizationAutomationPolicyAdapterTest extends TestCase
     $repository = $this->createStub(OrganizationRepositoryPort::class);
     $repository->method('findById')->willReturn($organization);
 
-    return new OrganizationAutomationPolicyAdapter($repository);
+    return new OrganizationAutomationPolicyAdapter($repository, settingsPolicies: \Tests\Support\OrganizationCatalogTestFactory::settingsPolicies());
   }
   // #endregion
 }

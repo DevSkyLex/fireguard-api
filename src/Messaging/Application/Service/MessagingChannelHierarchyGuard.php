@@ -109,7 +109,7 @@ final readonly class MessagingChannelHierarchyGuard
     }
 
     $parent = $this->conversations->findAggregateById($parentConversationId);
-    if (null === $parent || MessagingSubjectType::CHANNEL !== $parent->subjectType()) {
+    if (null === $parent || MessagingSubjectType::CHANNEL !== $parent->subjectType()->value) {
       throw new MessagingValidationException('The parent must be an existing channel.');
     }
 

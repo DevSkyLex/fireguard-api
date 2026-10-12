@@ -6,7 +6,7 @@ namespace Tests\Unit\Equipment\Application\UseCase\Command\Equipment\AddAttachme
 
 use Equipment\Application\Port\Outbound\Internal\{AttachmentRepositoryPort, EquipmentRepositoryPort};
 use Equipment\Application\UseCase\Command\Equipment\AddAttachment\{AddAttachmentCommand, AddAttachmentHandler, AddAttachmentResult};
-use Equipment\Domain\Exception\EquipmentNotFoundException;
+use Equipment\Domain\Exception\{AttachmentNotFoundException, EquipmentNotFoundException};
 use Equipment\Domain\Model\Attachment\EquipmentAttachment;
 use Equipment\Domain\Model\Equipment\Equipment;
 use Equipment\Domain\ValueObject\{AttachmentId, EquipmentId, EquipmentOrganizationId, EquipmentType};
@@ -17,6 +17,7 @@ use RuntimeException;
 use Shared\Application\Port\Outbound\{FileStoragePort, UuidGeneratorPort};
 use Shared\Domain\Attachment\{AttachmentConstraints, InvalidAttachmentException};
 use Shared\Domain\Exception\InvalidValueException;
+use Tests\Support\Idempotency\RootMediaCaptureHarness;
 
 #[CoversClass(AddAttachmentHandler::class)]
 final class AddAttachmentHandlerTest extends TestCase
@@ -42,11 +43,14 @@ final class AddAttachmentHandlerTest extends TestCase
     $storage = $this->createMock(FileStoragePort::class);
     $storage->expects(self::never())->method('write');
     $storage->expects(self::never())->method('delete');
-    $handler = $this->handler($equipmentRepository, $attachments, $storage, $this->createStub(UuidGeneratorPort::class));
+    $capture = new RootMediaCaptureHarness();
+    $handler = $this->handler($equipmentRepository, $attachments, $storage, $this->createStub(UuidGeneratorPort::class), $capture, idempotency: $capture);
 
-    $result = $handler(new AddAttachmentCommand(self::ORG_ID, self::EQUIP_ID, 'retry.pdf', 'different', 'application/pdf', 9, attachmentId: self::ATTACHMENT_ID));
+    $result = $handler(new AddAttachmentCommand(self::ORG_ID, self::EQUIP_ID, 'retry.pdf', 'different', 'application/pdf', 9, attachmentId: self::ATTACHMENT_ID, acknowledgementOnly: true));
     self::assertSame('first.pdf', $result->fileName);
     self::assertSame(5, $result->size);
+    self::assertSame($result, $capture->committedSnapshot);
+    self::assertSame(['begin', 'claim', 'capture', 'commit'], $capture->events);
   }
 
   #[Test]
@@ -491,6 +495,58 @@ final class AddAttachmentHandlerTest extends TestCase
     $handler(new AddAttachmentCommand(self::ORG_ID, self::EQUIP_ID, 'file.pdf', 'bytes', 'application/pdf', 5, attachmentId: self::ATTACHMENT_ID));
   }
 
+  #[Test]
+  public function acknowledgementSnapshotFailureKeepsTheOriginalBlobAndNoSuccessReceipt(): void
+  {
+    $equipment = Equipment::create(EquipmentId::fromString(self::EQUIP_ID), EquipmentOrganizationId::fromString(self::ORG_ID), EquipmentType::FIRE_EXTINGUISHER);
+    $repository = $this->createStub(EquipmentRepositoryPort::class);
+    $repository->method('findById')->willReturn($equipment);
+    $stored = EquipmentAttachment::create(AttachmentId::fromString(self::ATTACHMENT_ID), EquipmentId::fromString(self::EQUIP_ID), 'original.pdf', 'native/original.pdf', 'application/pdf', 5);
+    $attachments = $this->createMock(AttachmentRepositoryPort::class);
+    $attachments->method('findById')->willReturn($stored);
+    $attachments->expects(self::never())->method('saveIfAbsent');
+    $files = $this->createMock(FileStoragePort::class);
+    $files->expects(self::never())->method('write');
+    $files->expects(self::never())->method('delete');
+    $capture = new RootMediaCaptureHarness();
+    $capture->captureFailure = new RuntimeException('Snapshot encoding failed.');
+    $handler = $this->handler($repository, $attachments, $files, $this->createStub(UuidGeneratorPort::class), $capture, idempotency: $capture);
+
+    try {
+      $handler(new AddAttachmentCommand(self::ORG_ID, self::EQUIP_ID, 'old.pdf', '', 'application/pdf', 5, attachmentId: self::ATTACHMENT_ID, acknowledgementOnly: true));
+      self::fail('A failed snapshot cannot publish a committed acknowledgement.');
+    } catch (RuntimeException $failure) {
+      self::assertSame($capture->captureFailure, $failure);
+      self::assertSame(['begin', 'claim', 'capture', 'rollback'], $capture->events);
+      self::assertNull($capture->committedSnapshot);
+    }
+  }
+
+  #[Test]
+  public function vanishedNativeAcknowledgementRollsBackWithoutCreatingBytes(): void
+  {
+    $equipment = Equipment::create(EquipmentId::fromString(self::EQUIP_ID), EquipmentOrganizationId::fromString(self::ORG_ID), EquipmentType::FIRE_EXTINGUISHER);
+    $repository = $this->createStub(EquipmentRepositoryPort::class);
+    $repository->method('findById')->willReturn($equipment);
+    $attachments = $this->createMock(AttachmentRepositoryPort::class);
+    $attachments->method('findById')->willReturn(null);
+    $attachments->expects(self::never())->method('countByEquipmentId');
+    $attachments->expects(self::never())->method('saveIfAbsent');
+    $files = $this->createMock(FileStoragePort::class);
+    $files->expects(self::never())->method('write');
+    $files->expects(self::never())->method('delete');
+    $capture = new RootMediaCaptureHarness();
+    $handler = $this->handler($repository, $attachments, $files, $this->createStub(UuidGeneratorPort::class), $capture, idempotency: $capture);
+
+    try {
+      $handler(new AddAttachmentCommand(self::ORG_ID, self::EQUIP_ID, 'old.pdf', '', 'application/pdf', 5, attachmentId: self::ATTACHMENT_ID, acknowledgementOnly: true));
+      self::fail('A removed native identity must never become a new upload.');
+    } catch (AttachmentNotFoundException) {
+      self::assertSame(['begin', 'claim', 'rollback'], $capture->events);
+      self::assertNull($capture->committedSnapshot);
+    }
+  }
+
   private function attachmentRepository(): AttachmentRepositoryPort
   {
     $repository = $this->createStub(AttachmentRepositoryPort::class);
@@ -499,7 +555,7 @@ final class AddAttachmentHandlerTest extends TestCase
     return $repository;
   }
 
-  private function handler(EquipmentRepositoryPort $equipmentRepository, AttachmentRepositoryPort $attachmentRepository, FileStoragePort $fileStorage, UuidGeneratorPort $uuidFactory, ?\Shared\Application\Port\Outbound\RootTransactionManagerPort $transactions = null, ?\Shared\Application\Port\Outbound\FileCleanupPort $cleanup = null, ?\Intervention\Application\Port\Inbound\InterventionResourcesPort $interventions = null, ?\Shared\Application\Port\Outbound\LoggerPort $logger = null): AddAttachmentHandler
+  private function handler(EquipmentRepositoryPort $equipmentRepository, AttachmentRepositoryPort $attachmentRepository, FileStoragePort $fileStorage, UuidGeneratorPort $uuidFactory, ?\Shared\Application\Port\Outbound\RootTransactionManagerPort $transactions = null, ?\Shared\Application\Port\Outbound\FileCleanupPort $cleanup = null, ?\Intervention\Application\Port\Inbound\InterventionResourcesPort $interventions = null, ?\Shared\Application\Port\Outbound\LoggerPort $logger = null, ?\Shared\Application\Port\Outbound\Idempotency\HttpIdempotencyExecutionPort $idempotency = null): AddAttachmentHandler
   {
     if (null === $transactions) {
       $transactions = $this->createStub(\Shared\Application\Port\Outbound\RootTransactionManagerPort::class);
@@ -520,6 +576,7 @@ final class AddAttachmentHandlerTest extends TestCase
       $interventions,
       $cleanup ?? $this->createStub(\Shared\Application\Port\Outbound\FileCleanupPort::class),
       $logger ?? $this->createStub(\Shared\Application\Port\Outbound\LoggerPort::class),
+      $idempotency,
     );
   }
 }

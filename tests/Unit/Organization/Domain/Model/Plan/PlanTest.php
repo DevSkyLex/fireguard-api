@@ -43,16 +43,15 @@ final class PlanTest extends TestCase
   }
 
   #[Test]
-  public function testCreateRejectsUnknownResource(): void
+  public function testDomainKeepsOwnerIndependentResourceKeys(): void
   {
-    $this->expectException(InvalidValueException::class);
-
-    Plan::create(
+    $plan = Plan::create(
       id: PlanId::fromString(self::PLAN_ID),
       key: new PlanKey('free'),
       name: 'Free',
       limits: ['unknown' => 3],
     );
+    self::assertSame(['unknown' => 3], $plan->limits());
   }
 
   #[Test]

@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Integration\User\Infrastructure\DataFixtures;
 
+use Authorization\Application\Port\Outbound\RoleCatalogPort;
 use Authorization\Domain\ValueObject\SubjectType;
-use Authorization\Infrastructure\Catalog\RoleCatalog;
 use Authorization\Infrastructure\DataFixtures\AuthorizationFixtures;
 use Authorization\Infrastructure\Persistence\Doctrine\Record\{RoleAssignmentRecord, RoleRecord};
 use Doctrine\Common\DataFixtures\Executor\ORMExecutor;
@@ -62,7 +62,9 @@ final class UserFixturesIntegrationTest extends KernelTestCase
     $fixtures = static::getContainer()->get(UserFixtures::class);
 
     $loader = new Loader();
-    $loader->addFixture(new AuthorizationFixtures());
+    $authorizationFixtures = static::getContainer()->get(AuthorizationFixtures::class);
+    self::assertInstanceOf(AuthorizationFixtures::class, $authorizationFixtures);
+    $loader->addFixture($authorizationFixtures);
     $loader->addFixture($fixtures);
 
     $executor = new ORMExecutor($this->entityManager, new ORMPurger($this->entityManager));
@@ -106,9 +108,20 @@ final class UserFixturesIntegrationTest extends KernelTestCase
       ->map(static fn ($permission): string => $permission->name)
       ->toArray();
 
-    foreach (RoleCatalog::adminPermissionNames() as $permissionName) {
+    $roleCatalog = static::getContainer()->get(RoleCatalogPort::class);
+    self::assertInstanceOf(RoleCatalogPort::class, $roleCatalog);
+    foreach ($roleCatalog->definitions()[1]->permissionNames as $permissionName) {
       self::assertContains($permissionName, $permissionNames);
     }
+
+    $clientAssignment = $this->entityManager->getRepository(RoleAssignmentRecord::class)->findOneBy([
+      'subjectType' => SubjectType::USER->value,
+      'subjectId' => 'a7b8c9d0-e1f2-4456-8123-789012345678',
+    ]);
+    self::assertNotNull($clientAssignment);
+    self::assertInstanceOf(RoleRecord::class, $clientAssignment->role);
+    self::assertSame('super_admin', $clientAssignment->role->name);
+    self::assertSame(['*.*'], $clientAssignment->role->permissions->map(static fn ($permission): string => $permission->name)->toArray());
   }
   // #endregion
 }

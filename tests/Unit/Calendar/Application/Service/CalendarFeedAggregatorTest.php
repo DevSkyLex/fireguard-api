@@ -4,12 +4,13 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Calendar\Application\Service;
 
-use Calendar\Application\Contract\Feed\CalendarFeedItem;
-use Calendar\Application\Port\Outbound\Feed\{InspectionCalendarFeedPort, InterventionCalendarFeedPort, MaintenanceCalendarFeedPort};
+use Calendar\Application\Contract\Feed\{CalendarFeedItem, CalendarFeedSourceState};
+use Calendar\Application\Port\Outbound\Feed\CalendarFeedSourcePort;
 use Calendar\Application\Port\Outbound\Internal\Event\CalendarEventRepositoryPort;
-use Calendar\Application\Service\CalendarFeedAggregator;
+use Calendar\Application\Service\{CalendarFeedAggregator, CalendarFeedSourceRegistry};
 use Calendar\Domain\Model\Event\{CalendarEvent, CalendarEventContent, CalendarEventIdentity};
 use Calendar\Domain\ValueObject\CalendarEventId;
+use Calendar\Infrastructure\Adapter\Feed\CalendarEventFeedSourceAdapter;
 use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
@@ -45,26 +46,26 @@ final class CalendarFeedAggregatorTest extends TestCase
       $this->calendarEvent(self::CALENDAR_EVENT_ID, '2026-08-15T10:00:00+00:00', 'Standalone'),
     ]);
 
-    $inspections = $this->createStub(InspectionCalendarFeedPort::class);
+    $inspections = $this->createStub(CalendarFeedSourcePort::class);
+    $inspections->method('sourceKey')->willReturn('inspection');
     $inspections->method('findBetween')->willReturn([
       $this->feedItem('inspection', 'i-1', '2026-08-10T10:00:00+00:00'),
     ]);
 
-    $interventions = $this->createStub(InterventionCalendarFeedPort::class);
+    $interventions = $this->createStub(CalendarFeedSourcePort::class);
+    $interventions->method('sourceKey')->willReturn('intervention');
     $interventions->method('findBetween')->willReturn([
       $this->feedItem('intervention', 'v-1', '2026-08-20T10:00:00+00:00'),
     ]);
 
-    $maintenance = $this->createStub(MaintenanceCalendarFeedPort::class);
+    $maintenance = $this->createStub(CalendarFeedSourcePort::class);
+    $maintenance->method('sourceKey')->willReturn('maintenance');
     $maintenance->method('findBetween')->willReturn([
       $this->feedItem('maintenance', 'm-1', '2026-08-05T10:00:00+00:00'),
     ]);
 
     $aggregator = new CalendarFeedAggregator(
-      $events,
-      $inspections,
-      $interventions,
-      $maintenance,
+      new CalendarFeedSourceRegistry([new CalendarEventFeedSourceAdapter($events), $inspections, $interventions, $maintenance]),
       $this->createStub(LoggerPort::class),
     );
 
@@ -77,6 +78,12 @@ final class CalendarFeedAggregatorTest extends TestCase
     $items = $result->items;
 
     self::assertCount(4, $items);
+    self::assertEquals([
+      new CalendarFeedSourceState('calendar_event', true, false),
+      new CalendarFeedSourceState('inspection', true, false),
+      new CalendarFeedSourceState('intervention', true, false),
+      new CalendarFeedSourceState('maintenance', true, false),
+    ], $result->sources);
     self::assertSame(
       ['m-1', 'i-1', self::CALENDAR_EVENT_ID, 'v-1'],
       array_map(static fn (CalendarFeedItem $item): string => $item->id, $items),
@@ -89,15 +96,18 @@ final class CalendarFeedAggregatorTest extends TestCase
     $events = $this->createStub(CalendarEventRepositoryPort::class);
     $events->method('listBetween')->willReturn([]);
 
-    $inspections = $this->createStub(InspectionCalendarFeedPort::class);
+    $inspections = $this->createStub(CalendarFeedSourcePort::class);
+    $inspections->method('sourceKey')->willReturn('inspection');
     $inspections->method('findBetween')->willThrowException(new RuntimeException('boom'));
 
-    $interventions = $this->createStub(InterventionCalendarFeedPort::class);
+    $interventions = $this->createStub(CalendarFeedSourcePort::class);
+    $interventions->method('sourceKey')->willReturn('intervention');
     $interventions->method('findBetween')->willReturn([
       $this->feedItem('intervention', 'v-1', '2026-08-20T10:00:00+00:00'),
     ]);
 
-    $maintenance = $this->createStub(MaintenanceCalendarFeedPort::class);
+    $maintenance = $this->createStub(CalendarFeedSourcePort::class);
+    $maintenance->method('sourceKey')->willReturn('maintenance');
     $maintenance->method('findBetween')->willReturn([]);
 
     $logger = $this->createMock(LoggerPort::class);
@@ -109,7 +119,7 @@ final class CalendarFeedAggregatorTest extends TestCase
         return true;
       }));
 
-    $aggregator = new CalendarFeedAggregator($events, $inspections, $interventions, $maintenance, $logger);
+    $aggregator = new CalendarFeedAggregator(new CalendarFeedSourceRegistry([new CalendarEventFeedSourceAdapter($events), $inspections, $interventions, $maintenance]), $logger);
 
     $result = $aggregator->aggregate(
       self::ORGANIZATION_ID,
@@ -136,12 +146,13 @@ final class CalendarFeedAggregatorTest extends TestCase
     }
     $from = new DateTimeImmutable('2026-08-01');
     $to = new DateTimeImmutable('2026-08-31');
-    $inspections = $this->createMock(InspectionCalendarFeedPort::class);
+    $inspections = $this->createMock(CalendarFeedSourcePort::class);
+    $inspections->method('sourceKey')->willReturn('inspection');
     $inspections->expects(self::exactly(2))->method('findBetween')->with(self::ORGANIZATION_ID, $from, $to, 501)
       ->willReturnOnConsecutiveCalls($items, array_slice($items, 0, 500));
     $events = $this->createMock(CalendarEventRepositoryPort::class);
     $events->expects(self::never())->method('listBetween');
-    $aggregator = new CalendarFeedAggregator($events, $inspections, $this->createStub(InterventionCalendarFeedPort::class), $this->createStub(MaintenanceCalendarFeedPort::class), $this->createStub(LoggerPort::class));
+    $aggregator = new CalendarFeedAggregator(new CalendarFeedSourceRegistry([new CalendarEventFeedSourceAdapter($events), $inspections]), $this->createStub(LoggerPort::class));
 
     $truncated = $aggregator->aggregate(self::ORGANIZATION_ID, $from, $to, ['inspection']);
     self::assertCount(500, $truncated->items);
@@ -163,25 +174,25 @@ final class CalendarFeedAggregatorTest extends TestCase
     $events = $this->createStub(CalendarEventRepositoryPort::class);
     $events->method('listBetween')->willReturn([]);
 
-    $inspections = $this->createStub(InspectionCalendarFeedPort::class);
+    $inspections = $this->createStub(CalendarFeedSourcePort::class);
+    $inspections->method('sourceKey')->willReturn('inspection');
     $inspections->method('findBetween')->willReturn([
       $this->feedItem('inspection', 'i-2', $sameInstant),
       $this->feedItem('inspection', 'i-1', $sameInstant),
     ]);
 
-    $interventions = $this->createStub(InterventionCalendarFeedPort::class);
+    $interventions = $this->createStub(CalendarFeedSourcePort::class);
+    $interventions->method('sourceKey')->willReturn('intervention');
     $interventions->method('findBetween')->willReturn([
       $this->feedItem('intervention', 'v-1', $sameInstant),
     ]);
 
-    $maintenance = $this->createStub(MaintenanceCalendarFeedPort::class);
+    $maintenance = $this->createStub(CalendarFeedSourcePort::class);
+    $maintenance->method('sourceKey')->willReturn('maintenance');
     $maintenance->method('findBetween')->willReturn([]);
 
     $aggregator = new CalendarFeedAggregator(
-      $events,
-      $inspections,
-      $interventions,
-      $maintenance,
+      new CalendarFeedSourceRegistry([new CalendarEventFeedSourceAdapter($events), $inspections, $interventions, $maintenance]),
       $this->createStub(LoggerPort::class),
     );
 

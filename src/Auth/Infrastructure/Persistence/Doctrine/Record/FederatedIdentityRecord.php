@@ -66,5 +66,11 @@ class FederatedIdentityRecord
    */
   #[ORM\Column(name: 'last_used_at', type: 'datetime_immutable')]
   public DateTimeImmutable $lastUsedAt;
+
+  /**
+   * Property issuer
+   */
+  #[ORM\Column(type: 'string', length: 500, nullable: true)]
+  public ?string $issuer = null;
   // #endregion
 }

@@ -6,7 +6,7 @@ namespace Facility\Infrastructure\Adapter\Messaging;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
-use Messaging\Application\Contract\Subject\{MessagingSubjectResolution, MessagingSubjectType};
+use Messaging\Application\Contract\Subject\{MessagingSubjectDescriptor, MessagingSubjectResolution};
 use Messaging\Application\Port\Outbound\MessagingSubjectResolverPort;
 
 /**
@@ -50,19 +50,17 @@ final readonly class FacilityMessagingSubjectResolverAdapter implements Messagin
 
   // #region Methods
   /**
-   * Method supports.
+   * Method descriptor.
    *
-   * Reports whether this resolver handles facility messaging subjects.
+   * Publishes the stable subject metadata and required read permission.
    *
    * @access public
    *
-   * @param MessagingSubjectType $type the messaging subject type
-   *
-   * @return bool whether the type is a facility
+   * @return MessagingSubjectDescriptor the owner-published subject descriptor
    */
-  public function supports(MessagingSubjectType $type): bool
+  public function descriptor(): MessagingSubjectDescriptor
   {
-    return MessagingSubjectType::FACILITY === $type;
+    return new MessagingSubjectDescriptor('facility', 'Facility', 'facilities', self::REQUIRED_READ_PERMISSION);
   }
 
   /**

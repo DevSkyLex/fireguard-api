@@ -6,7 +6,7 @@ namespace Tests\Unit\Maintenance\Application\UseCase\Query\Plan\ReadMaintenanceP
 
 use DateTimeImmutable;
 use Intervention\Application\Port\Inbound\InterventionMaintenanceWorkPort;
-use Maintenance\Application\Contract\Plan\{MaintenanceOccurrenceState, MaintenancePlanState};
+use Maintenance\Application\Contract\Plan\{MaintenanceOccurrenceSnapshot, MaintenanceOccurrenceState, MaintenancePlanSnapshot, MaintenancePlanState};
 use Maintenance\Application\Port\Outbound\Plan\MaintenancePlanStorePort;
 use Maintenance\Application\UseCase\Query\Plan\ReadMaintenancePlans\{ReadMaintenancePlansHandler, ReadMaintenancePlansQuery, ReadMaintenancePlansResult};
 use Maintenance\Domain\Exception\{MaintenanceAccessDeniedException, MaintenanceNotFoundException, MaintenanceValidationException};
@@ -17,6 +17,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
 use function array_map;
+use function get_object_vars;
 
 /**
  * Class ReadMaintenancePlansHandlerTest
@@ -110,7 +111,12 @@ final class ReadMaintenancePlansHandlerTest extends TestCase
     self::assertSame('plans', $result->mode);
     self::assertSame(1, $result->total);
     self::assertCount(1, $result->items);
-    self::assertSame($plan, $result->items[0]->plan);
+    self::assertInstanceOf(MaintenancePlanSnapshot::class, $result->items[0]->plan);
+    self::assertEquals(get_object_vars($plan), get_object_vars($result->items[0]->plan));
+    $originalSnapshot = get_object_vars($result->items[0]->plan);
+    $plan->name = 'Later live name';
+    $plan->active = false;
+    self::assertSame($originalSnapshot, get_object_vars($result->items[0]->plan));
     self::assertNull($result->items[0]->openOccurrence);
     self::assertFalse($result->items[0]->retryAllowed);
     self::assertSame([], $result->dates);
@@ -189,7 +195,8 @@ final class ReadMaintenancePlansHandlerTest extends TestCase
     $result = $this->handler()(new ReadMaintenancePlansQuery(self::ORGANIZATION, self::ACTOR, page: 3, itemsPerPage: 20, equipmentId: self::EQUIPMENT, operationKind: 'maintenance', search: 'extinguisher'));
 
     self::assertSame(61, $result->total);
-    self::assertSame($plan, $result->items[0]->plan);
+    self::assertInstanceOf(MaintenancePlanSnapshot::class, $result->items[0]->plan);
+    self::assertEquals(get_object_vars($plan), get_object_vars($result->items[0]->plan));
   }
 
   /**
@@ -354,7 +361,12 @@ final class ReadMaintenancePlansHandlerTest extends TestCase
 
     $result = $this->handler()(new ReadMaintenancePlansQuery(self::ORGANIZATION, self::ACTOR, 'detail', self::PLAN));
 
-    self::assertSame($open, $result->items[0]->openOccurrence);
+    self::assertInstanceOf(MaintenanceOccurrenceSnapshot::class, $result->items[0]->openOccurrence);
+    self::assertEquals(get_object_vars($open), get_object_vars($result->items[0]->openOccurrence));
+    $originalOccurrence = get_object_vars($result->items[0]->openOccurrence);
+    $open->attempt = 2;
+    $open->status = 'closed';
+    self::assertSame($originalOccurrence, get_object_vars($result->items[0]->openOccurrence));
     self::assertSame($expected, $result->items[0]->retryAllowed);
   }
 

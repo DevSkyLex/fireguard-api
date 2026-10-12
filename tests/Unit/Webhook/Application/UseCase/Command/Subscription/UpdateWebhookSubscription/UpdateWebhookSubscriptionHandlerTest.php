@@ -31,6 +31,36 @@ final class UpdateWebhookSubscriptionHandlerTest extends TestCase
   private const string USER_ID = 'user-1';
 
   #[Test]
+  public function itKeepsHistoricalSelectionsWhenTheirContributorIsUnloaded(): void
+  {
+    $subscription = WebhookSubscription::create(
+      id: WebhookSubscriptionId::fromString(self::SUBSCRIPTION_ID),
+      organizationId: self::ORGANIZATION_ID,
+      url: 'https://example.com/hook',
+      secretCiphertext: 'CIPHER',
+      eventTypes: ['removed.event'],
+    );
+    $repository = $this->createMock(WebhookSubscriptionRepositoryPort::class);
+    $repository->method('findById')->willReturn($subscription);
+    $repository->expects(self::once())->method('save');
+    $handler = new UpdateWebhookSubscriptionHandler(
+      $repository,
+      new WebhookUrlPolicy(),
+      $this->createStub(OrganizationAuthorizationPort::class),
+      new \Webhook\Application\Service\WebhookEventCatalogRegistry([]),
+    );
+
+    $result = $handler(new UpdateWebhookSubscriptionCommand(
+      self::ORGANIZATION_ID,
+      self::USER_ID,
+      self::SUBSCRIPTION_ID,
+      description: 'Historical selection',
+    ));
+    self::assertSame(['removed.event'], $result->eventTypes);
+    self::assertSame('Historical selection', $result->description);
+  }
+
+  #[Test]
   public function itUpdatesTheChangedFieldsAndSaves(): void
   {
     $repository = $this->createMock(WebhookSubscriptionRepositoryPort::class);
@@ -41,6 +71,7 @@ final class UpdateWebhookSubscriptionHandlerTest extends TestCase
       $repository,
       new WebhookUrlPolicy(allowInsecureUrls: false),
       $this->createStub(OrganizationAuthorizationPort::class),
+      eventCatalog: \Tests\Support\Catalogs\BuiltInCapabilityCatalogs::webhook(),
     );
 
     $result = $handler->__invoke(new UpdateWebhookSubscriptionCommand(
@@ -71,6 +102,7 @@ final class UpdateWebhookSubscriptionHandlerTest extends TestCase
       $repository,
       new WebhookUrlPolicy(allowInsecureUrls: false),
       $this->createStub(OrganizationAuthorizationPort::class),
+      eventCatalog: \Tests\Support\Catalogs\BuiltInCapabilityCatalogs::webhook(),
     );
 
     $result = $handler->__invoke(new UpdateWebhookSubscriptionCommand(
@@ -94,6 +126,7 @@ final class UpdateWebhookSubscriptionHandlerTest extends TestCase
       $repository,
       new WebhookUrlPolicy(allowInsecureUrls: false),
       $this->createStub(OrganizationAuthorizationPort::class),
+      eventCatalog: \Tests\Support\Catalogs\BuiltInCapabilityCatalogs::webhook(),
     );
 
     $this->expectException(WebhookValidationException::class);
@@ -116,6 +149,7 @@ final class UpdateWebhookSubscriptionHandlerTest extends TestCase
       $repository,
       new WebhookUrlPolicy(allowInsecureUrls: false),
       $this->createStub(OrganizationAuthorizationPort::class),
+      eventCatalog: \Tests\Support\Catalogs\BuiltInCapabilityCatalogs::webhook(),
     );
 
     $this->expectException(WebhookValidationException::class);
@@ -138,6 +172,7 @@ final class UpdateWebhookSubscriptionHandlerTest extends TestCase
       $repository,
       new WebhookUrlPolicy(allowInsecureUrls: false),
       $this->createStub(OrganizationAuthorizationPort::class),
+      eventCatalog: \Tests\Support\Catalogs\BuiltInCapabilityCatalogs::webhook(),
     );
 
     $this->expectException(WebhookSubscriptionNotFoundException::class);

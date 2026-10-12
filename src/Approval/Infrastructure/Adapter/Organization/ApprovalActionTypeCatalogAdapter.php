@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Approval\Infrastructure\Adapter\Organization;
 
-use Approval\Application\Contract\Action\ApprovalActionTypes;
+use Approval\Application\Contract\Action\ApprovalActionDescriptor;
+use Approval\Application\Port\Outbound\ApprovalActionCatalogPort;
 use Organization\Application\Port\Outbound\ApprovalActionTypeCatalogPort;
 
 use function array_map;
@@ -13,9 +14,8 @@ use function array_map;
  * Adapter ApprovalActionTypeCatalogAdapter.
  *
  * Implements the Organization module's approval action-type catalog port on
- * top of {@see ApprovalActionTypes}, keeping the Approval module's contract
- * types private to Infrastructure boundaries — mirrors
- * {@see \Equipment\Infrastructure\Adapter\Organization\EquipmentTypeCatalogAdapter}.
+ * top of the installed action catalog. The boundary exchanges public metadata
+ * without exposing execution services to Organization.
  *
  * @category Adapter
  * @version 1.0.0
@@ -24,6 +24,19 @@ use function array_map;
  */
 final readonly class ApprovalActionTypeCatalogAdapter implements ApprovalActionTypeCatalogPort
 {
+  // #region Constructor
+  /**
+   * Constructor
+   *
+   * @access public
+   *
+   * @param ApprovalActionCatalogPort $catalog the installed action metadata
+   */
+  public function __construct(private ApprovalActionCatalogPort $catalog)
+  {
+  }
+  // #endregion
+
   // #region Methods
   /**
    * Method values.
@@ -34,7 +47,7 @@ final readonly class ApprovalActionTypeCatalogAdapter implements ApprovalActionT
    */
   public function values(): array
   {
-    return ApprovalActionTypes::all();
+    return array_map(static fn (ApprovalActionDescriptor $descriptor): string => $descriptor->value, $this->catalog->descriptors());
   }
 
   /**
@@ -47,8 +60,8 @@ final readonly class ApprovalActionTypeCatalogAdapter implements ApprovalActionT
   public function descriptors(): array
   {
     return array_map(
-      static fn (string $value): array => ['value' => $value, 'label' => ApprovalActionTypes::label($value)],
-      ApprovalActionTypes::all(),
+      static fn (ApprovalActionDescriptor $descriptor): array => ['value' => $descriptor->value, 'label' => $descriptor->label],
+      $this->catalog->descriptors(),
     );
   }
   // #endregion

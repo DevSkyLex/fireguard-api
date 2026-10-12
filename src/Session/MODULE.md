@@ -166,7 +166,28 @@ SessionDataLifecyclePort owns account deletion and existing retention predicates
 
 Repositories and capabilities exposing owner-local types are private under Application/Port/Outbound/Internal; cross-module access uses published ports and pure contracts.
 
+Session publishes its global permission vocabulary through Authorization's pure
+`PermissionCatalogContributionPort`. Its owner-local
+`SessionPermissionContributionAdapter` is registered with
+`authorization.permission_catalog_contribution`; composition rejects duplicate keys
+at boot and preserves explicit publication order. This contribution defines available
+permission keys and does not grant them to a subject.
+
 ## Configuration
+
+Module selection loads [the service entry point](../../config/modules/session.yaml)
+together with its [owner configuration fragments](../../config/modules/session/).
+Those fragments contribute owned mappings, API/error metadata and configured
+framework/seed registrations. Shared package configuration supplies connections and
+manager definitions; this module's persistence remains explicitly wired to `auth`.
+See the [composition standard](../../ARCHITECTURE.md#service-wiring).
+
+Module selection loads [the service entry point](../../config/modules/session.yaml)
+together with its [owner configuration fragments](../../config/modules/session/).
+Those fragments contribute owned mappings, API/error metadata and configured
+framework/seed registrations. Shared package configuration supplies connections and
+manager definitions; this module's persistence remains explicitly wired to `auth`.
+See the [composition standard](../../ARCHITECTURE.md#service-wiring).
 
 Collection shares the disabled-by-default Shared GeoIP configuration. Session storage and the
 purge handler use the explicitly wired auth entity manager. Ansible schedules existing
@@ -174,6 +195,14 @@ purge handler use the explicitly wired auth entity manager. Ansible schedules ex
 
 
 - Service wiring: `config/modules/session.yaml`
+
+### HTTP idempotency
+
+Session declares all three revocation routes as auth-owned HTTP mutations with the
+configured mandatory `Idempotency-Key` policy. Replay checks the current active caller,
+security revision and `sessions.revoke` permission. Individual revocation also reads the
+current session owner directly from auth; a removed row requires the signed original
+owner and target identity. This gate cannot revive a revoked caller session.
 
 ## Testing
 

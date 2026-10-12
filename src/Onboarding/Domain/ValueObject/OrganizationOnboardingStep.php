@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Onboarding\Domain\ValueObject;
 
-use function in_array;
+use function preg_match;
 
 /**
  * ValueObject OrganizationOnboardingStep.
@@ -42,53 +42,9 @@ final class OrganizationOnboardingStep
    */
   public const string CREATE_FIRST_EQUIPMENT = 'create_first_equipment';
 
-  /**
-   * Steps that cannot be skipped.
-   *
-   * @var list<string>
-   */
-  private const array REQUIRED_STEPS = [
-    self::CREATE_ORGANIZATION,
-    self::CREATE_FIRST_FACILITY,
-    self::CREATE_FIRST_EQUIPMENT,
-  ];
   // #endregion
 
   // #region Methods
-  /**
-   * Method all.
-   *
-   * Returns all step keys in their canonical execution order.
-   *
-   * @since 1.0.0
-   *
-   * @return list<string> the known step keys in order
-   */
-  public static function all(): array
-  {
-    return [
-      self::CREATE_ORGANIZATION,
-      self::SELECT_PLAN,
-      self::INVITE_MEMBERS,
-      self::CREATE_FIRST_FACILITY,
-      self::CREATE_FIRST_EQUIPMENT,
-    ];
-  }
-
-  /**
-   * Method isRequired.
-   *
-   * @since 2.0.0
-   *
-   * @param string $step the step key to check
-   *
-   * @return bool true when the step is required and cannot be skipped
-   */
-  public static function isRequired(string $step): bool
-  {
-    return in_array($step, self::REQUIRED_STEPS, true);
-  }
-
   /**
    * Method isValid.
    *
@@ -96,11 +52,11 @@ final class OrganizationOnboardingStep
    *
    * @param string $step the step key to validate
    *
-   * @return bool true when step is supported
+   * @return bool true when the persisted key has valid syntax, independently of installed contributors
    */
   public static function isValid(string $step): bool
   {
-    return in_array($step, self::all(), true);
+    return 1 === preg_match('/^[a-z][a-z0-9_]{0,63}$/D', $step);
   }
   // #endregion
 }

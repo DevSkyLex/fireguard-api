@@ -8,6 +8,7 @@ use Shared\Application\Contract\Exception\MessengerRuntimeException;
 use Shared\Application\Message\{QueryMessage, ResultMessage};
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Shared\Infrastructure\Exception\NoHandlerResultException;
+use Shared\Infrastructure\Idempotency\HttpIdempotencyResponseProjectionCoordinator;
 use Symfony\Component\Messenger\{Envelope, MessageBusInterface};
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 use Throwable;
@@ -31,9 +32,11 @@ final readonly class MessengerQueryBusAdapter implements QueryBusPort
    * @since 1.0.0
    *
    * @param MessageBusInterface $queryBus the query bus to use
+   * @param HttpIdempotencyResponseProjectionCoordinator|null $projections the authorized request's bounded response reads
    */
   public function __construct(
     private readonly MessageBusInterface $queryBus,
+    private readonly ?HttpIdempotencyResponseProjectionCoordinator $projections = null,
   ) {
   }
   // #endregion
@@ -54,6 +57,22 @@ final readonly class MessengerQueryBusAdapter implements QueryBusPort
    * @throws NoHandlerResultException if the query has no handler result
    */
   public function ask(QueryMessage $query): ResultMessage
+  {
+    return null !== $this->projections
+      ? $this->projections->dispatch($query, fn (): ResultMessage => $this->dispatch($query))
+      : $this->dispatch($query);
+  }
+
+  /**
+   * Dispatches the ordinary query bus without recursively intercepting a captured read.
+   *
+   * @since 1.0.0
+   *
+   * @param QueryMessage $query the exact read message
+   *
+   * @return ResultMessage the read handler's immutable application outcome
+   */
+  private function dispatch(QueryMessage $query): ResultMessage
   {
     try {
       $envelope = $this->queryBus->dispatch(message: $query);

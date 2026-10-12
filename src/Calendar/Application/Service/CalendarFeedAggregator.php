@@ -5,14 +5,10 @@ declare(strict_types=1);
 namespace Calendar\Application\Service;
 
 use Calendar\Application\Contract\Feed\{CalendarFeedItem, CalendarFeedSourceState};
-use Calendar\Application\Port\Outbound\Feed\{InspectionCalendarFeedPort, InterventionCalendarFeedPort, MaintenanceCalendarFeedPort};
-use Calendar\Application\Port\Outbound\Internal\Event\CalendarEventRepositoryPort;
-use Calendar\Domain\Model\Event\CalendarEvent;
 use DateTimeImmutable;
 use Shared\Application\Port\Outbound\LoggerPort;
 use Throwable;
 
-use function array_map;
 use function array_push;
 use function array_slice;
 use function count;
@@ -22,17 +18,11 @@ use function usort;
 /**
  * Service CalendarFeedAggregator.
  *
- * Merges Calendar's own standalone events with the three cross-module read
- * sources ({@see InspectionCalendarFeedPort}, {@see InterventionCalendarFeedPort},
- * {@see MaintenanceCalendarFeedPort}) into a single, chronologically ordered
+ * Merges the registered owner-provided read sources into a single, chronologically ordered
  * feed. Only authorized sources are queried. A failed source is logged and
  * marked unavailable; one extra row detects truncation before the public cap.
  * The result exposes completeness so callers cannot mistake a partial feed
  * for a successful empty result.
- *
- * The mockup's fourth category, "Audit", has no business existence in this
- * backend — see `Calendar\MODULE.md`. Only these four sources ever
- * contribute.
  *
  * @category Service
  * @version 1.0.0
@@ -58,30 +48,6 @@ final readonly class CalendarFeedAggregator
    */
   private const int PER_SOURCE_LIMIT = 500;
 
-  /**
-   * Constant SOURCE_KEY_CALENDAR_EVENT
-   */
-  private const string SOURCE_KEY_CALENDAR_EVENT = 'calendar_event';
-
-  /**
-   * Constant SOURCE_KEY_INSPECTION
-   */
-  private const string SOURCE_KEY_INSPECTION = 'inspection';
-
-  /**
-   * Constant SOURCE_KEY_INTERVENTION
-   */
-  private const string SOURCE_KEY_INTERVENTION = 'intervention';
-
-  /**
-   * Constant SOURCE_KEY_MAINTENANCE
-   */
-  private const string SOURCE_KEY_MAINTENANCE = 'maintenance';
-
-  /**
-   * Constant TARGET_TYPE_CALENDAR_EVENT
-   */
-  private const string TARGET_TYPE_CALENDAR_EVENT = 'calendar_event';
   // #endregion
 
   // #region Constructor
@@ -90,17 +56,11 @@ final readonly class CalendarFeedAggregator
    *
    * @since 1.0.0
    *
-   * @param CalendarEventRepositoryPort $events the standalone calendar event repository port
-   * @param InspectionCalendarFeedPort $inspections the inspection feed port
-   * @param InterventionCalendarFeedPort $interventions the intervention feed port
-   * @param MaintenanceCalendarFeedPort $maintenance the maintenance feed port
+   * @param CalendarFeedSourceRegistry $sources the configured owner-provided source catalog
    * @param LoggerPort $logger the logger port
    */
   public function __construct(
-    private CalendarEventRepositoryPort $events,
-    private InspectionCalendarFeedPort $inspections,
-    private InterventionCalendarFeedPort $interventions,
-    private MaintenanceCalendarFeedPort $maintenance,
+    private CalendarFeedSourceRegistry $sources,
     private LoggerPort $logger,
   ) {
   }
@@ -127,21 +87,12 @@ final readonly class CalendarFeedAggregator
     /** @var list<CalendarFeedItem> $items */
     $items = [];
 
-    $fetchers = [
-      self::SOURCE_KEY_CALENDAR_EVENT => fn (): array => array_map(
-        $this->mapStandaloneEvent(...),
-        $this->events->listBetween($organizationId, $from, $to, self::PER_SOURCE_LIMIT + 1),
-      ),
-      self::SOURCE_KEY_INSPECTION => fn (): array => $this->inspections->findBetween($organizationId, $from, $to, self::PER_SOURCE_LIMIT + 1),
-      self::SOURCE_KEY_INTERVENTION => fn (): array => $this->interventions->findBetween($organizationId, $from, $to, self::PER_SOURCE_LIMIT + 1),
-      self::SOURCE_KEY_MAINTENANCE => fn (): array => $this->maintenance->findBetween($organizationId, $from, $to, self::PER_SOURCE_LIMIT + 1),
-    ];
     $sources = [];
-    foreach ($fetchers as $sourceKey => $fetch) {
+    foreach ($this->sources->all() as $sourceKey => $source) {
       if (!in_array($sourceKey, $allowedSources, true)) {
         continue;
       }
-      $contribution = $this->fetchFromSource($sourceKey, $fetch);
+      $contribution = $this->fetchFromSource($sourceKey, fn (): array => $source->findBetween($organizationId, $from, $to, self::PER_SOURCE_LIMIT + 1));
       $truncated = null !== $contribution && count($contribution) > self::PER_SOURCE_LIMIT;
       $sources[] = new CalendarFeedSourceState($sourceKey, null !== $contribution, $truncated);
       array_push($items, ...array_slice($contribution ?? [], 0, self::PER_SOURCE_LIMIT));
@@ -178,32 +129,6 @@ final readonly class CalendarFeedAggregator
 
       return null;
     }
-  }
-
-  /**
-   * Method mapStandaloneEvent.
-   *
-   * @since 1.0.0
-   *
-   * @param CalendarEvent $event the standalone calendar event aggregate
-   *
-   * @return CalendarFeedItem the mapped feed item
-   */
-  private function mapStandaloneEvent(CalendarEvent $event): CalendarFeedItem
-  {
-    return new CalendarFeedItem(
-      sourceKey: self::SOURCE_KEY_CALENDAR_EVENT,
-      id: (string) $event->id(),
-      title: $event->title(),
-      description: $event->description(),
-      startsAt: $event->startsAt(),
-      endsAt: $event->endsAt(),
-      allDay: $event->allDay(),
-      facilityId: $event->facilityId(),
-      status: null,
-      targetType: self::TARGET_TYPE_CALENDAR_EVENT,
-      targetId: (string) $event->id(),
-    );
   }
 
   /**

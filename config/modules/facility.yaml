@@ -1,3 +1,7 @@
+imports:
+  - { resource: 'facility/doctrine.yaml' }
+  - { resource: 'facility/api_platform.yaml' }
+
 services:
   _defaults:
     autowire: true
@@ -218,7 +222,8 @@ services:
     class: Shared\Infrastructure\Symfony\Adapter\Outbound\DoctrineTransactionManagerAdapter
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
-
+      $database: main
+      $idempotency: '@Shared\Infrastructure\Idempotency\HttpIdempotencyExecutionContext'
   Facility\Infrastructure\Adapter\Organization\FacilityStatisticsAdapter: ~
 
   Facility\Infrastructure\Adapter\Organization\FacilitySearchAdapter:
@@ -318,6 +323,8 @@ services:
     tags: ['messenger.message_handler']
 
   Facility\Application\UseCase\Query\ExportFacilities\ExportFacilitiesHandler:
+    arguments:
+      $events: '@facility.export_events'
     tags: ['messenger.message_handler']
 
   Facility\Application\UseCase\Query\GeocodeAddress\GeocodeAddressHandler:
@@ -411,3 +418,70 @@ services:
 
   Facility\Application\UseCase\Query\Attachment\DownloadFacilityAttachment\DownloadFacilityAttachmentHandler:
     tags: ['messenger.message_handler']
+
+  Facility\Infrastructure\Adapter\Event\IntegrationEventConverterAdapter: ~
+
+  Facility\Infrastructure\Adapter\Webhook\FacilityWebhookEventSourceAdapter:
+    tags:
+      - { name: webhook.event_source, priority: 100 }
+
+  Facility\Infrastructure\Adapter\Onboarding\CreateFirstFacilityStepAdapter:
+    tags:
+      - { name: onboarding.organization_step_contribution }
+
+  Facility\Infrastructure\Adapter\Schema\SchemaContributionAdapter:
+    tags: [shared.schema_contribution]
+
+  Facility\Infrastructure\Adapter\Import\FacilityImportKindProcessorAdapter:
+    tags: [fireguard.import_kind_processor]
+
+  Facility\Infrastructure\Adapter\Audit\AuditRecordEventAdapter: ~
+
+  Facility\Infrastructure\Adapter\OrganizationCatalog\FacilityQuotaContributionAdapter:
+    tags: [organization.quota_contribution]
+
+  Facility\Infrastructure\Adapter\OrganizationCatalog\FacilitySystemRoleContributionAdapter:
+    tags: [organization.system_role_contribution]
+
+  Facility\Infrastructure\Adapter\Idempotency\ResponseProjection\FacilityHttpIdempotencyResponseProjectionAdapter:
+    tags: [shared.http_idempotency_response_projection]
+
+  Facility\Infrastructure\Adapter\Idempotency\FacilityHttpIdempotencyOperationContributionAdapter:
+    tags: [http.idempotency_operation]
+
+  Facility\Infrastructure\Adapter\Idempotency\FacilityHttpIdempotencyReplayAuthorizationAdapter:
+    arguments:
+      $connection: '@doctrine.dbal.main_connection'
+    tags: [http.idempotency_replay_authorization]
+
+  Facility\Application\Port\Inbound\FreshFacilityScopePort: '@Facility\Infrastructure\Adapter\Idempotency\FreshFacilityScopeAdapter'
+  Facility\Infrastructure\Adapter\Idempotency\FreshFacilityScopeAdapter:
+    arguments:
+      $connection: '@doctrine.dbal.main_connection'
+
+  Facility\Application\Port\Outbound\FacilityCsvRendererPort: '@Facility\Infrastructure\Adapter\Export\FacilityCsvRendererAdapter'
+  Facility\Infrastructure\Adapter\Export\FacilityCsvRendererAdapter: ~
+  Facility\Application\UseCase\Command\Export\GenerateFacilitiesExport\GenerateFacilitiesExportHandler:
+    arguments:
+      $transactions: '@facility.main_transaction_manager'
+    tags: [messenger.message_handler]
+
+  Facility\Application\Service\Export\FacilityExportCsvSchema: ~
+
+  facility.export_events:
+    class: Shared\Infrastructure\Messaging\Outbox\TransactionalEventDispatcher
+    arguments:
+      $connection: '@doctrine.dbal.main_connection'
+      $sender: '@messenger.transport.main_outbox'
+parameters:
+  # Maximum facility hierarchy depth (root = level 1); no facility may end up deeper than this.
+  facility.hierarchy.max_depth_default: 8
+  facility.hierarchy.max_depth: '%env(int:default:facility.hierarchy.max_depth_default:FACILITY_MAX_DEPTH)%'
+
+when@dev:
+  imports:
+    - { resource: 'facility/seeds.yaml' }
+
+when@test:
+  imports:
+    - { resource: 'facility/seeds.yaml' }

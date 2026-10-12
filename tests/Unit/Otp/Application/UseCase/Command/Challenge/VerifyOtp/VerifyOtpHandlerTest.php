@@ -334,6 +334,7 @@ final class VerifyOtpHandlerTest extends TestCase
     ?TotpServicePort $totpService = null,
   ): VerifyOtpHandler {
     return new VerifyOtpHandler(
+      transaction: new \App\Tests\Support\Shared\ImmediateTransactionManager(),
       otpRepository: $otpRepository ?? $this->createStub(OtpRepositoryPort::class),
       totpEnrollmentRepository: $totpEnrollmentRepository ?? $this->createStub(TotpEnrollmentRepositoryPort::class),
       totpService: $totpService ?? $this->createStub(TotpServicePort::class),

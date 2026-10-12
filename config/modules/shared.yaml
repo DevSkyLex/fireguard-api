@@ -1,3 +1,8 @@
+imports:
+  - { resource: 'shared/doctrine.yaml' }
+  - { resource: 'shared/doctrine_2.yaml' }
+  - { resource: 'shared/api_platform.yaml' }
+
 # Configuration for the Shared module
 # This file contains all service definitions for the Shared kernel
 
@@ -16,6 +21,9 @@ services:
       - '../../src/Shared/Infrastructure/**/Test.php'
       - '../../src/Shared/Infrastructure/Persistence/Doctrine/Record/'
       - '../../src/Shared/Infrastructure/Messaging/Outbox/OutboxEvent.php'
+      - '../../src/Shared/Infrastructure/Idempotency/HttpIdempotencyExecutionState.php'
+      - '../../src/Shared/Infrastructure/Idempotency/HttpIdempotencyPendingCommand.php'
+      - '../../src/Shared/Infrastructure/Idempotency/ResponseProjection/HttpIdempotencyResponseProjectionState.php'
       - '../../src/Shared/Infrastructure/DataFixtures/SeedFixtureAdapter.php'
 
   # Load Shared Application layer (handlers)
@@ -108,7 +116,6 @@ services:
   Shared\Application\Port\Outbound\UuidGeneratorPort: '@Shared\Infrastructure\Symfony\Adapter\Outbound\UuidGeneratorAdapter'
   Shared\Application\Port\Outbound\HashingPort: '@Shared\Infrastructure\Symfony\Adapter\Outbound\HashingAdapter'
   Shared\Application\Port\Outbound\EventDispatcherPort: '@Shared\Infrastructure\EventDispatcher\SymfonyEventDispatcherAdapter'
-  Shared\Application\Port\Outbound\CurrentActorPort: '@Auth\Infrastructure\Adapter\Shared\CurrentActorAdapter'
   Shared\Application\Port\Outbound\DurableEventContextPort: '@Shared\Infrastructure\Messaging\Outbox\DurableEventContext'
   Shared\Application\Port\Outbound\Event\IntegrationEventDecoderPort: '@Shared\Infrastructure\EventDispatcher\CompositeIntegrationEventDecoder'
   Shared\Application\Port\Outbound\Event\IntegrationEventSnapshotPort: '@Shared\Infrastructure\EventDispatcher\ReflectionIntegrationEventSnapshotAdapter'
@@ -116,33 +123,6 @@ services:
   Shared\Infrastructure\EventDispatcher\CompositeIntegrationEventDecoder:
     arguments:
       $converters: !tagged_iterator shared.integration_event_converter
-
-  # Explicitly register every owner converter: modules with individual service
-  # declarations have no Infrastructure resource to discover tagged attributes.
-  Approval\Infrastructure\Adapter\Event\IntegrationEventConverterAdapter: ~
-  Assistant\Infrastructure\Adapter\Event\IntegrationEventConverterAdapter: ~
-  Audit\Infrastructure\Adapter\Event\IntegrationEventConverterAdapter: ~
-  Auth\Infrastructure\Adapter\Event\IntegrationEventConverterAdapter: ~
-  Automation\Infrastructure\Adapter\Event\IntegrationEventConverterAdapter: ~
-  Calendar\Infrastructure\Adapter\Event\IntegrationEventConverterAdapter: ~
-  Compliance\Infrastructure\Adapter\Event\IntegrationEventConverterAdapter: ~
-  Customer\Infrastructure\Adapter\Event\IntegrationEventConverterAdapter: ~
-  Equipment\Infrastructure\Adapter\Event\IntegrationEventConverterAdapter: ~
-  Facility\Infrastructure\Adapter\Event\IntegrationEventConverterAdapter: ~
-  Import\Infrastructure\Adapter\Event\IntegrationEventConverterAdapter: ~
-  Inspection\Infrastructure\Adapter\Event\IntegrationEventConverterAdapter: ~
-  Intervention\Infrastructure\Adapter\Event\IntegrationEventConverterAdapter: ~
-  Maintenance\Infrastructure\Adapter\Event\IntegrationEventConverterAdapter: ~
-  MaintenanceExport\Infrastructure\Adapter\Event\IntegrationEventConverterAdapter: ~
-  Messaging\Infrastructure\Adapter\Event\IntegrationEventConverterAdapter: ~
-  OAuth\Infrastructure\Adapter\Event\IntegrationEventConverterAdapter: ~
-  Onboarding\Infrastructure\Adapter\Event\IntegrationEventConverterAdapter: ~
-  Organization\Infrastructure\Adapter\Event\IntegrationEventConverterAdapter: ~
-  Otp\Infrastructure\Adapter\Event\IntegrationEventConverterAdapter: ~
-  Procurement\Infrastructure\Adapter\Event\IntegrationEventConverterAdapter: ~
-  ServiceRequest\Infrastructure\Adapter\Event\IntegrationEventConverterAdapter: ~
-  User\Infrastructure\Adapter\Event\IntegrationEventConverterAdapter: ~
-  Webhook\Infrastructure\Adapter\Event\IntegrationEventConverterAdapter: ~
 
   Shared\Infrastructure\Messaging\Outbox\TransactionalEventDispatcher:
     arguments:
@@ -154,22 +134,26 @@ services:
   Shared\Infrastructure\Symfony\Adapter\Outbound\DoctrineTransactionManagerAdapter:
     arguments:
       $entityManager: '@doctrine.orm.auth_entity_manager'
-
+      $database: auth
+      $idempotency: '@Shared\Infrastructure\Idempotency\HttpIdempotencyExecutionContext'
   Shared\Infrastructure\Messaging\Outbox\DbalTransactionManagerAdapter:
     arguments:
       $connection: '@doctrine.dbal.main_connection'
-
+      $database: main
+      $idempotency: '@Shared\Infrastructure\Idempotency\HttpIdempotencyExecutionContext'
   Shared\Infrastructure\Messaging\Outbox\RootTransactionManagerAdapter:
     arguments:
       $connection: '@doctrine.dbal.main_connection'
       $entityManager: '@doctrine.orm.main_entity_manager'
-
+      $database: main
+      $idempotency: '@Shared\Infrastructure\Idempotency\HttpIdempotencyExecutionContext'
   shared.auth_root_transaction:
     class: Shared\Infrastructure\Messaging\Outbox\RootTransactionManagerAdapter
     arguments:
       $connection: '@doctrine.dbal.auth_connection'
       $entityManager: '@doctrine.orm.auth_entity_manager'
-
+      $database: auth
+      $idempotency: '@Shared\Infrastructure\Idempotency\HttpIdempotencyExecutionContext'
   shared.auth_event_dispatcher:
     class: Shared\Infrastructure\Messaging\Outbox\TransactionalEventDispatcher
     arguments:
@@ -204,7 +188,6 @@ services:
       $connection: '@doctrine.dbal.auth_connection'
 
   Shared\Application\Port\Outbound\IdempotentConsumerPort: '@Shared\Infrastructure\Messaging\Outbox\DoctrineIdempotentConsumerAdapter'
-  Shared\Application\Port\Outbound\RateLimiterPort: '@Auth\Infrastructure\Adapter\RateLimiter\LoginRateLimiterAdapter'
   Shared\Application\Port\Outbound\HealthCheckPort: '@Shared\Infrastructure\Adapter\Doctrine\HealthCheckAdapter'
 
   # Health Check Adapter configuration
@@ -217,3 +200,135 @@ services:
   Shared\Application\UseCase\Query\Health\HealthCheckHandler:
     tags:
       - { name: messenger.message_handler, handles: Shared\Application\UseCase\Query\Health\HealthCheckQuery }
+
+  Shared\Application\Port\Outbound\ProductConfigPort: '@Shared\Infrastructure\Adapter\Product\ProductConfigAdapter'
+  Shared\Application\Contract\Product\ProductIdentity:
+    arguments:
+      $publicName: '%product.public_name%'
+      $apiTitle: '%product.api_title%'
+      $apiDescription: '%product.api_description%'
+      $version: '%product.version%'
+  Shared\Application\Contract\Product\EmailBrand:
+    arguments:
+      $markPath: '%product.email_mark_path%'
+      $contentId: '%product.email_mark_cid%'
+  Shared\Infrastructure\Adapter\Product\ProductConfigAdapter:
+    arguments:
+      $frontendUrl: '%product.frontend_url%'
+      $assistantInstructions: '%product.assistant_instructions%'
+
+  Shared\Application\Port\Outbound\Idempotency\HttpIdempotencyPort: '@Shared\Application\Service\Idempotency\DurableHttpIdempotencyService'
+  Shared\Application\Port\Outbound\Idempotency\IdempotencyReceiptPort: '@Shared\Infrastructure\Persistence\Doctrine\Repository\DoctrineIdempotencyReceiptRepository'
+  Shared\Application\Port\Outbound\Idempotency\IdempotencyFingerprintPort: '@Shared\Infrastructure\Idempotency\HmacIdempotencyFingerprintAdapter'
+  Shared\Application\Port\Outbound\Crypto\AuthenticatedEncryptionPort: '@Shared\Infrastructure\Crypto\VersionedAesGcmAdapter'
+
+  Shared\Application\Service\Idempotency\DurableHttpIdempotencyService:
+    arguments:
+      $receipts: '@Shared\Infrastructure\Persistence\Doctrine\Repository\DoctrineIdempotencyReceiptRepository'
+      $leaseSeconds: '%http_idempotency.lease_seconds%'
+
+  shared.http_idempotency.auth:
+    class: Shared\Application\Service\Idempotency\DurableHttpIdempotencyService
+    arguments:
+      $receipts: '@shared.http_idempotency.auth_receipts'
+      $leaseSeconds: '%http_idempotency.lease_seconds%'
+
+  Shared\Infrastructure\Persistence\Doctrine\Repository\DoctrineIdempotencyReceiptRepository:
+    arguments:
+      $connection: '@doctrine.dbal.main_connection'
+      $reservationConnection: null
+
+  shared.http_idempotency.auth_receipts:
+    class: Shared\Infrastructure\Persistence\Doctrine\Repository\DoctrineIdempotencyReceiptRepository
+    arguments:
+      $connection: '@doctrine.dbal.auth_connection'
+      $reservationConnection: null
+
+  Shared\Infrastructure\Idempotency\HmacIdempotencyFingerprintAdapter:
+    lazy: true
+    arguments:
+      $base64Key: '%http_idempotency.hmac_key%'
+
+  Shared\Infrastructure\Crypto\VersionedAesGcmAdapter:
+    lazy: true
+    arguments:
+      $base64Keys: '%http_idempotency.encryption_keys%'
+      $activeVersion: '%http_idempotency.encryption_active_version%'
+
+  Shared\Application\Port\Outbound\Idempotency\IdempotencyRetentionPort: '@Shared\Infrastructure\Persistence\Doctrine\Repository\DoctrineIdempotencyReceiptRepository'
+  Shared\Infrastructure\Idempotency\Command\EraseExpiredHttpIdempotencyResultsCommand:
+    arguments:
+      $main: '@Shared\Infrastructure\Persistence\Doctrine\Repository\DoctrineIdempotencyReceiptRepository'
+      $auth: '@shared.http_idempotency.auth_receipts'
+      $contributors: !tagged_iterator shared.http_idempotency_retention_contribution
+
+  Shared\Application\Port\Outbound\Idempotency\HttpIdempotencyExecutionPort: '@Shared\Infrastructure\Idempotency\HttpIdempotencyExecutionContext'
+  Shared\Infrastructure\Idempotency\HttpIdempotencyExecutionContext:
+    arguments:
+      $requests: '@request_stack'
+      $mainConnection: '@doctrine.dbal.main_connection'
+      $authConnection: '@doctrine.dbal.auth_connection'
+      $mainEntityManager: '@doctrine.orm.main_entity_manager'
+      $authEntityManager: '@doctrine.orm.auth_entity_manager'
+      $authorizationEvidence: '@Shared\Infrastructure\Idempotency\HttpIdempotencyAuthorizationEvidenceAdapter'
+      $responseProjections: '@Shared\Infrastructure\Idempotency\HttpIdempotencyResponseProjectionCoordinator'
+      $reconciliation: !tagged_iterator shared.external_idempotency_reconciliation
+      $resultProofs: '@Shared\Application\Service\Idempotency\HttpIdempotencyResultProofRegistry'
+  Shared\Infrastructure\Idempotency\HttpIdempotencyResultCodec: ~
+  Shared\Infrastructure\Idempotency\HttpIdempotencyRequestInput: ~
+  Shared\Infrastructure\Symfony\Adapter\Inbound\MessengerCommandBusAdapter:
+    lazy: true
+    arguments:
+      $idempotency: '@Shared\Infrastructure\Idempotency\HttpIdempotencyExecutionContext'
+      $preparation: '@Shared\Infrastructure\Idempotency\HttpIdempotencyCommandPreparation'
+
+
+  Shared\Infrastructure\Idempotency\HttpIdempotencyResponseProjectionCoordinator:
+    arguments:
+      $requests: '@request_stack'
+      $queryBus: '@messenger.bus.default'
+      $contributors: !tagged_iterator shared.http_idempotency_response_projection
+  Shared\Infrastructure\Symfony\Adapter\Inbound\MessengerQueryBusAdapter:
+    arguments:
+      $projections: '@Shared\Infrastructure\Idempotency\HttpIdempotencyResponseProjectionCoordinator'
+
+  Shared\Application\Port\Outbound\Idempotency\HttpIdempotencyAuthorizationEvidencePort: '@Shared\Infrastructure\Idempotency\HttpIdempotencyAuthorizationEvidenceAdapter'
+  Shared\Application\Port\Outbound\Idempotency\HttpIdempotencyPlatformAuthorizationEvidencePort: '@Shared\Infrastructure\Idempotency\HttpIdempotencyAuthorizationEvidenceAdapter'
+  Shared\Infrastructure\Idempotency\HttpIdempotencyAuthorizationEvidenceAdapter:
+    arguments:
+      $requests: '@request_stack'
+
+
+  Shared\Application\Service\Idempotency\HttpIdempotencyOperationRegistry:
+    arguments:
+      $contributors: !tagged_iterator http.idempotency_operation
+  Shared\Application\Service\Idempotency\HttpIdempotencyResultProofRegistry:
+    arguments:
+      $contributors: !tagged_iterator shared.http_idempotency_result_proof
+  Shared\Infrastructure\Idempotency\HttpIdempotencyPolicyRegistry:
+    arguments:
+      $ordinary: !tagged_iterator http.idempotency_replay_authorization
+      $sensitive: !tagged_iterator shared.sensitive_idempotency_proof
+  Shared\Infrastructure\Idempotency\HttpIdempotencyEngineCatalog:
+    arguments:
+      $main: '@Shared\Application\Service\Idempotency\DurableHttpIdempotencyService'
+      $auth: '@shared.http_idempotency.auth'
+  Shared\Infrastructure\Idempotency\HttpIdempotencyCommandPreparation:
+    arguments:
+      $authorizationEvidence: '@Shared\Infrastructure\Idempotency\HttpIdempotencyAuthorizationEvidenceAdapter'
+  Shared\Infrastructure\Idempotency\HttpIdempotencySubscriber:
+    arguments:
+      $authorizationEvidence: '@Shared\Infrastructure\Idempotency\HttpIdempotencyAuthorizationEvidenceAdapter'
+      $metadata: '@api_platform.metadata.resource.metadata_collection_factory'
+      $required: '%http_idempotency.required%'
+  Shared\Application\Port\Outbound\Idempotency\OrdinaryHttpReplayAuthorizationPort: '@Shared\Infrastructure\Idempotency\OrdinaryHttpReplayAuthorizer'
+  Shared\Infrastructure\Idempotency\OrdinaryHttpReplayAuthorizer: ~
+
+  Shared\Infrastructure\Idempotency\HttpIdempotencyResourceMetadataCollectionFactory:
+    decorates: api_platform.metadata.resource.metadata_collection_factory
+    arguments:
+      $inner: '@Shared\Infrastructure\Idempotency\HttpIdempotencyResourceMetadataCollectionFactory.inner'
+      $required: '%http_idempotency.documentation_required%'
+      $readOnlyOperations: '%http_idempotency.read_only_operations%'
+      $nativeProofOperations: '%http_idempotency.native_proof_operations%'
+      $conditionalKeyDescriptions: '%http_idempotency.conditional_key_descriptions%'

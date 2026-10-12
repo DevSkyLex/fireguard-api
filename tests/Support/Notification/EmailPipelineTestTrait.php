@@ -64,6 +64,7 @@ trait EmailPipelineTestTrait
       });
     $twig = new Environment(new FilesystemLoader(dirname(__DIR__, 3) . '/templates'), ['autoescape' => 'html']);
     $twig->addExtension(new TranslationExtension(new Translator('en')));
+    $twig->addGlobal('product', \Tests\Support\Shared\ProductConfigFixture::create());
 
     return new NotificationService(new SendNotificationHandler(
       notificationRepository: $repository,

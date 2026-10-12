@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace Approval\Application\Service;
 
+use Approval\Application\Contract\Action\ApprovalActionKey;
 use Approval\Application\Contract\Execution\DeferredActionContext;
 use Approval\Application\Port\Outbound\ApprovalActionExecutorPort;
 use Approval\Domain\Exception\ApprovalActionExecutorNotFoundException;
+use InvalidArgumentException;
 
-use function iterator_to_array;
+use function sprintf;
 
 /**
  * Service ApprovalActionExecutorRegistry.
@@ -30,7 +32,7 @@ final readonly class ApprovalActionExecutorRegistry
    *
    * @since 1.0.0
    *
-   * @var list<ApprovalActionExecutorPort>
+   * @var array<string, ApprovalActionExecutorPort>
    */
   private array $executors;
   // #endregion
@@ -45,7 +47,15 @@ final readonly class ApprovalActionExecutorRegistry
    */
   public function __construct(iterable $executors)
   {
-    $this->executors = iterator_to_array($executors, false);
+    $indexed = [];
+    foreach ($executors as $executor) {
+      $key = new ApprovalActionKey($executor->actionType());
+      if (isset($indexed[$key->value])) {
+        throw new InvalidArgumentException(sprintf('Duplicate approval executor "%s".', $key->value));
+      }
+      $indexed[$key->value] = $executor;
+    }
+    $this->executors = $indexed;
   }
   // #endregion
 
@@ -63,12 +73,11 @@ final readonly class ApprovalActionExecutorRegistry
    */
   public function execute(DeferredActionContext $context): void
   {
-    foreach ($this->executors as $executor) {
-      if ($executor->actionType() === $context->actionType) {
-        $executor->execute($context);
+    $executor = $this->executors[$context->actionType] ?? null;
+    if (null !== $executor) {
+      $executor->execute($context);
 
-        return;
-      }
+      return;
     }
 
     throw ApprovalActionExecutorNotFoundException::forActionType($context->actionType);

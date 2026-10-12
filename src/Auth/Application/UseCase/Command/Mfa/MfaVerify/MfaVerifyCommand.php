@@ -28,12 +28,14 @@ final readonly class MfaVerifyCommand implements CommandMessage
    * @param string $code the verification code entered by the user
    * @param string|null $ipAddress the client IP address
    * @param string|null $userAgent the client user agent
+   * @param string $method otp or recovery_code
    */
   public function __construct(
     public readonly string $preAuthToken,
     public readonly string $code,
     public readonly ?string $ipAddress = null,
     public readonly ?string $userAgent = null,
+    public readonly string $method = 'otp',
   ) {
   }
   // #endregion

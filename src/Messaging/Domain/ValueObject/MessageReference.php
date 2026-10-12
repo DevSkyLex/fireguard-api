@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Messaging\Domain\ValueObject;
 
 use Messaging\Domain\Exception\MessagingValidationException;
+use Shared\Domain\Exception\InvalidValueException;
 
 use function array_key_exists;
 use function array_map;
@@ -18,11 +19,8 @@ use function trim;
  * ValueObject MessageReference.
  *
  * A structured `{type, id, label?, code?}` rich-card reference attached to a
- * message (B3) — e.g. a message that points at a specific non-conformity,
- * intervention, facility, or equipment record. Shape validation only: `type`
- * is restricted to the four subject types the `messaging.subject_resolver`
- * seam already knows how to resolve (see `MessagingSubjectType`), and `id`
- * must be non-blank. This VO does NOT itself check that the referenced
+ * message (B3). Shape validation only: `type` is an open subject key
+ * (participant conversation kinds are excluded), and `id` must be non-blank. This VO does NOT itself check that the referenced
  * record exists in the caller's organization — that is an outbound-port
  * concern, performed by the command handler via the EXISTING
  * `messaging.subject_resolver` seam (the "cheap existence-check port
@@ -44,16 +42,6 @@ final readonly class MessageReference
    */
   public const int MAX_REFERENCES = 5;
 
-  /**
-   * Constant ALLOWED_TYPES.
-   *
-   * The reference type whitelist — deliberately the same four values as
-   * {@see MessagingSubjectType}'s resolver-backed cases (excludes `channel`/
-   * `direct`, which have no owning record to reference).
-   *
-   * @var list<string>
-   */
-  private const array ALLOWED_TYPES = ['non_conformity', 'intervention', 'facility', 'equipment'];
   // #endregion
 
   // #region Constructor
@@ -95,8 +83,14 @@ final readonly class MessageReference
   public static function fromArray(array $data): self
   {
     $type = self::stringValue($data, 'type');
-    if (!in_array($type, self::ALLOWED_TYPES, true)) {
-      throw new MessagingValidationException('A message reference "type" must be one of: non_conformity, intervention, facility, equipment.');
+
+    try {
+      MessagingSubjectType::from($type);
+    } catch (InvalidValueException $exception) {
+      throw new MessagingValidationException($exception->getMessage());
+    }
+    if (in_array($type, [MessagingSubjectType::CHANNEL, MessagingSubjectType::DIRECT], true)) {
+      throw new MessagingValidationException('A message reference must identify an owner-backed subject.');
     }
 
     $id = trim(self::stringValue($data, 'id'));

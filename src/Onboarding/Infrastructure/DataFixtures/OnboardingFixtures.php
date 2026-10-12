@@ -6,6 +6,7 @@ namespace Onboarding\Infrastructure\DataFixtures;
 
 use Doctrine\Bundle\FixturesBundle\{Fixture, FixtureGroupInterface};
 use Doctrine\Persistence\ObjectManager;
+use Onboarding\Application\Service\OrganizationOnboardingStepRegistry;
 use Onboarding\Domain\ValueObject\{OrganizationOnboardingState, OrganizationOnboardingStep};
 use Onboarding\Infrastructure\Persistence\Doctrine\Record\OrganizationOnboardingSessionRecord;
 use Organization\Application\Contract\Seed\SeedCatalog as OrganizationFixtures;
@@ -30,6 +31,21 @@ final class OnboardingFixtures extends Fixture implements FixtureGroupInterface
    * User identifier associated with the seeded administrator session.
    */
   private const string ADMIN_USER_ID = 'a1b2c3d4-e5f6-4890-8bcd-ef1234567890';
+  // #endregion
+
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * @access public
+   *
+   * @param OrganizationOnboardingStepRegistry $steps owner-registered flow steps
+   *
+   * @return void
+   */
+  public function __construct(private readonly OrganizationOnboardingStepRegistry $steps)
+  {
+  }
   // #endregion
 
   // #region Methods
@@ -76,7 +92,7 @@ final class OnboardingFixtures extends Fixture implements FixtureGroupInterface
    */
   public function load(ObjectManager $manager): void
   {
-    $allSteps = OrganizationOnboardingStep::all();
+    $allSteps = $this->steps->keys();
 
     $stepHistory = [
       [

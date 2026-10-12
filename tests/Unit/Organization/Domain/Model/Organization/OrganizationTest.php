@@ -335,7 +335,7 @@ final class OrganizationTest extends TestCase
   public function testUpdateComplianceSettingsReplacesSubSection(): void
   {
     $organization = $this->reconstitutedOrganization();
-    $compliance = new OrganizationComplianceSettings();
+    $compliance = new OrganizationComplianceSettings(defaultSlaDays: \Tests\Support\OrganizationCatalogTestFactory::complianceSlaDefaults(), defaultPeriodicities: \Tests\Support\OrganizationCatalogTestFactory::compliancePeriodicityDefaults());
 
     $organization->updateComplianceSettings($compliance);
 

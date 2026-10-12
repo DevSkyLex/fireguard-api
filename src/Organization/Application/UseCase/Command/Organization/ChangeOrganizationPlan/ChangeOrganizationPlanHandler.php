@@ -9,13 +9,12 @@ use Notification\Application\Contract\Notification\{NotificationChannel, SendNot
 use Notification\Application\Contract\Notification\NotificationType;
 use Organization\Application\Contract\Event\Plan\OrganizationPlanChangedEvent;
 use Organization\Application\Contract\Exception\OrganizationNotFoundException;
-use Organization\Application\Contract\Quota\OrganizationQuotaResource as QuotaResourceContract;
-use Organization\Application\Port\Inbound\OrganizationQuotaPort;
+use Organization\Application\Port\Inbound\{OrganizationQuotaCatalogPort, OrganizationQuotaPort};
 use Organization\Application\Port\Outbound\Internal\{OrganizationRepositoryPort, PlanRepositoryPort};
 use Organization\Domain\Exception\{OrganizationPlanUsageExceededException, PlanNotFoundException};
 use Organization\Domain\Exception\PlanNotAvailableException;
 use Organization\Domain\Model\Plan\Plan;
-use Organization\Domain\ValueObject\{OrganizationId, OrganizationQuotaResource, PlanId};
+use Organization\Domain\ValueObject\{OrganizationId, PlanId};
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, TransactionManagerPort};
 
@@ -33,7 +32,7 @@ use function sprintf;
  * changes (confirmed downgrades and the Stripe webhook path, which is the
  * source of truth) are applied with the overage recorded in the audit event
  * and notified to the organization owner. Existing data is never blocked
- * retroactively — the per-resource create guards already refuse new
+ * retroactively â€” the per-resource create guards already refuse new
  * creations while usage stays above the caps.
  *
  * @category UseCase
@@ -63,6 +62,7 @@ final readonly class ChangeOrganizationPlanHandler implements CommandHandler
     private OrganizationQuotaPort $quota,
     private TransactionManagerPort $transactionManager,
     private EventDispatcherPort $eventDispatcher,
+    private OrganizationQuotaCatalogPort $quotaCatalog,
   ) {
   }
   // #endregion
@@ -103,14 +103,14 @@ final readonly class ChangeOrganizationPlanHandler implements CommandHandler
     $isActualChange = $previousPlanIdValue !== (string) $planId;
 
     // Usage-aware downgrade guard: refuse an unacknowledged change whose caps
-    // sit below the current usage. Re-applying the current plan is exempt —
+    // sit below the current usage. Re-applying the current plan is exempt â€”
     // the Stripe webhook legitimately re-sends subscription state, and a
     // no-op must never dead-end on its own overage.
     // ACCEPTED RACE (bounded): this read is not serialized with the advisory
     // locks the create guards take, so a create committing between the read
     // and the save can land the org over the new caps without the 409 or the
-    // owner notification. Growth still stops immediately — every subsequent
-    // create re-checks usage against the NEW plan under the lock — and the
+    // owner notification. Growth still stops immediately â€” every subsequent
+    // create re-checks usage against the NEW plan under the lock â€” and the
     // over-quota state stays visible in the settings Usage tab.
     $violations = $isActualChange ? $this->usageViolations($command->organizationId, $plan) : [];
     if ([] !== $violations && !$command->acknowledgeOveruse) {
@@ -158,15 +158,16 @@ final readonly class ChangeOrganizationPlanHandler implements CommandHandler
   {
     $violations = [];
 
-    foreach (OrganizationQuotaResource::cases() as $resource) {
+    foreach ($this->quotaCatalog->definitions() as $definition) {
+      $resource = $definition->key;
       $limit = $plan->limitFor($resource);
       if (null === $limit) {
         continue;
       }
 
-      $usage = $this->quota->getUsage($organizationId, QuotaResourceContract::from($resource->value));
+      $usage = $this->quota->getUsage($organizationId, $resource);
       if ($usage > $limit) {
-        $violations[$resource->value] = ['usage' => $usage, 'limit' => $limit];
+        $violations[$resource] = ['usage' => $usage, 'limit' => $limit];
       }
     }
 

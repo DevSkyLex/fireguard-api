@@ -34,6 +34,7 @@ final class ListOrganizationRolesProviderTest extends TestCase
       queryBus: $this->createStub(QueryBusPort::class),
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
+      permissionCatalog: \Tests\Support\OrganizationCatalogTestFactory::permissions(),
     );
 
     $this->expectException(AccessDeniedHttpException::class);
@@ -57,6 +58,7 @@ final class ListOrganizationRolesProviderTest extends TestCase
       queryBus: $queryBus,
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
+      permissionCatalog: \Tests\Support\OrganizationCatalogTestFactory::permissions(),
     );
 
     $output = $provider->provide(new GetCollection(), []);
@@ -84,6 +86,7 @@ final class ListOrganizationRolesProviderTest extends TestCase
       queryBus: $this->createStub(QueryBusPort::class),
       authorization: $authorization,
       security: $security,
+      permissionCatalog: \Tests\Support\OrganizationCatalogTestFactory::permissions(),
     );
 
     $this->expectException(AccessDeniedHttpException::class);
@@ -129,6 +132,7 @@ final class ListOrganizationRolesProviderTest extends TestCase
       queryBus: $queryBus,
       authorization: $authorization,
       security: $security,
+      permissionCatalog: \Tests\Support\OrganizationCatalogTestFactory::permissions(),
     );
 
     $output = $provider->provide(new GetCollection(), ['organizationId' => '550e8400-e29b-41d4-a716-446655441810']);
@@ -203,6 +207,7 @@ final class ListOrganizationRolesProviderTest extends TestCase
       queryBus: $queryBus,
       authorization: $authorization,
       security: $security,
+      permissionCatalog: \Tests\Support\OrganizationCatalogTestFactory::permissions(),
     );
 
     $output = $provider->provide(new GetCollection(), ['organizationId' => $organizationId], [
@@ -267,6 +272,7 @@ final class ListOrganizationRolesProviderTest extends TestCase
       queryBus: $queryBus,
       authorization: $authorization,
       security: $security,
+      permissionCatalog: \Tests\Support\OrganizationCatalogTestFactory::permissions(),
     );
 
     $output = $provider->provide(new GetCollection(), ['organizationId' => $organizationId], [

@@ -4,18 +4,29 @@ declare(strict_types=1);
 
 namespace Tests\Support\Message;
 
+use Authorization\Application\Contract\Catalog\{PermissionDefinition, RoleDefinition};
+use Compliance\Application\UseCase\Command\Export\ExportSafetyRegister\ExportSafetyRegisterResult;
 use DateTimeImmutable;
 use DateTimeInterface;
+use Import\Application\Contract\ImportKindDescriptor;
+use Maintenance\Application\UseCase\Command\Export\PrepareMaintenanceScheduleExport\PrepareMaintenanceScheduleExportResult;
+use Onboarding\Application\Contract\Step\OrganizationOnboardingStepDefinition;
+use Organization\Application\Contract\Authorization\OrganizationPermissionDefinition;
 use Organization\Application\Contract\Member\OrganizationMemberGrant;
+use Organization\Application\Contract\Quota\OrganizationQuotaDefinition;
+use Organization\Application\Contract\Settings\OrganizationSettingsPolicyDefinition;
 use ReflectionClass;
 use ReflectionIntersectionType;
 use ReflectionNamedType;
 use ReflectionParameter;
 use ReflectionUnionType;
 use RuntimeException;
+use Shared\Application\Contract\Http\{HttpIdempotencyOperation, HttpIdempotencyQueryProjection};
+use Shared\Application\Contract\Idempotency\{IdempotencyBegin, IdempotencySnapshot};
 use Shared\Domain\ValueObject\Uuid;
 use Throwable;
 
+use function array_key_exists;
 use function class_exists;
 use function count;
 use function enum_exists;
@@ -35,8 +46,8 @@ use function strtolower;
  * Values are derived from the parameter's declared type, refined by its
  * name so that identifier-, e-mail- and locale-shaped parameters receive
  * a value the domain value objects accept. When a constructor rejects the
- * synthesized set, `build()` retries using each parameter's own default,
- * which is valid by construction.
+ * synthesized set, `build()` retries with declared optional defaults.
+ * The constructor still validates the complete argument set in both attempts.
  *
  * @category Test Support
  * @version 1.0.0
@@ -66,6 +77,47 @@ final class MessageArgumentFactory
    * A syntactically valid identifier for UUID-backed value objects.
    */
   private const string UUID = '11111111-1111-4111-8111-111111111111';
+
+  /**
+   * Constant ARGUMENT_SAMPLES.
+   *
+   * Supplies semantically valid examples where a field's shape depends on its owning contract.
+   * Public constructors still validate every example; discovery and round-trip assertions remain unchanged.
+   *
+   * @var array<class-string, array<string, mixed>>
+   */
+  private const array ARGUMENT_SAMPLES = [
+    PermissionDefinition::class => ['name' => 'fixture.read'],
+    RoleDefinition::class => ['name' => 'fixture_reader', 'permissionNames' => ['fixture.read']],
+    ImportKindDescriptor::class => [
+      'key' => 'fixture',
+      'readPermission' => 'organization.fixture.read',
+      'writePermission' => 'organization.fixture.write',
+      'templateFilename' => 'fixture.csv',
+      'templateContent' => "name\n",
+    ],
+    OrganizationOnboardingStepDefinition::class => ['key' => 'fixture_step', 'actionMethod' => 'POST', 'actionPath' => '/organizations/{organizationId}/fixture'],
+    OrganizationPermissionDefinition::class => ['name' => 'organization.fixture.read'],
+    OrganizationQuotaDefinition::class => ['key' => 'fixture_resources'],
+    OrganizationSettingsPolicyDefinition::class => ['key' => 'fixture.enabled', 'default' => true, 'minimum' => null, 'maximum' => null, 'allowedKeys' => null],
+    HttpIdempotencyOperation::class => [
+      'name' => 'fixture_write',
+      'database' => 'main',
+      'transactionMode' => 'bus_owner',
+      'primaryCommand' => ContractCommandFixture::class,
+      'resultClass' => ContractResultFixture::class,
+      'contractClasses' => [ContractResultFixture::class],
+      'statusCode' => 200,
+      'resultIdentifierProperty' => 'value',
+      'resourceKind' => 'fixture',
+      'freshAuthorizationQueries' => [ContractQueryFixture::class],
+    ],
+    HttpIdempotencyQueryProjection::class => ['queryClass' => ContractQueryFixture::class, 'resultClass' => ContractResultFixture::class, 'contractClasses' => [ContractResultFixture::class]],
+    IdempotencyBegin::class => ['replay' => null],
+    IdempotencySnapshot::class => ['statusCode' => 200, 'body' => '{"value":"fixture"}', 'headers' => ['Content-Type' => 'application/json'], 'proof' => ['user_id' => self::UUID]],
+    ExportSafetyRegisterResult::class => ['base64Contents' => 'JVBERi0xLjQKJSVFT0YK', 'fileName' => 'fixture.pdf'],
+    PrepareMaintenanceScheduleExportResult::class => ['base64Contents' => 'bmFtZQpGaXh0dXJlCg==', 'fileName' => 'fixture.csv'],
+  ];
   // #endregion
 
   // #region Methods
@@ -93,11 +145,19 @@ final class MessageArgumentFactory
       return $reflection->newInstance();
     }
 
+    if (!$constructor->isPublic()) {
+      $instance = $this->objectFor($class, 0);
+      if ($instance instanceof $class) {
+        return $instance;
+      }
+
+      throw new RuntimeException(sprintf('Public factory returned an unexpected type for "%s".', $class));
+    }
+
     try {
       return $reflection->newInstanceArgs($this->argumentsFor($class, useDefaults: false));
     } catch (Throwable) {
-      // A validating value object refused the synthesized set: fall back to
-      // the declared defaults, which the class itself vouches for.
+      // Retry optional defaults while leaving the complete constructor validation active.
       return $reflection->newInstanceArgs($this->argumentsFor($class, useDefaults: true));
     }
   }
@@ -162,6 +222,11 @@ final class MessageArgumentFactory
    */
   private function valueFor(ReflectionParameter $parameter, int $depth = 0): mixed
   {
+    $samples = self::ARGUMENT_SAMPLES[$parameter->getDeclaringClass()?->getName() ?? ''] ?? [];
+    if (array_key_exists($parameter->getName(), $samples)) {
+      return $samples[$parameter->getName()];
+    }
+
     $type = $parameter->getType();
     if (null === $type) {
       return null;
@@ -174,7 +239,13 @@ final class MessageArgumentFactory
         }
       }
 
-      return $parameter->getName() . '-value';
+      foreach ($type->getTypes() as $member) {
+        if ($member instanceof ReflectionNamedType && $member->isBuiltin() && 'null' !== $member->getName()) {
+          return $this->scalarFor($member->getName(), $parameter->getName());
+        }
+      }
+
+      return null;
     }
 
     if (!$type instanceof ReflectionNamedType) {
@@ -185,11 +256,26 @@ final class MessageArgumentFactory
       return $this->objectFor($type->getName(), $depth);
     }
 
-    $name = strtolower($parameter->getName());
+    return $this->scalarFor($type->getName(), $parameter->getName());
+  }
 
-    return match ($type->getName()) {
-      'string' => $this->stringFor($parameter->getName()),
-      'int' => str_contains($name, 'ttl') ? 3600 : 7,
+  /**
+   * Method scalarFor.
+   *
+   * Resolves an actual member type for both scalar parameters and scalar unions.
+   *
+   * @param string $type the declared scalar type
+   * @param string $parameterName the source parameter name
+   *
+   * @return mixed the synthesized scalar
+   */
+  private function scalarFor(string $type, string $parameterName): mixed
+  {
+    $name = strtolower($parameterName);
+
+    return match ($type) {
+      'string' => $this->stringFor($parameterName),
+      'int' => 'statuscode' === $name ? 200 : (str_contains($name, 'ttl') ? 3600 : 7),
       'float' => 1.5,
       'bool' => true,
       'array', 'iterable' => [],
@@ -213,6 +299,7 @@ final class MessageArgumentFactory
     $lower = strtolower($name);
 
     return match (true) {
+      'providerid' === $lower => 'fixture_provider',
       'owningdatabase' === $lower => 'auth',
       str_ends_with($lower, 'id'), str_ends_with($lower, 'ids') => self::UUID,
       str_contains($lower, 'email') => 'user@example.com',
@@ -288,7 +375,18 @@ final class MessageArgumentFactory
     }
 
     if (!$constructor->isPublic()) {
-      throw new RuntimeException(sprintf('Class "%s" has no public constructor.', $class));
+      if ($reflection->hasMethod('from')) {
+        $factory = $reflection->getMethod('from');
+        $parameters = $factory->getParameters();
+        if ($factory->isPublic() && $factory->isStatic() && 1 === count($parameters)) {
+          $instance = $factory->invoke(null, $this->stringFor($reflection->getShortName()));
+          if ($instance instanceof $class) {
+            return $instance;
+          }
+        }
+      }
+
+      throw new RuntimeException(sprintf('Class "%s" has no supported public constructor or factory.', $class));
     }
 
     $parameters = $constructor->getParameters();

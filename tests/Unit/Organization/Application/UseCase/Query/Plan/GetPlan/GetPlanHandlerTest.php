@@ -35,7 +35,7 @@ final class GetPlanHandlerTest extends TestCase
       },
     );
 
-    $handler = new GetPlanHandler($planRepository, $translator);
+    $handler = new GetPlanHandler($planRepository, $translator, quotaCatalog: \Tests\Support\OrganizationCatalogTestFactory::quota());
 
     $result = $handler(new GetPlanQuery(self::PLAN_ID));
 
@@ -56,7 +56,7 @@ final class GetPlanHandlerTest extends TestCase
     $translator = $this->createMock(TranslationPort::class);
     $translator->expects(self::never())->method('translate');
 
-    $handler = new GetPlanHandler($planRepository, $translator);
+    $handler = new GetPlanHandler($planRepository, $translator, quotaCatalog: \Tests\Support\OrganizationCatalogTestFactory::quota());
 
     $result = $handler(new GetPlanQuery(self::PLAN_ID));
 
@@ -72,7 +72,7 @@ final class GetPlanHandlerTest extends TestCase
 
     $translator = $this->createStub(TranslationPort::class);
 
-    $handler = new GetPlanHandler($planRepository, $translator);
+    $handler = new GetPlanHandler($planRepository, $translator, quotaCatalog: \Tests\Support\OrganizationCatalogTestFactory::quota());
 
     $this->expectException(PlanNotFoundException::class);
 

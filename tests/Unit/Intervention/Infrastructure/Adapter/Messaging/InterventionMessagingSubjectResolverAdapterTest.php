@@ -7,7 +7,6 @@ namespace Tests\Unit\Intervention\Infrastructure\Adapter\Messaging;
 use Doctrine\ORM\EntityManagerInterface;
 use Intervention\Infrastructure\Adapter\Messaging\InterventionMessagingSubjectResolverAdapter;
 use Intervention\Infrastructure\Persistence\Doctrine\Record\InterventionRecord;
-use Messaging\Application\Contract\Subject\MessagingSubjectType;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
@@ -27,12 +26,13 @@ final class InterventionMessagingSubjectResolverAdapterTest extends TestCase
   private const string INTERVENTION_ID = '550e8400-e29b-41d4-a716-446655440002';
 
   #[Test]
-  public function testSupportsOnlyInterventionSubjectType(): void
+  public function testPublishesTheSubjectDescriptor(): void
   {
     $adapter = new InterventionMessagingSubjectResolverAdapter($this->createStub(EntityManagerInterface::class));
 
-    self::assertTrue($adapter->supports(MessagingSubjectType::INTERVENTION));
-    self::assertFalse($adapter->supports(MessagingSubjectType::NON_CONFORMITY));
+    self::assertSame('intervention', $adapter->descriptor()->type);
+    self::assertSame('interventions', $adapter->descriptor()->resourceSegment);
+    self::assertSame('organization.interventions.read', $adapter->descriptor()->requiredReadPermission);
   }
 
   #[Test]

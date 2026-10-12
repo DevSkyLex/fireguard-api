@@ -73,7 +73,7 @@ final class ImportExecutionConcurrencyTest extends KernelTestCase
     $jobs = self::getContainer()->get(ImportJobRepositoryPort::class);
     self::assertInstanceOf(ImportJobRepositoryPort::class, $jobs);
     $this->jobs = $jobs;
-    $this->jobs->save(ImportJob::create($this->id(), self::ORG, ImportKind::EQUIPMENT, 'unused.csv', 'equipment.csv', self::OWNER_A));
+    $this->jobs->save(ImportJob::create($this->id(), self::ORG, ImportKind::from('equipment'), 'unused.csv', 'equipment.csv', self::OWNER_A));
     $execution = self::getContainer()->get(ImportExecutionPort::class);
     self::assertInstanceOf(ImportExecutionPort::class, $execution);
     $this->execution = $execution;

@@ -60,6 +60,9 @@ final class ConfirmTotpHandlerTest extends TestCase
       enrollmentRepository: $repository,
       totpService: $totpService,
       eventDispatcher: $dispatcher,
+      securityRevision: $this->createStub(\User\Application\Port\Inbound\UserSecurityRevisionPort::class),
+      rootTransaction: new \Tests\Support\Shared\ImmediateRootTransactionManager(),
+      accountStatus: $this->activeAccount(),
     );
 
     $result = $handler->__invoke(new ConfirmTotpCommand(userId: 'user-1', code: '123456'));
@@ -97,6 +100,9 @@ final class ConfirmTotpHandlerTest extends TestCase
       enrollmentRepository: $repository,
       totpService: $totpService,
       eventDispatcher: $dispatcher,
+      securityRevision: $this->createStub(\User\Application\Port\Inbound\UserSecurityRevisionPort::class),
+      rootTransaction: new \Tests\Support\Shared\ImmediateRootTransactionManager(),
+      accountStatus: $this->activeAccount(),
     );
 
     $result = $handler->__invoke(new ConfirmTotpCommand(userId: 'user-1', code: '000000'));
@@ -120,6 +126,9 @@ final class ConfirmTotpHandlerTest extends TestCase
       enrollmentRepository: $repository,
       totpService: $this->createStub(TotpServicePort::class),
       eventDispatcher: $this->createStub(EventDispatcherPort::class),
+      securityRevision: $this->createStub(\User\Application\Port\Inbound\UserSecurityRevisionPort::class),
+      rootTransaction: new \Tests\Support\Shared\ImmediateRootTransactionManager(),
+      accountStatus: $this->activeAccount(),
     );
 
     $this->expectException(TotpPendingEnrollmentNotFoundException::class);
@@ -153,6 +162,9 @@ final class ConfirmTotpHandlerTest extends TestCase
       enrollmentRepository: $repository,
       totpService: $totpService,
       eventDispatcher: $this->createStub(EventDispatcherPort::class),
+      securityRevision: $this->createStub(\User\Application\Port\Inbound\UserSecurityRevisionPort::class),
+      rootTransaction: new \Tests\Support\Shared\ImmediateRootTransactionManager(),
+      accountStatus: $this->activeAccount(),
     );
 
     $result = $handler->__invoke(new ConfirmTotpCommand(userId: 'user-1', code: '000000'));
@@ -177,8 +189,31 @@ final class ConfirmTotpHandlerTest extends TestCase
     $repository->method('findByUserId')->willReturn($enrollment);
     $service = $this->createStub(TotpServicePort::class);
     $service->method('verify')->willReturn(true);
-    $handler = new ConfirmTotpHandler($repository, $service, $this->createStub(EventDispatcherPort::class));
+    $handler = new ConfirmTotpHandler($repository, $service, $this->createStub(EventDispatcherPort::class), securityRevision: $this->createStub(\User\Application\Port\Inbound\UserSecurityRevisionPort::class), rootTransaction: new \Tests\Support\Shared\ImmediateRootTransactionManager(), accountStatus: $this->activeAccount());
     $this->expectException(\Shared\Domain\Exception\DomainException::class);
     $handler->__invoke(new ConfirmTotpCommand('user-1', '123456'));
+  }
+
+  #[Test]
+  public function testUnavailableAccountCannotConfirmFactorInsideOwningLock(): void
+  {
+    $repository = $this->createMock(TotpEnrollmentRepositoryPort::class);
+    $repository->method('withUserLock')->willReturnCallback(static fn (string $userId, callable $operation): mixed => $operation());
+    $repository->expects(self::never())->method('findByUserId');
+    $service = $this->createMock(TotpServicePort::class);
+    $service->expects(self::never())->method('verify');
+    $accounts = $this->createStub(\User\Application\Port\Inbound\AccountStatusPort::class);
+    $accounts->method('isActive')->willReturn(false);
+    $handler = new ConfirmTotpHandler($repository, $service, $this->createStub(EventDispatcherPort::class), $this->createStub(\User\Application\Port\Inbound\UserSecurityRevisionPort::class), new \Tests\Support\Shared\ImmediateRootTransactionManager(), $accounts);
+    $this->expectException(\Otp\Domain\Exception\TotpEnrollmentUnavailableException::class);
+    $handler(new ConfirmTotpCommand('user-1', '123456'));
+  }
+
+  private function activeAccount(): \User\Application\Port\Inbound\AccountStatusPort
+  {
+    $accounts = $this->createStub(\User\Application\Port\Inbound\AccountStatusPort::class);
+    $accounts->method('isActive')->willReturn(true);
+
+    return $accounts;
   }
 }

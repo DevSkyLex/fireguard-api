@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Shared\Infrastructure\EventSubscriber;
 
-use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Shared\Application\Port\Outbound\ProductConfigPort;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\Mailer\Event\MessageEvent;
 use Symfony\Component\Mime\Email;
@@ -16,8 +16,8 @@ use function str_contains;
 /**
  * Subscriber EmbedBrandMarkSubscriber.
  *
- * Embeds the Fireguard mark into any outgoing email whose HTML references it as
- * `cid:fireguard-mark` (the shared `notification/email/layout.html.twig` header).
+ * Embeds the configured product mark into any outgoing email whose HTML references
+ * its configured Content-ID (the shared `notification/email/layout.html.twig` header).
  *
  * A CID attachment is the only way to show an image reliably in every mail client:
  * remote images are blocked by default in many of them and Gmail strips `data:` URIs.
@@ -31,32 +31,20 @@ use function str_contains;
  */
 final readonly class EmbedBrandMarkSubscriber implements EventSubscriberInterface
 {
-  // #region Constants
-  /**
-   * Constant CONTENT_ID
-   *
-   * Content-ID the layout references as `cid:fireguard-mark`.
-   *
-   * @access public
-   */
-  public const string CONTENT_ID = 'fireguard-mark';
-  // #endregion
-
   // #region Constructor
   /**
    * Method __construct
    *
-   * Captures the path of the PNG that ships next to the email layout.
+   * Shares the same brand configuration as the email layout.
    *
    * @access public
    *
-   * @param string $markPath absolute path of the brand mark PNG
+   * @param ProductConfigPort $product the server-owned product configuration
    *
    * @return void
    */
   public function __construct(
-    #[Autowire('%kernel.project_dir%/templates/notification/email/fireguard-mark.png')]
-    private string $markPath,
+    private ProductConfigPort $product,
   ) {
   }
   // #endregion
@@ -85,16 +73,17 @@ final readonly class EmbedBrandMarkSubscriber implements EventSubscriberInterfac
     }
 
     $html = $message->getHtmlBody();
+    $brand = $this->product->emailBrand();
 
-    if (!is_string(value: $html) || !str_contains(haystack: $html, needle: 'cid:' . self::CONTENT_ID)) {
+    if (!is_string(value: $html) || !str_contains(haystack: $html, needle: 'cid:' . $brand->contentId)) {
       return;
     }
 
-    if (!is_file(filename: $this->markPath)) {
+    if (!is_file(filename: $brand->markPath)) {
       return;
     }
 
-    $message->embedFromPath(path: $this->markPath, name: self::CONTENT_ID, contentType: 'image/png');
+    $message->embedFromPath(path: $brand->markPath, name: $brand->contentId, contentType: 'image/png');
   }
 
   /**

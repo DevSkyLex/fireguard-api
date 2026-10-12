@@ -104,7 +104,7 @@ final class InvitationConcurrencyTest extends TestCase
           createdAt: new DateTimeImmutable('-1 day'),
         ),
       ));
-      $notifier = new OrganizationInvitationNotifier($notifications, 'http://localhost:4200', new OrganizationInvitationTokenHasher(), new \Shared\Infrastructure\Symfony\Adapter\Outbound\TranslatorAdapter(EmailTranslatorTestFactory::create()));
+      $notifier = new OrganizationInvitationNotifier($notifications, 'http://localhost:4200', new OrganizationInvitationTokenHasher(), new \Shared\Infrastructure\Symfony\Adapter\Outbound\TranslatorAdapter(EmailTranslatorTestFactory::create()), \Tests\Support\Shared\ProductConfigFixture::create());
       $handler = new ResendOrganizationInvitationHandler($invitations, $organizations, $users, $notifier, $logger, $tx, $events, $joins);
       $handler(new ResendOrganizationInvitationCommand($orgId, $invitationId, $actor));
     }

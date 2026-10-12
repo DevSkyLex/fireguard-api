@@ -4,45 +4,38 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Webhook\Application\Contract\Event;
 
+use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Webhook\Application\Contract\Event\WebhookEventType;
 
-use function in_array;
-
 /**
- * Test WebhookEventType.
+ * Class WebhookEventTypeTest
  *
  * @category Test
- *
- * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 #[CoversClass(WebhookEventType::class)]
 final class WebhookEventTypeTest extends TestCase
 {
   #[Test]
-  public function valuesReturnsEveryBackingValue(): void
+  public function retainsStableLegacyLiterals(): void
   {
-    $values = WebhookEventType::values();
-
-    self::assertCount(15, $values);
-    self::assertContains('intervention.published', $values);
-    self::assertContains('webhook.ping', $values);
+    self::assertSame('webhook.ping', WebhookEventType::PING);
+    self::assertSame('intervention.published', WebhookEventType::INTERVENTION_PUBLISHED);
+    self::assertSame('facility.updated', WebhookEventType::FACILITY_UPDATED);
   }
 
   #[Test]
-  public function everyCaseValueIsPresent(): void
+  public function representsHistoricalAndAdditionalValuesWithoutLoadedContributors(): void
   {
-    $values = WebhookEventType::values();
-
-    foreach (WebhookEventType::cases() as $case) {
-      self::assertTrue(in_array($case->value, $values, true));
-    }
+    self::assertSame('invoice.issued', new WebhookEventType('invoice.issued')->value);
+    self::assertSame('removed.type', new WebhookEventType('removed.type')->value);
   }
 
   #[Test]
-  public function theReservedPingValueIsStable(): void
+  public function rejectsInvalidRepresentations(): void
   {
-    self::assertSame('webhook.ping', WebhookEventType::PING->value);
+    $this->expectException(InvalidArgumentException::class);
+    new WebhookEventType(' Invalid Type ');
   }
 }

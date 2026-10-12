@@ -49,7 +49,7 @@ final readonly class FederatedProvidersProvider implements ProviderInterface
     $result = $this->federation->ask(new ListFederatedProvidersQuery());
 
     return array_map(
-      static fn ($provider): FederatedProviderOutput => new FederatedProviderOutput($provider->value),
+      static fn ($provider): FederatedProviderOutput => new FederatedProviderOutput($provider->id->value, $provider->enabled, $provider->label),
       $result->providers,
     );
   }

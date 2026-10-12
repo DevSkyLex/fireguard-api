@@ -8,7 +8,6 @@ use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Intervention\Infrastructure\Adapter\Messaging\InterventionMessagingSubjectResolverAdapter;
 use Intervention\Infrastructure\Persistence\Doctrine\Record\InterventionRecord;
-use Messaging\Application\Contract\Subject\MessagingSubjectType;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -59,11 +58,9 @@ final class InterventionMessagingSubjectResolverAdapterTest extends KernelTestCa
   }
 
   #[Test]
-  public function testSupportsOnlyTheInterventionSubjectType(): void
+  public function testPublishesTheSubjectDescriptor(): void
   {
-    self::assertTrue($this->adapter->supports(MessagingSubjectType::INTERVENTION));
-    self::assertFalse($this->adapter->supports(MessagingSubjectType::FACILITY));
-    self::assertFalse($this->adapter->supports(MessagingSubjectType::DIRECT));
+    self::assertSame('intervention', $this->adapter->descriptor()->type);
   }
 
   #[Test]

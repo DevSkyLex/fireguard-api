@@ -1,0 +1,11 @@
+doctrine:
+  orm:
+    entity_managers:
+      main:
+        mappings:
+          MaintenanceCost:
+            is_bundle: false
+            type: attribute
+            dir: '%kernel.project_dir%/src/MaintenanceCost/Infrastructure/Persistence/Doctrine'
+            prefix: 'MaintenanceCost\Infrastructure\Persistence\Doctrine'
+            alias: MaintenanceCost

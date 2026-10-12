@@ -11,6 +11,7 @@ use Organization\Application\Contract\Event\Organization\{
 };
 use Organization\Application\Contract\Event\OrganizationSettingsUpdatedEvent;
 use Organization\Application\Contract\Exception\{OrganizationNotFoundException, OrganizationSlugAlreadyExistsException};
+use Organization\Application\Port\Inbound\OrganizationSettingsPolicyCatalogPort;
 use Organization\Application\Port\Outbound\EquipmentTypeCatalogPort;
 use Organization\Application\Port\Outbound\Internal\OrganizationRepositoryPort;
 use Organization\Domain\Exception\OrganizationArchivedException;
@@ -69,6 +70,7 @@ final readonly class UpdateOrganizationSettingsHandler implements CommandHandler
     private TransactionManagerPort $transactionManager,
     private EventDispatcherPort $eventDispatcher,
     private EquipmentTypeCatalogPort $equipmentTypeCatalog,
+    private OrganizationSettingsPolicyCatalogPort $settingsPolicies,
   ) {
   }
   // #endregion
@@ -88,6 +90,14 @@ final readonly class UpdateOrganizationSettingsHandler implements CommandHandler
   public function __invoke(UpdateOrganizationSettingsCommand $command): UpdateOrganizationSettingsResult
   {
     $this->validateCompliance($command->compliance);
+    foreach (['compliance' => $command->compliance, 'automation' => $command->automation, 'approval' => $command->approval, 'assistant' => $command->assistant] as $section => $partial) {
+      if (null !== $partial) {
+        $this->settingsPolicies->validatePartial($section, $partial);
+      }
+    }
+    foreach ($command->policySections ?? [] as $section => $partial) {
+      $this->settingsPolicies->validatePartial($section, $partial);
+    }
     $organization = $this->organizationRepository->findById(OrganizationId::fromString($command->organizationId));
 
     if (null === $organization) {
@@ -221,6 +231,14 @@ final readonly class UpdateOrganizationSettingsHandler implements CommandHandler
     if (null !== $command->assistant) {
       $organization->updateAssistantSettings($organization->settings()->assistant->mergedWith($command->assistant));
       $fields[] = 'assistant';
+    }
+
+    foreach ($command->policySections ?? [] as $section => $partial) {
+      $current = $organization->settings()->additionalSections[$section] ?? [];
+      /** @var array<string, mixed> $current */
+      $current = is_array($current) ? $current : [];
+      $organization->updatePolicySection($section, $this->settingsPolicies->merge($section, $current, $partial));
+      $fields[] = $section;
     }
 
     return $fields;

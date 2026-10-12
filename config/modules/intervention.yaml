@@ -1,3 +1,8 @@
+imports:
+  - { resource: 'intervention/doctrine.yaml' }
+  - { resource: 'intervention/api_platform.yaml' }
+  - { resource: 'intervention/framework.yaml' }
+
 services:
   _defaults:
     autowire: true
@@ -95,7 +100,8 @@ services:
     class: Shared\Infrastructure\Symfony\Adapter\Outbound\DoctrineTransactionManagerAdapter
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
-
+      $database: main
+      $idempotency: '@Shared\Infrastructure\Idempotency\HttpIdempotencyExecutionContext'
   Intervention\Application\UseCase\Command\Time\WriteTimeEntry\WriteTimeEntryHandler:
     arguments:
       $transactions: '@intervention.time_transaction_manager'
@@ -308,6 +314,8 @@ services:
   Intervention\Infrastructure\Adapter\Calendar\InterventionCalendarFeedAdapter:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
+    tags:
+      - { name: calendar.feed_source, priority: 200 }
 
   Intervention\Infrastructure\Adapter\Messaging\InterventionMessagingSubjectResolverAdapter:
     arguments:
@@ -467,3 +475,52 @@ services:
     alias: Equipment\Infrastructure\Adapter\Intervention\InterventionEquipmentSummaryAdapter
 
   Intervention\Application\Service\InterventionWorkItemEnrichment: ~
+
+  Intervention\Infrastructure\Adapter\Event\IntegrationEventConverterAdapter: ~
+
+  Intervention\Infrastructure\Adapter\Webhook\InterventionWebhookEventSourceAdapter:
+    tags:
+      - { name: webhook.event_source, priority: 300 }
+
+  Intervention\Infrastructure\Adapter\Schema\SchemaContributionAdapter:
+    tags: [shared.schema_contribution]
+
+  Intervention\Infrastructure\Adapter\Audit\AuditRecordEventAdapter: ~
+
+  Intervention\Infrastructure\Adapter\OrganizationCatalog\InterventionSystemRoleContributionAdapter:
+    tags: [organization.system_role_contribution]
+
+  Intervention\Infrastructure\Adapter\Idempotency\InterventionHttpIdempotencyOperationContributionAdapter:
+    tags: [http.idempotency_operation]
+
+  Intervention\Application\Port\Inbound\FreshInterventionScopePort: '@Intervention\Infrastructure\Adapter\Idempotency\FreshInterventionScopeAdapter'
+  Intervention\Infrastructure\Adapter\Idempotency\FreshInterventionScopeAdapter:
+    arguments:
+      $connection: '@doctrine.dbal.main_connection'
+
+  Intervention\Infrastructure\Adapter\Idempotency\InterventionHttpIdempotencyReplayAuthorizationAdapter:
+    arguments:
+      $connection: '@doctrine.dbal.main_connection'
+    tags: [http.idempotency_replay_authorization]
+
+  Intervention\Application\UseCase\Command\Export\ExportInterventionsDocument\ExportInterventionsDocumentHandler:
+    arguments:
+      $transactions: '@Shared\Infrastructure\Messaging\Outbox\DbalTransactionManagerAdapter'
+      $events: '@Shared\Infrastructure\Messaging\Outbox\TransactionalEventDispatcher'
+    tags: [messenger.message_handler]
+
+  Intervention\Application\UseCase\Command\Export\ExportInterventionReportDocument\ExportInterventionReportDocumentHandler:
+    arguments:
+      $transactions: '@Shared\Infrastructure\Messaging\Outbox\DbalTransactionManagerAdapter'
+      $events: '@Shared\Infrastructure\Messaging\Outbox\TransactionalEventDispatcher'
+    tags: [messenger.message_handler]
+
+  Intervention\Application\Port\Outbound\InterventionCsvRendererPort: '@Intervention\Infrastructure\Adapter\Export\InterventionCsvRendererAdapter'
+  Intervention\Infrastructure\Adapter\Export\InterventionCsvRendererAdapter: ~
+when@dev:
+  imports:
+    - { resource: 'intervention/seeds.yaml' }
+
+when@test:
+  imports:
+    - { resource: 'intervention/seeds.yaml' }

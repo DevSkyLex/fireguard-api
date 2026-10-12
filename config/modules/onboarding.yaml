@@ -1,3 +1,7 @@
+imports:
+  - { resource: 'onboarding/doctrine.yaml' }
+  - { resource: 'onboarding/api_platform.yaml' }
+
 services:
   _defaults:
     autowire: true
@@ -10,7 +14,8 @@ services:
     class: Shared\Infrastructure\Symfony\Adapter\Outbound\DoctrineTransactionManagerAdapter
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
-
+      $database: main
+      $idempotency: '@Shared\Infrastructure\Idempotency\HttpIdempotencyExecutionContext'
   Onboarding\Infrastructure\Persistence\Doctrine\Repository\OrganizationOnboardingSessionRepository:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
@@ -43,3 +48,37 @@ services:
 
   Onboarding\Application\Port\Inbound\OrganizationSetupPort:
     alias: Onboarding\Application\Service\OrganizationSetupService
+
+  Onboarding\Infrastructure\Adapter\Event\IntegrationEventConverterAdapter: ~
+
+  Onboarding\Application\Service\OrganizationOnboardingStepRegistry:
+    arguments:
+      $contributions: !tagged_iterator onboarding.organization_step_contribution
+
+  Onboarding\Application\UseCase\Command\Flow\SynchronizeOrganizationOnboarding\SynchronizeOrganizationOnboardingHandler:
+    tags: [messenger.message_handler]
+  Onboarding\Application\UseCase\Command\Flow\StartOrganizationOnboarding\StartOrganizationOnboardingHandler:
+    tags: [messenger.message_handler]
+  Onboarding\Application\UseCase\Command\Flow\ExecuteOrganizationOnboardingStep\ExecuteOrganizationOnboardingStepHandler:
+    tags: [messenger.message_handler]
+  Onboarding\Application\UseCase\Command\Flow\SkipOrganizationOnboardingStep\SkipOrganizationOnboardingStepHandler:
+    tags: [messenger.message_handler]
+  Onboarding\Application\UseCase\Command\Flow\RollbackOrganizationOnboarding\RollbackOrganizationOnboardingHandler:
+    tags: [messenger.message_handler]
+  Onboarding\Application\UseCase\Command\Flow\DismissOrganizationOnboarding\DismissOrganizationOnboardingHandler:
+    tags: [messenger.message_handler]
+  Onboarding\Application\UseCase\Command\Flow\ResumeOrganizationOnboarding\ResumeOrganizationOnboardingHandler:
+    tags: [messenger.message_handler]
+
+  Onboarding\Infrastructure\Adapter\Idempotency\OnboardingHttpIdempotencyOperationContributionAdapter:
+    tags: [http.idempotency_operation]
+  Onboarding\Infrastructure\Adapter\Idempotency\OnboardingHttpIdempotencyReplayAuthorizationAdapter:
+    tags: [http.idempotency_replay_authorization]
+
+when@dev:
+  imports:
+    - { resource: 'onboarding/seeds.yaml' }
+
+when@test:
+  imports:
+    - { resource: 'onboarding/seeds.yaml' }

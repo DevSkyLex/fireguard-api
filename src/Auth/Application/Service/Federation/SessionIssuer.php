@@ -6,6 +6,7 @@ namespace Auth\Application\Service\Federation;
 
 use Auth\Application\Contract\Token\{AuthenticationSession, SignInGrantType};
 use Auth\Application\Port\Inbound\InteractiveSessionIssuerPort;
+use Auth\Application\Port\Outbound\AuthenticationPolicyPort;
 use Auth\Application\Port\Outbound\Internal\Mfa\ChallengeGeneratorPort;
 use Auth\Application\Port\Outbound\{JwtTokenServicePort, SessionTrackingPort, TrustedDeviceCheckPort};
 use Auth\Application\Port\Outbound\Mfa\TotpEnrollmentCheckPort;
@@ -50,7 +51,7 @@ final readonly class SessionIssuer implements InteractiveSessionIssuerPort
    * @param TrustedDeviceCheckPort $trustedDeviceCheck checks whether MFA can be skipped for a trusted device
    * @param TotpEnrollmentCheckPort $totpEnrollmentCheck selects TOTP when the user has an active enrollment
    * @param FederatedUserPort $users records the successful sign-in method
-   * @param bool $mfaEnabled whether interactive sign-in requires MFA checks
+   * @param AuthenticationPolicyPort $authenticationPolicy project MFA and trusted-device choices
    *
    * @return void
    */
@@ -62,7 +63,7 @@ final readonly class SessionIssuer implements InteractiveSessionIssuerPort
     private TrustedDeviceCheckPort $trustedDeviceCheck,
     private TotpEnrollmentCheckPort $totpEnrollmentCheck,
     private FederatedUserPort $users,
-    private bool $mfaEnabled,
+    private AuthenticationPolicyPort $authenticationPolicy,
   ) {
   }
   // #endregion
@@ -235,8 +236,11 @@ final readonly class SessionIssuer implements InteractiveSessionIssuerPort
    */
   private function shouldRequireMfa(string $userId, ?string $trustedDeviceToken): bool
   {
-    if (!$this->mfaEnabled) {
+    if (!$this->authenticationPolicy->mfaRequired()) {
       return false;
+    }
+    if (!$this->authenticationPolicy->trustedDeviceMfaBypassEnabled()) {
+      return true;
     }
     if (null === $trustedDeviceToken || '' === $trustedDeviceToken) {
       return true;

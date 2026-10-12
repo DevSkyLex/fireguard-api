@@ -28,7 +28,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="light dark" />
     <meta name="supported-color-schemes" content="light dark" />
-    <title>{% block title %}{{ subject|default('Fireguard') }}{% endblock %}</title>
+    <title>{% block title %}{{ subject|default(product.identity.publicName) }}{% endblock %}</title>
     <style>
       :root { color-scheme: light dark; supported-color-schemes: light dark; }
       body { margin: 0; padding: 0; width: 100% !important; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; background-color: #ffffff; color: #09090b; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; }
@@ -114,12 +114,7 @@
           <table role="presentation" width="560" border="0" cellpadding="0" cellspacing="0" class="container" bgcolor="#ffffff">
             <tr>
               <td class="header">
-                <table role="presentation" border="0" cellpadding="0" cellspacing="0">
-                  <tr>
-                    <td style="vertical-align: middle;"><img src="cid:fireguard-mark" width="31" height="25" alt="" style="display: block;" /></td>
-                    <td class="brand" style="vertical-align: middle;">Fireguard</td>
-                  </tr>
-                </table>
+                {% include 'notification/email/brand.html.twig' %}
               </td>
             </tr>
             <tr>
@@ -130,7 +125,7 @@
             <tr>
               <td class="footer">
                 {% block footer %}
-                  <p>{{ 'layout.footer'|trans({}, 'emails', lang|default('en')) }}</p>
+                  <p>{{ 'layout.footer'|trans({ '%product%': product.identity.publicName }, 'emails', lang|default('en')) }}</p>
                 {% endblock %}
               </td>
             </tr>

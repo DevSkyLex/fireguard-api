@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Compliance\Presentation\Api\Resource;
 
 use ApiPlatform\Metadata\{ApiResource, Get};
+use ApiPlatform\OpenApi\Model\{Operation, Response as OpenApiResponse};
+use ArrayObject;
 use Compliance\Presentation\Api\Controller\ExportSafetyRegisterController;
 use Compliance\Presentation\Api\Operation\ComplianceOperations;
 
@@ -35,23 +37,41 @@ use Compliance\Presentation\Api\Operation\ComplianceOperations;
       name: ComplianceOperations::EXPORT_ORGANIZATION_SAFETY_REGISTER,
       uriTemplate: '/{organizationId}/compliance/export',
       controller: ExportSafetyRegisterController::class,
+      status: 200,
       read: false,
       write: false,
       deserialize: false,
       serialize: false,
       output: false,
       security: "is_granted('ROLE_USER')",
+      openapi: new Operation(
+        responses: [
+          200 => new OpenApiResponse(
+            description: 'Safety register PDF attachment',
+            content: new ArrayObject(['application/pdf' => ['schema' => ['type' => 'string', 'format' => 'binary']]]),
+          ),
+        ],
+      ),
     ),
     new Get(
       name: ComplianceOperations::EXPORT_FACILITY_SAFETY_REGISTER,
       uriTemplate: '/{organizationId}/facilities/{facilityId}/compliance/export',
       controller: ExportSafetyRegisterController::class,
+      status: 200,
       read: false,
       write: false,
       deserialize: false,
       serialize: false,
       output: false,
       security: "is_granted('ROLE_USER')",
+      openapi: new Operation(
+        responses: [
+          200 => new OpenApiResponse(
+            description: 'Safety register PDF attachment',
+            content: new ArrayObject(['application/pdf' => ['schema' => ['type' => 'string', 'format' => 'binary']]]),
+          ),
+        ],
+      ),
     ),
   ],
 )]

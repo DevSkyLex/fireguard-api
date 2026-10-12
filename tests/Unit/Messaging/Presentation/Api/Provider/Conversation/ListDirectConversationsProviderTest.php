@@ -67,7 +67,7 @@ final class ListDirectConversationsProviderTest extends TestCase
     $requestStack = new RequestStack();
     $requestStack->push($request);
 
-    $provider = new ListDirectConversationsProvider($queryBus, new ConversationOutputFactory(), $this->securityWithUser(), $requestStack);
+    $provider = new ListDirectConversationsProvider($queryBus, new ConversationOutputFactory(\Tests\Support\Messaging\MessagingSubjectCatalog::create()), $this->securityWithUser(), $requestStack);
 
     $result = $provider->provide(new GetCollection());
 
@@ -89,7 +89,7 @@ final class ListDirectConversationsProviderTest extends TestCase
   {
     $provider = new ListDirectConversationsProvider(
       $this->createStub(QueryBusPort::class),
-      new ConversationOutputFactory(),
+      new ConversationOutputFactory(\Tests\Support\Messaging\MessagingSubjectCatalog::create()),
       $this->securityWithUser(),
       new RequestStack(),
     );
@@ -108,7 +108,7 @@ final class ListDirectConversationsProviderTest extends TestCase
     $requestStack = new RequestStack();
     $requestStack->push(new Request(['organization' => '/api/organizations/' . self::ORG_ID]));
 
-    $provider = new ListDirectConversationsProvider($queryBus, new ConversationOutputFactory(), $this->securityWithUser(), $requestStack);
+    $provider = new ListDirectConversationsProvider($queryBus, new ConversationOutputFactory(\Tests\Support\Messaging\MessagingSubjectCatalog::create()), $this->securityWithUser(), $requestStack);
 
     $this->expectException(NotFoundHttpException::class);
 
@@ -123,7 +123,7 @@ final class ListDirectConversationsProviderTest extends TestCase
 
     $provider = new ListDirectConversationsProvider(
       $this->createStub(QueryBusPort::class),
-      new ConversationOutputFactory(),
+      new ConversationOutputFactory(\Tests\Support\Messaging\MessagingSubjectCatalog::create()),
       $security,
       new RequestStack(),
     );

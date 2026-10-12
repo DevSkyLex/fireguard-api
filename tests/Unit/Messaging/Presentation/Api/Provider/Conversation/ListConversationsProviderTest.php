@@ -46,7 +46,7 @@ final class ListConversationsProviderTest extends TestCase
 
     $provider = new ListConversationsProvider(
       queryBus: $this->createStub(QueryBusPort::class),
-      mapper: new ConversationOutputFactory(),
+      mapper: new ConversationOutputFactory(\Tests\Support\Messaging\MessagingSubjectCatalog::create()),
       security: $security,
       requestStack: $this->requestStack(['organization' => self::ORG_ID]),
     );
@@ -61,7 +61,7 @@ final class ListConversationsProviderTest extends TestCase
   {
     $provider = new ListConversationsProvider(
       queryBus: $this->createStub(QueryBusPort::class),
-      mapper: new ConversationOutputFactory(),
+      mapper: new ConversationOutputFactory(\Tests\Support\Messaging\MessagingSubjectCatalog::create()),
       security: $this->securityWithUser(),
       requestStack: $this->requestStack([]),
     );
@@ -101,7 +101,7 @@ final class ListConversationsProviderTest extends TestCase
 
     $provider = new ListConversationsProvider(
       queryBus: $queryBus,
-      mapper: new ConversationOutputFactory(),
+      mapper: new ConversationOutputFactory(\Tests\Support\Messaging\MessagingSubjectCatalog::create()),
       security: $this->securityWithUser(),
       requestStack: $this->requestStack([
         'organization' => '/api/organizations/' . self::ORG_ID,
@@ -137,7 +137,7 @@ final class ListConversationsProviderTest extends TestCase
 
     $provider = new ListConversationsProvider(
       queryBus: $queryBus,
-      mapper: new ConversationOutputFactory(),
+      mapper: new ConversationOutputFactory(\Tests\Support\Messaging\MessagingSubjectCatalog::create()),
       security: $this->securityWithUser(),
       requestStack: $this->requestStack(['organization' => self::ORG_ID]),
     );

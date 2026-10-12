@@ -230,13 +230,13 @@ final class Plan
    *
    * @since 1.0.0
    *
-   * @param OrganizationQuotaResource $resource the resource to look up
+   * @param OrganizationQuotaResource|string $resource the resource to look up
    *
    * @return ?int the cap, or null when unlimited
    */
-  public function limitFor(OrganizationQuotaResource $resource): ?int
+  public function limitFor(OrganizationQuotaResource|string $resource): ?int
   {
-    return $this->limits[$resource->value] ?? null;
+    return $this->limits[$resource instanceof OrganizationQuotaResource ? $resource->value : $resource] ?? null;
   }
 
   /**

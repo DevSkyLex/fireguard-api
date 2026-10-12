@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Auth\Application\UseCase\Command\Federation\StartFederation;
 
-use Auth\Application\Contract\Federation\FederatedProvider;
+use Auth\Application\Contract\Federation\ProviderId;
+use DateTimeImmutable;
 use Shared\Application\Message\CommandMessage;
 
 /**
@@ -17,7 +18,7 @@ use Shared\Application\Message\CommandMessage;
  */
 final readonly class StartFederationCommand implements CommandMessage
 {
-  public function __construct(public FederatedProvider $provider, public string $browserBinding, public string $returnUrl = '/account/security', public ?string $userId = null)
+  public function __construct(public ProviderId $provider, public string $browserBinding, public string $returnUrl = '/account/security', public ?string $userId = null, public ?DateTimeImmutable $browserBindingExpiresAt = null)
   {
   }
 }

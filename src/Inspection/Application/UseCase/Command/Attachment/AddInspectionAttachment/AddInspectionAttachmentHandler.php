@@ -13,6 +13,7 @@ use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Contract\Transaction\CommitOutcomeUnknownException;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\{FileStoragePort, LoggerPort, RootTransactionManagerPort};
+use Shared\Application\Port\Outbound\Idempotency\HttpIdempotencyExecutionPort;
 use Shared\Application\Port\Outbound\UuidGeneratorPort;
 use Shared\Domain\Attachment\{AttachmentConstraints, StoragePathScheme};
 use Throwable;
@@ -57,6 +58,7 @@ final readonly class AddInspectionAttachmentHandler implements CommandHandler
     private OrganizationAuthorizationPort $authorization,
     private LoggerPort $logger,
     private ?\Inspection\Application\Port\Outbound\InspectionMediaLookupPort $media = null,
+    private ?HttpIdempotencyExecutionPort $idempotency = null,
   ) {
   }
   // #endregion
@@ -83,7 +85,12 @@ final readonly class AddInspectionAttachmentHandler implements CommandHandler
     $attempt = new AttachmentUploadAttempt();
 
     try {
-      return $this->transactions->transactional(fn (): AddInspectionAttachmentResult => $this->persistUpload($command, $attachmentId, $storagePath, $attempt));
+      return $this->transactions->transactional(function () use ($command, $attachmentId, $storagePath, $attempt): AddInspectionAttachmentResult {
+        $result = $this->persistUpload($command, $attachmentId, $storagePath, $attempt);
+        $this->idempotency?->captureResult($result);
+
+        return $result;
+      });
     } catch (Throwable $exception) {
       if ($attempt->written && !$exception instanceof CommitOutcomeUnknownException) {
         $this->compensateUpload($storagePath);

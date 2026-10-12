@@ -39,7 +39,7 @@ final class OrganizationRepositoryIntegrationTest extends KernelTestCase
     /** @var EntityManagerInterface $entityManager */
     $entityManager = static::getContainer()->get('doctrine.orm.main_entity_manager');
     $this->entityManager = $entityManager;
-    $this->repository = new OrganizationRepository($this->entityManager);
+    $this->repository = new OrganizationRepository($this->entityManager, \Tests\Support\OrganizationCatalogTestFactory::settingsPolicies());
   }
 
   protected function tearDown(): void

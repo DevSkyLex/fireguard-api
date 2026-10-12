@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Tests\Unit\Audit\Infrastructure\EventSubscriber;
 
 use Audit\Application\UseCase\Command\RecordAuditEvent\{RecordAuditEventCommand, RecordAuditEventResult};
-use Audit\Infrastructure\EventSubscriber\{AbstractAuditEventSubscriber, ExportAuditEventSubscriber, InterventionAuditEventSubscriber, OperationsAuditEventSubscriber, OrganizationAccessAuditEventSubscriber};
 use Audit\Infrastructure\Service\AuditPiiSanitizer;
 use Automation\Application\Contract\Event\Rule\{AutomationRuleExecutedEvent, AutomationRuleFailedEvent};
 use Calendar\Application\Contract\Event\{CalendarEventCreatedEvent, CalendarEventDeletedEvent, CalendarEventUpdatedEvent};
@@ -24,7 +23,7 @@ use Maintenance\Application\Contract\Event\Campaign\MaintenanceCampaignGenerated
 use Maintenance\Application\Contract\Event\Export\MaintenanceSchedulesExportedEvent;
 use Maintenance\Application\Contract\Event\Schedule\MaintenanceScheduleOverriddenEvent;
 use Organization\Application\Contract\Event\Team\{TeamDeletedEvent, TeamMemberRemovedEvent, TeamUpdatedEvent};
-use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use Shared\Application\Port\Inbound\CommandBusPort;
@@ -50,11 +49,6 @@ use function sprintf;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-#[CoversClass(className: AbstractAuditEventSubscriber::class)]
-#[CoversClass(className: OrganizationAccessAuditEventSubscriber::class)]
-#[CoversClass(className: InterventionAuditEventSubscriber::class)]
-#[CoversClass(className: ExportAuditEventSubscriber::class)]
-#[CoversClass(className: OperationsAuditEventSubscriber::class)]
 final class OperationsAuditWiringTest extends TestCase
 {
   // #region Constants

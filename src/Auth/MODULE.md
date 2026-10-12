@@ -19,6 +19,11 @@ The Auth module is responsible for interactive user authentication. It issues ac
 
 ## API Endpoints
 
+`GET /api/auth/password-policy` is public and read-only. It returns the configured
+`minimumLength`, `maximumLength`, `requireUppercase`, `requireLowercase`, `requireDigit`,
+`specialCharacters` and nullable `allowedInitialCharacters`. An empty special-character alphabet disables that requirement; a null initial-character alphabet permits any first character.
+Password creation inputs refer to this runtime contract instead of fixed OpenAPI length bounds.
+
 | Mailbox proof endpoint              | Method | Authentication                  |
 | ----------------------------------- | ------ | ------------------------------- |
 | `/api/auth/email-ownership`         | GET    | ROLE_USER                       |
@@ -416,13 +421,30 @@ The order matters, and each step exists because skipping it was a defect:
 
 ### Published and private capabilities
 
-Federation and initial password setup enter through typed command/query handlers. HTTP owns cookies and rate limits; Application preserves browser binding, state, PKCE, nonce, locks and principal checks. FederatedExceptionSubscriber maps bus-wrapped failures centrally to the existing 400/401/409 codes. Provider/grant enums and issued-session snapshots are pure contracts.
+Federation and initial password setup enter through typed command/query handlers. HTTP owns cookies and rate limits; Application preserves browser binding, state, PKCE, nonce, locks and principal checks. FederatedExceptionSubscriber maps bus-wrapped failures centrally to the existing 400/401/409 codes. Open provider identifiers, grant enums and issued-session snapshots are pure contracts.
 
 Password flows consume User-owned credential/registration capabilities and Otp-owned challenge projections. Confirmation binds expected purpose and, for authenticated changes, owner. Owner modules persist attempts and account transitions. AuthenticatedUser/AuthenticatedPrincipal expose verified identity without security infrastructure. Retention delegates each foreign dataset to its owner; Auth cleans its own federation flows.
 
 Repositories and capabilities exposing owner-local types are private under Application/Port/Outbound/Internal; cross-module access uses published ports and pure contracts.
 
 ## Configuration
+
+`AuthenticationPolicyPort` exposes explicit project choices from
+`config/packages/authentication_policy.yaml`: self-service signup, required registration
+email verification, trusted-device MFA bypass and federated account provisioning default
+to enabled. Global MFA retains the deployed `MFA_ENABLED` value. Disabling signup returns
+403 (`registration_disabled`) before account lookup or creation. Waiving registration
+verification activates the account and skips its verification challenge; it does not
+set `emailVerified` or establish Fireguard mailbox-ownership proof. Disabled or locked
+accounts remain ineligible for sign-in. Disabling trusted-device bypass always requires
+the configured MFA flow, retaining TOTP factor selection and fail-closed enrollment checks.
+
+Creation/reset/change/first-password flows consume User's authoritative PasswordPolicyPort.
+They validate plaintext before an OTP can be consumed, including direct commands without
+HTTP validation. Sign-in checks the stored credential without reapplying creation rules;
+its transport accepts non-empty passwords up to 4,096 characters so a later policy change
+does not lock out legacy credentials. Default creation validation messages remain stable;
+custom-rule messages describe the configured requirements.
 
 Environment variables (see `.env`):
 
@@ -477,10 +499,25 @@ FederatedAuthException maps to 400, FederatedConflictException to 409, and
 FederatedUnauthorizedException to 401. Their stable public error codes remain
 the frontend branching contract.
 
-Google and Microsoft sign-in belongs to Auth and uses Authorization Code with PKCE S256. Auth stores
+Federated sign-in belongs to Auth and uses Authorization Code with PKCE S256. Google and Microsoft keep their existing provider clients and identifiers. Auth stores
 only a hashed one-time state and an encrypted PKCE verifier for ten minutes. Provider access tokens
 exist only while the callback request exchanges them for a Fireguard session. Microsoft uses the
 `common` authority so personal, work and school accounts share one configured application.
+
+Federated authorization starts remain JSON `POST` operations for login and linking.
+They require an explicit `Idempotency-Key` before dispatch. The existing HttpOnly flow
+cookie holds a random server-authenticated browser ticket with a fixed ten-minute
+deadline. The first start issues it; retries reuse its verified identity and original
+expiry. A key cannot replace browser possession or authorize another browser's stored
+response. Login and link intents remain distinct, and linking also checks the current
+account revision.
+
+Start responses use encrypted replay for at most five minutes inside the owning auth
+command transaction. Repeated requests preserve the authorization state, OIDC nonce and
+PKCE verifier. Before decoding the stored URL, Auth reads the exact current reserved flow
+and rejects expired, consumed or already-exchanging state. Retries never provision an
+account, exchange a code or extend the initial cookie deadline. There is no stateful GET
+start route.
 
 An unknown provider subject may provision an active, email-verified User without a password. A
 provider email that already belongs to an unlinked User returns `account_exists`; email equality never
@@ -492,8 +529,45 @@ same behavior.
 Configuration uses `GOOGLE_OIDC_*` and `MICROSOFT_OIDC_*`. The backend derives login and link callback
 URLs from `APP_FRONTEND_URL`; the browser cannot supply a redirect URI. Provider availability is
 public, while connection and password-setup endpoints require an authenticated user.
+Both legacy providers default to disabled with empty credentials when their optional
+environment variables are absent. Explicit enablement and both credentials are required
+before either provider is available; existing deployment values override these defaults.
+
+Generic OIDC providers are registered only in `config/packages/federated_providers.yaml`.
+A stable provider key contains at most twenty lowercase letters, digits, underscores or
+hyphens and begins with a letter. Public descriptors retain `provider` and `enabled`,
+and add `id`, `value` and `label`; enabled providers are listed without publishing
+issuers, endpoints or credentials. Unknown and disabled providers cannot begin or
+complete authentication. Generic entries cannot replace the `google` or `microsoft`
+keys.
+
+Each generic registration supplies an exact HTTPS issuer and server-owned HTTPS
+authorization, token and JWKS endpoints, optional UserInfo endpoint and confidential
+client credentials through environment references. HTTP redirects are disabled for
+credential and key requests. Generic authorization generates a fresh nonce; only its
+SHA-256 hash is retained alongside the browser-bound state and encrypted PKCE verifier.
+Completion requires a matching RS256 signing key from the configured JWKS before any
+claim is trusted, then validates issuer, audience/authorized party, expiration,
+issuance time and nonce. UserInfo, when used, must return the same signed subject.
+Email verification is bound to its exact address: a changed UserInfo email cannot inherit
+the ID token's verification of another address. The same address retains the signed proof
+when UserInfo omits `email_verified`; an explicit UserInfo proof replaces it only for
+the address provided by UserInfo. An isolated `email_verified: true` without an address
+cannot promote an unverified ID token email.
+A verified email never links an existing account implicitly.
+
+Generic connections persist the verified issuer, and later mismatches deny authentication
+and linking; changing an issuer requires a new provider key. Generic sign-in uses the
+`federated_oidc` grant and the stable account method `oidc`, through the ordinary MFA
+and interactive session path. Project policy can disable new federated account
+provisioning while preserving existing connections. Auth migration
+`Version20261011000200` adds nullable nonce and issuer columns for rollout compatibility;
+apply it before enabling generic providers.
+
 
 ## Error Codes
+
+- `registration_disabled` -> 403, self-service signup is disabled by project configuration
 
 - `AuthenticationException` -> invalid credentials or user state
 - `AuthorizationException` -> unauthorized access
@@ -506,7 +580,81 @@ public, while connection and password-setup endpoints require an authenticated u
 - `identity_linked`, `provider_already_linked` -> provider identity conflict
 - `email_unverified`, `account_unavailable` -> provider or account cannot authenticate
 - `last_sign_in_method` -> disconnect would remove the final usable credential
+- `invalid_identity`, `identity_mismatch`, `issuer_mismatch` -> provider proof or identity namespace rejected
+- `federated_provisioning_disabled` -> project policy refuses a new federated account
 
 `Auth\Application\Contract\User\AuthenticatedUser` exposes the stable user identifier
 to authenticated presentation code in other modules. `SecurityUser` implements this
 contract; new consumers depend on the contract rather than Auth infrastructure.
+
+## Credential lifecycle HTTP receipts
+
+Auth contributes explicit auth-database ownership for registration, password reset/change/setup,
+mailbox proof start/confirm and MFA resend. These secret-bearing application results have a
+five-minute encrypted receipt window. The original password, OTP, challenge and signed
+preauthentication token are canonical HMAC input; receipt metadata contains only non-secret
+owner IDs, credential revisions, mailbox hashes and challenge/session lifecycle facts.
+
+Every attempt checks fresh User and Otp owner ports before result decryption. Authenticated
+operations also recheck the current actor and exact current `ROLE_USER` requirement. A later
+credential revision, mailbox change, account revocation, challenge replacement/consumption or
+session revocation invalidates the associated result. Registration checks the originally supplied
+password against the created account on replay. Unknown reset mailboxes retain the same neutral
+decoy result; creating an account later cannot turn that receipt into a real challenge.
+
+OTP failure results return through the owning auth commit. Presentation maps the committed failed
+mailbox-confirmation result to its existing HTTP error afterward, preserving the failure attempt
+and receipt atomically. Replays return that failure without consuming another attempt. Registration
+session replay preserves the original token pair, absolute refresh-cookie expiry and remaining
+access lifetime. Its signed receipt also binds the verified emitted JWT grants and active catalog
+through `SessionAuthorizationProofPort`; changed roles, permissions or catalog facts deny
+registration confirmation replay before any encrypted result is decoded. MFA resend verifies the signed preauthentication owner and exact LOGIN challenge;
+its replay checks the issued daughter challenge after the original was revoked by the resend.
+
+`HttpIdempotencyPrincipalAdapter` publishes the verified AuthenticatedUser identity and, for an
+AuthenticatedPrincipal, its verified tenant context through Shared's pure principal contract.
+
+## Interactive session and federation receipts
+
+Login, refresh and MFA verification capture their immutable application result in the same auth
+commit as account attempts, challenge consumption and session changes. Each HTTP attempt still
+consumes its rate limiter. Invalid login and OTP results commit once and retain the existing
+neutral response; retrying the same key does not consume another attempt. Secret results are
+encrypted for five minutes from the original commit. Cookies retain their absolute expiry and
+access lifetimes decrease on replay.
+
+Secret replay requires current credentials or a verified preauthentication/native browser proof,
+fresh account revision and current issued session ownership. `SessionAuthorizationProofPort`
+also binds verified emitted JWT roles and permissions to an uncached Authorization snapshot and
+active catalog facts. Removing an admin role or permission invalidates replay even while the pair
+remains live. Auth token issuance reads those fresh grants when embedding RBAC claims.
+
+A refresh receipt binds one parent/daughter pair. The same key accepts either verified credential
+only while its daughter is current; another key cannot rotate the old parent, and later rotation
+or revocation prevents recovery of the original response.
+
+Federated completion reserves the browser-bound flow before contacting the provider, persists
+an encrypted verified profile, then commits account/session changes and the receipt together.
+An interrupted exchange without stored verification is outcome-unknown and requires a new login.
+Verified proof and the retained browser cookie expire at the original five-minute deadline; the
+minute retention contribution physically erases the profile while keeping the completed tombstone.
+
+```mermaid
+stateDiagram-v2
+  [*] --> reserved
+  reserved --> provider_verified: authenticated provider proof persisted
+  reserved --> outcome_unknown: exchange started without persisted proof
+  provider_verified --> completed: account, session and receipt commit
+  provider_verified --> provider_verified: confirmed local rollback
+  completed --> completed: current owner proof permits encrypted replay
+```
+
+## Current native role decisions
+
+The native HTTP authorization checker preserves Symfony's current-token and explicit-user
+interfaces. An idempotency boundary verified for the exact actor rechecks `ROLE_*` against
+fresh account facts and current owner role assignments/hierarchy; other requests retain the
+existing Symfony decisions. Stale token roles cannot authorize a stored response. Pending verification
+remains eligible only when the configured authentication policy permits it; verified-only roles
+still require current verification. Successful actual native role branches contribute signed
+receipt requirements that are rechecked before result decoding.

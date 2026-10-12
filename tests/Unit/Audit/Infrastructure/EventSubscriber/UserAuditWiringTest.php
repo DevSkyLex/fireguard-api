@@ -5,10 +5,9 @@ declare(strict_types=1);
 namespace Tests\Unit\Audit\Infrastructure\EventSubscriber;
 
 use Audit\Application\UseCase\Command\RecordAuditEvent\{RecordAuditEventCommand, RecordAuditEventResult};
-use Audit\Infrastructure\EventSubscriber\{AbstractAuditEventSubscriber, SecurityAuditEventSubscriber};
 use Audit\Infrastructure\Service\AuditPiiSanitizer;
 use DateTimeImmutable;
-use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use Shared\Application\Port\Inbound\CommandBusPort;
@@ -31,8 +30,6 @@ use User\Application\Contract\Event\{UserEmailChangeCancelledEvent, UserEmailCha
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-#[CoversClass(className: AbstractAuditEventSubscriber::class)]
-#[CoversClass(className: SecurityAuditEventSubscriber::class)]
 final class UserAuditWiringTest extends TestCase
 {
   // #region Constants

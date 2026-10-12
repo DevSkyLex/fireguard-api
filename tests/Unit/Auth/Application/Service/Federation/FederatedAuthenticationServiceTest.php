@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Auth\Application\Service\Federation;
 
 use Auth\Application\Contract\Federation\{FederatedAuthorization, FederatedFlow};
-use Auth\Application\Contract\Federation\FederatedProvider;
+use Auth\Application\Contract\Federation\ProviderId;
 use Auth\Application\Port\Outbound\Federation\{FederatedFlowRepositoryPort, FederatedIdentityRepositoryPort, FederatedProviderClientPort};
 use Auth\Application\Service\Federation\{FederatedAuthenticationService, SessionIssuer};
 use Auth\Domain\Exception\Federation\FederatedAuthException;
@@ -42,13 +42,13 @@ final class FederatedAuthenticationServiceTest extends TestCase
     $providerClient = $this->createMock(FederatedProviderClientPort::class);
     $providerClient->expects(self::once())
       ->method('isEnabled')
-      ->with(FederatedProvider::GOOGLE)
+      ->with(ProviderId::from('google'))
       ->willReturn(true);
     $state = null;
     $providerClient->expects(self::once())
       ->method('start')
       ->with(
-        FederatedProvider::GOOGLE,
+        ProviderId::from('google'),
         'https://app.example.com/auth/federated/google/callback',
         self::callback(static function (string $value) use (&$state): bool {
           $state = $value;
@@ -75,7 +75,7 @@ final class FederatedAuthenticationServiceTest extends TestCase
 
     self::assertSame(
       'https://accounts.example/authorize',
-      $service->startLogin(FederatedProvider::GOOGLE, 'https://attacker.example/redirect'),
+      $service->startLogin(ProviderId::from('google'), 'https://attacker.example/redirect'),
     );
   }
 
@@ -95,7 +95,7 @@ final class FederatedAuthenticationServiceTest extends TestCase
     $this->expectException(FederatedAuthException::class);
     $this->expectExceptionMessage('unavailable');
 
-    $this->service($providerClient, $flows)->startLogin(FederatedProvider::MICROSOFT, '/dashboard');
+    $this->service($providerClient, $flows)->startLogin(ProviderId::from('microsoft'), '/dashboard');
   }
 
   /**
@@ -110,6 +110,9 @@ final class FederatedAuthenticationServiceTest extends TestCase
     /** @var SessionIssuer $sessionIssuer */
     $sessionIssuer = new ReflectionClass(SessionIssuer::class)->newInstanceWithoutConstructor();
 
+    $policy = $this->createStub(\Auth\Application\Port\Outbound\AuthenticationPolicyPort::class);
+    $policy->method('federatedProvisioningEnabled')->willReturn(true);
+
     return new FederatedAuthenticationService(
       providerClient: $providerClient,
       flows: $flows,
@@ -118,6 +121,7 @@ final class FederatedAuthenticationServiceTest extends TestCase
       users: $this->createStub(FederatedUserPort::class),
       sessionIssuer: $sessionIssuer,
       frontendUrl: 'https://app.example.com',
+      authenticationPolicy: $policy,
     );
   }
 }

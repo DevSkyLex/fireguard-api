@@ -470,7 +470,7 @@ jobs:
       - name: Merge complete application coverage
         id: merge
         run: |
-          php -d memory_limit=1G bin/merge-coverage.php \
+          php -d memory_limit=4G bin/merge-coverage.php \
             var/coverage/full/clover.xml \
             var/coverage/parts/unit-and-architecture.php \
             var/coverage/parts/integration-and-functional.php \
@@ -694,11 +694,11 @@ jobs:
         with:
           php-version: ${{ env.PHP_VERSION }}
 
-      - name: Verify deployment topology and maintenance contracts
+      - name: Verify deployment topology, maintenance and idempotency contracts
         working-directory: ansible/tests
         run: >-
           python3 -B -m unittest -v
-          test_topology test_deployment_maintenance test_ssh_host_trust
+          test_topology test_deployment_maintenance test_ssh_host_trust test_idempotency_validation
 
       - name: Validate production and development Compose files
         run: |

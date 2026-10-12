@@ -13,7 +13,7 @@ use InvalidArgumentException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\RequestStack;
-use Symfony\Component\HttpKernel\Exception\{ConflictHttpException, TooManyRequestsHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, ConflictHttpException, TooManyRequestsHttpException};
 use Symfony\Component\RateLimiter\RateLimiterFactory;
 
 use function hash;
@@ -93,6 +93,10 @@ final readonly class RegisterUserProcessor implements ProcessorInterface
     $result = $this->commandBus->dispatch($command);
 
     if (!$result->success) {
+      if (RegisterUserResult::ERROR_REGISTRATION_DISABLED === $result->errorCode) {
+        throw new AccessDeniedHttpException($result->message ?? 'Self-service registration is disabled.');
+      }
+
       throw new ConflictHttpException(
         $result->message ?? 'An account already exists with this email address.',
       );

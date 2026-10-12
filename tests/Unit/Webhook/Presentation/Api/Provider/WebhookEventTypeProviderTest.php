@@ -7,7 +7,7 @@ namespace Tests\Unit\Webhook\Presentation\Api\Provider;
 use ApiPlatform\Metadata\GetCollection;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
-use Webhook\Application\Contract\Event\{WebhookEventCatalog, WebhookEventType};
+use Webhook\Application\Contract\Event\WebhookEventType;
 use Webhook\Presentation\Api\Provider\WebhookEventTypeProvider;
 
 use function array_column;
@@ -26,9 +26,11 @@ final class WebhookEventTypeProviderTest extends TestCase
   #[Test]
   public function testProvideReturnsOneRowPerAllowedEventType(): void
   {
-    $rows = new WebhookEventTypeProvider()->provide(new GetCollection());
+    $rows = new WebhookEventTypeProvider(
+      \Tests\Support\Catalogs\BuiltInCapabilityCatalogs::webhook(),
+    )->provide(new GetCollection());
 
-    $allowed = WebhookEventCatalog::allowedEventTypes();
+    $allowed = array_column(\Tests\Support\Catalogs\BuiltInCapabilityCatalogs::webhook()->descriptors(), 'value');
 
     self::assertCount(count($allowed), $rows);
     self::assertSame($allowed, array_column($rows, 'value'));
@@ -37,15 +39,19 @@ final class WebhookEventTypeProviderTest extends TestCase
   #[Test]
   public function testProvideExcludesThePingEventType(): void
   {
-    $rows = new WebhookEventTypeProvider()->provide(new GetCollection());
+    $rows = new WebhookEventTypeProvider(
+      \Tests\Support\Catalogs\BuiltInCapabilityCatalogs::webhook(),
+    )->provide(new GetCollection());
 
-    self::assertNotContains(WebhookEventType::PING->value, array_column($rows, 'value'));
+    self::assertNotContains(WebhookEventType::PING, array_column($rows, 'value'));
   }
 
   #[Test]
   public function testProvideHumanizesTheEventTypeAsTheLabel(): void
   {
-    $rows = new WebhookEventTypeProvider()->provide(new GetCollection());
+    $rows = new WebhookEventTypeProvider(
+      \Tests\Support\Catalogs\BuiltInCapabilityCatalogs::webhook(),
+    )->provide(new GetCollection());
 
     self::assertNotEmpty($rows);
 

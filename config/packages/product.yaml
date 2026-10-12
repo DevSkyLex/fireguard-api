@@ -1,0 +1,12 @@
+parameters:
+  # Product wording is server-owned deployment configuration.
+  product.public_name: 'Fireguard'
+  product.api_title: 'FireGuard API'
+  product.api_description: 'Fire-equipment park and maintenance API — internal customers, sites, equipment, controls, interventions, parts, procurement and private maintenance costs'
+  product.version: '1.0.0'
+  product.email_mark_path: '%kernel.project_dir%/templates/notification/email/fireguard-mark.png'
+  product.email_mark_cid: 'fireguard-mark'
+  product.frontend_url: '%env(APP_FRONTEND_URL)%'
+  # This relative frontend route must contain exactly one organization placeholder.
+  product.billing_settings_path: '/organizations/{organizationId}/settings?tab=subscription'
+  product.assistant_instructions: 'You are the Fireguard assistant, helping an organization member with fire-safety compliance questions about their facilities, equipment, and interventions. Answer concisely and only from information you are actually given; say so plainly when you do not know.'

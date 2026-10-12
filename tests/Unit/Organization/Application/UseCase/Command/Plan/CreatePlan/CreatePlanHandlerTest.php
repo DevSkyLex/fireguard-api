@@ -45,7 +45,7 @@ final class CreatePlanHandlerTest extends TestCase
         $saved = $plan;
       });
 
-    $handler = new CreatePlanHandler($plans, $this->uuidFactory(), $this->transactionManager());
+    $handler = new CreatePlanHandler($plans, $this->uuidFactory(), $this->transactionManager(), quotaCatalog: \Tests\Support\OrganizationCatalogTestFactory::quota());
 
     $result = $handler(new CreatePlanCommand(
       key: 'pro',
@@ -72,7 +72,7 @@ final class CreatePlanHandlerTest extends TestCase
     $plans->method('findByKey')->willReturn($this->plan(self::EXISTING_DEFAULT_ID, 'pro'));
     $plans->expects(self::never())->method('save');
 
-    $handler = new CreatePlanHandler($plans, $this->uuidFactory(), $this->transactionManager());
+    $handler = new CreatePlanHandler($plans, $this->uuidFactory(), $this->transactionManager(), quotaCatalog: \Tests\Support\OrganizationCatalogTestFactory::quota());
 
     $this->expectException(PlanKeyAlreadyExistsException::class);
 
@@ -89,7 +89,7 @@ final class CreatePlanHandlerTest extends TestCase
     $plans->method('findDefault')->willReturn($currentDefault);
     $plans->expects(self::exactly(2))->method('save');
 
-    $handler = new CreatePlanHandler($plans, $this->uuidFactory(), $this->transactionManager());
+    $handler = new CreatePlanHandler($plans, $this->uuidFactory(), $this->transactionManager(), quotaCatalog: \Tests\Support\OrganizationCatalogTestFactory::quota());
 
     $result = $handler(new CreatePlanCommand(key: 'pro', name: 'Pro', isDefault: true));
 
@@ -105,7 +105,7 @@ final class CreatePlanHandlerTest extends TestCase
     $plans->method('findDefault')->willReturn(null);
     $plans->expects(self::once())->method('save');
 
-    $handler = new CreatePlanHandler($plans, $this->uuidFactory(), $this->transactionManager());
+    $handler = new CreatePlanHandler($plans, $this->uuidFactory(), $this->transactionManager(), quotaCatalog: \Tests\Support\OrganizationCatalogTestFactory::quota());
 
     $result = $handler(new CreatePlanCommand(key: 'pro', name: 'Pro', isDefault: true));
 

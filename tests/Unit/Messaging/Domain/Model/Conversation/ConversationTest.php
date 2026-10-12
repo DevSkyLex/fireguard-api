@@ -30,7 +30,7 @@ final class ConversationTest extends TestCase
     $conversation = Conversation::create(
       ConversationId::fromString(self::CONVERSATION_ID),
       self::ORG_ID,
-      MessagingSubjectType::FACILITY,
+      MessagingSubjectType::from('facility'),
       'facility-1',
     );
 
@@ -46,7 +46,7 @@ final class ConversationTest extends TestCase
     $conversation = Conversation::create(
       ConversationId::fromString(self::CONVERSATION_ID),
       self::ORG_ID,
-      MessagingSubjectType::FACILITY,
+      MessagingSubjectType::from('facility'),
       'facility-1',
     );
 
@@ -61,7 +61,7 @@ final class ConversationTest extends TestCase
     $conversation = Conversation::reconstitute(
       ConversationId::fromString(self::CONVERSATION_ID),
       self::ORG_ID,
-      MessagingSubjectType::FACILITY,
+      MessagingSubjectType::from('facility'),
       'facility-1',
       new RestoredConversationActivity(
         ConversationVisibility::SUBJECT,
@@ -84,7 +84,7 @@ final class ConversationTest extends TestCase
     $conversation = Conversation::create(
       ConversationId::fromString(self::CONVERSATION_ID),
       self::ORG_ID,
-      MessagingSubjectType::INTERVENTION,
+      MessagingSubjectType::from('intervention'),
       'intervention-1',
     );
 
@@ -106,7 +106,7 @@ final class ConversationTest extends TestCase
       'member-1',
     );
 
-    self::assertSame(MessagingSubjectType::CHANNEL, $channel->subjectType());
+    self::assertEquals(MessagingSubjectType::from(MessagingSubjectType::CHANNEL), $channel->subjectType());
     self::assertNull($channel->subjectId());
     self::assertSame(ConversationVisibility::PARTICIPANTS, $channel->visibility());
     self::assertSame('General', (string) $channel->name());
@@ -155,7 +155,7 @@ final class ConversationTest extends TestCase
     $channel = Conversation::reconstitute(
       ConversationId::fromString(self::CONVERSATION_ID),
       self::ORG_ID,
-      MessagingSubjectType::CHANNEL,
+      MessagingSubjectType::from(MessagingSubjectType::CHANNEL),
       null,
       new RestoredConversationActivity(
         ConversationVisibility::PARTICIPANTS,
@@ -215,7 +215,7 @@ final class ConversationTest extends TestCase
     $channel = Conversation::reconstitute(
       ConversationId::fromString(self::CONVERSATION_ID),
       self::ORG_ID,
-      MessagingSubjectType::CHANNEL,
+      MessagingSubjectType::from(MessagingSubjectType::CHANNEL),
       null,
       new RestoredConversationActivity(
         ConversationVisibility::PARTICIPANTS,
@@ -246,7 +246,7 @@ final class ConversationTest extends TestCase
     $conversation = Conversation::reconstitute(
       $id,
       self::ORG_ID,
-      MessagingSubjectType::EQUIPMENT,
+      MessagingSubjectType::from('equipment'),
       'equipment-9',
       new RestoredConversationActivity(
         ConversationVisibility::SUBJECT,
@@ -261,7 +261,7 @@ final class ConversationTest extends TestCase
     self::assertSame($id, $conversation->id());
     self::assertSame(self::CONVERSATION_ID, (string) $conversation->id());
     self::assertSame(self::ORG_ID, $conversation->organizationId());
-    self::assertSame(MessagingSubjectType::EQUIPMENT, $conversation->subjectType());
+    self::assertEquals(MessagingSubjectType::from('equipment'), $conversation->subjectType());
     self::assertSame('equipment-9', $conversation->subjectId());
     self::assertSame($createdAt, $conversation->createdAt());
     self::assertSame($updatedAt, $conversation->updatedAt());
@@ -273,7 +273,7 @@ final class ConversationTest extends TestCase
     $conversation = Conversation::create(
       ConversationId::fromString(self::CONVERSATION_ID),
       self::ORG_ID,
-      MessagingSubjectType::NON_CONFORMITY,
+      MessagingSubjectType::from('non_conformity'),
       'nc-1',
     );
 
@@ -281,7 +281,7 @@ final class ConversationTest extends TestCase
     $conversation->touchLastMessage($at);
 
     self::assertSame($at, $conversation->updatedAt());
-    self::assertSame(MessagingSubjectType::NON_CONFORMITY, $conversation->subjectType());
+    self::assertEquals(MessagingSubjectType::from('non_conformity'), $conversation->subjectType());
   }
 
   #[Test]
@@ -290,11 +290,11 @@ final class ConversationTest extends TestCase
     $conversation = Conversation::create(
       ConversationId::fromString(self::CONVERSATION_ID),
       self::ORG_ID,
-      MessagingSubjectType::DIRECT,
+      MessagingSubjectType::from(MessagingSubjectType::DIRECT),
       'pair-key-abc',
     );
 
-    self::assertSame(MessagingSubjectType::DIRECT, $conversation->subjectType());
+    self::assertEquals(MessagingSubjectType::from(MessagingSubjectType::DIRECT), $conversation->subjectType());
     self::assertSame('pair-key-abc', $conversation->subjectId());
     self::assertNull($conversation->name());
     self::assertNull($conversation->teamId());

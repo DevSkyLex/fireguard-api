@@ -5,11 +5,10 @@ declare(strict_types=1);
 namespace Organization\Application\Service;
 
 use Organization\Application\Contract\Quota\{OrganizationQuotaExceededException, OrganizationQuotaResource};
-use Organization\Application\Port\Inbound\OrganizationQuotaPort;
-use Organization\Application\Port\Outbound\{EquipmentStatisticsPort, FacilityStatisticsPort, InspectionStatisticsPort};
-use Organization\Application\Port\Outbound\Internal\{OrganizationInvitationRepositoryPort, OrganizationMemberRepositoryPort, OrganizationQuotaLockPort, OrganizationRepositoryPort, PlanRepositoryPort};
+use Organization\Application\Port\Inbound\{OrganizationQuotaCatalogPort, OrganizationQuotaPort};
+use Organization\Application\Port\Outbound\Internal\{OrganizationMemberRepositoryPort, OrganizationQuotaLockPort, OrganizationRepositoryPort, PlanRepositoryPort};
 use Organization\Domain\Model\Plan\Plan;
-use Organization\Domain\ValueObject\{OrganizationId, OrganizationQuotaResource as DomainQuotaResource};
+use Organization\Domain\ValueObject\OrganizationId;
 
 /**
  * Class OrganizationQuotaService
@@ -58,10 +57,6 @@ final class OrganizationQuotaService implements OrganizationQuotaPort
    * @param OrganizationRepositoryPort $organizationRepository the organization repository
    * @param PlanRepositoryPort $planRepository the plan repository
    * @param OrganizationMemberRepositoryPort $memberRepository the organization member repository
-   * @param OrganizationInvitationRepositoryPort $invitationRepository the organization invitation repository
-   * @param FacilityStatisticsPort $facilityStatistics the facility statistics port
-   * @param EquipmentStatisticsPort $equipmentStatistics the equipment statistics port
-   * @param InspectionStatisticsPort $inspectionStatistics the inspection statistics port
    * @param OrganizationQuotaLockPort $quotaLock the advisory lock serializing check+insert
    *
    * @return void
@@ -70,11 +65,8 @@ final class OrganizationQuotaService implements OrganizationQuotaPort
     private readonly OrganizationRepositoryPort $organizationRepository,
     private readonly PlanRepositoryPort $planRepository,
     private readonly OrganizationMemberRepositoryPort $memberRepository,
-    private readonly OrganizationInvitationRepositoryPort $invitationRepository,
-    private readonly FacilityStatisticsPort $facilityStatistics,
-    private readonly EquipmentStatisticsPort $equipmentStatistics,
-    private readonly InspectionStatisticsPort $inspectionStatistics,
     private readonly OrganizationQuotaLockPort $quotaLock,
+    private readonly OrganizationQuotaCatalogPort $catalog,
   ) {
   }
   // #endregion
@@ -88,13 +80,13 @@ final class OrganizationQuotaService implements OrganizationQuotaPort
    * @access public
    *
    * @param string $organizationId organization whose plan is read
-   * @param OrganizationQuotaResource $resource resource whose cap is requested
+   * @param OrganizationQuotaResource|string $resource resource whose cap is requested
    *
    * @return int|null configured limit, or null when unlimited
    */
-  public function getLimit(string $organizationId, OrganizationQuotaResource $resource): ?int
+  public function getLimit(string $organizationId, OrganizationQuotaResource|string $resource): ?int
   {
-    return $this->limitFor($organizationId, $this->toDomainResource($resource));
+    return $this->limitFor($organizationId, $this->resourceKey($resource));
   }
 
   /**
@@ -105,13 +97,13 @@ final class OrganizationQuotaService implements OrganizationQuotaPort
    * @access public
    *
    * @param string $organizationId organization whose resources are counted
-   * @param OrganizationQuotaResource $resource resource to count
+   * @param OrganizationQuotaResource|string $resource resource to count
    *
    * @return int current occupied resource slots
    */
-  public function getUsage(string $organizationId, OrganizationQuotaResource $resource): int
+  public function getUsage(string $organizationId, OrganizationQuotaResource|string $resource): int
   {
-    return $this->usageFor($organizationId, $this->toDomainResource($resource));
+    return $this->usageFor($organizationId, $this->resourceKey($resource));
   }
 
   /**
@@ -130,7 +122,8 @@ final class OrganizationQuotaService implements OrganizationQuotaPort
    */
   public function assertCanAcceptMember(string $organizationId): void
   {
-    $limit = $this->limitFor($organizationId, DomainQuotaResource::MEMBERS);
+    $this->catalog->get('members');
+    $limit = $this->limitFor($organizationId, 'members');
 
     if (null === $limit) {
       return;
@@ -138,7 +131,7 @@ final class OrganizationQuotaService implements OrganizationQuotaPort
 
     // Serialize against concurrent member additions/invitations before counting,
     // so an acceptance running at the cap cannot slip past a simultaneous add.
-    $this->quotaLock->acquire($organizationId, DomainQuotaResource::MEMBERS);
+    $this->quotaLock->acquire($organizationId, 'members');
 
     // Count only active members: the pending invitation being accepted already
     // reserved a slot at emission time, so it must not block its own acceptance.
@@ -160,15 +153,15 @@ final class OrganizationQuotaService implements OrganizationQuotaPort
    * @access public
    *
    * @param string $organizationId organization receiving the resource
-   * @param OrganizationQuotaResource $resource resource to add
+   * @param OrganizationQuotaResource|string $resource resource to add
    *
    * @return void
    *
    * @throws OrganizationQuotaExceededException when the plan cap has been reached
    */
-  public function assertCanAdd(string $organizationId, OrganizationQuotaResource $resource): void
+  public function assertCanAdd(string $organizationId, OrganizationQuotaResource|string $resource): void
   {
-    $domainResource = $this->toDomainResource($resource);
+    $domainResource = $this->resourceKey($resource);
     $limit = $this->limitFor($organizationId, $domainResource);
 
     if (null === $limit) {
@@ -182,7 +175,7 @@ final class OrganizationQuotaService implements OrganizationQuotaPort
     $this->quotaLock->acquire($organizationId, $domainResource);
 
     if ($this->usageFor($organizationId, $domainResource) >= $limit) {
-      throw OrganizationQuotaExceededException::forResource($resource->value, $limit);
+      throw OrganizationQuotaExceededException::forResource($domainResource, $limit);
     }
   }
 
@@ -195,20 +188,21 @@ final class OrganizationQuotaService implements OrganizationQuotaPort
    * @access public
    *
    * @param string $organizationId organization receiving the resources
-   * @param OrganizationQuotaResource $resource resource to add
+   * @param OrganizationQuotaResource|string $resource resource to add
    * @param int $count number to add; non-positive values are a no-op
    *
    * @return void
    *
    * @throws OrganizationQuotaExceededException when the batch would exceed the plan cap
    */
-  public function assertCanAddMultiple(string $organizationId, OrganizationQuotaResource $resource, int $count): void
+  public function assertCanAddMultiple(string $organizationId, OrganizationQuotaResource|string $resource, int $count): void
   {
+    $this->resourceKey($resource);
     if ($count <= 0) {
       return;
     }
 
-    $domainResource = $this->toDomainResource($resource);
+    $domainResource = $this->resourceKey($resource);
     $limit = $this->limitFor($organizationId, $domainResource);
 
     if (null === $limit) {
@@ -221,7 +215,7 @@ final class OrganizationQuotaService implements OrganizationQuotaPort
     $this->quotaLock->acquire($organizationId, $domainResource);
 
     if ($this->usageFor($organizationId, $domainResource) + $count > $limit) {
-      throw OrganizationQuotaExceededException::forResource($resource->value, $limit);
+      throw OrganizationQuotaExceededException::forResource($domainResource, $limit);
     }
   }
 
@@ -234,16 +228,16 @@ final class OrganizationQuotaService implements OrganizationQuotaPort
    * @access public
    *
    * @param string $organizationId organization whose quota is projected
-   * @param OrganizationQuotaResource $resource resource to add
+   * @param OrganizationQuotaResource|string $resource resource to add
    * @param int $additionalOffset provisional resources already counted in the same batch
    *
    * @return void
    *
    * @throws OrganizationQuotaExceededException when the projected count reaches the cap
    */
-  public function assertProjectedCanAdd(string $organizationId, OrganizationQuotaResource $resource, int $additionalOffset = 0): void
+  public function assertProjectedCanAdd(string $organizationId, OrganizationQuotaResource|string $resource, int $additionalOffset = 0): void
   {
-    $domainResource = $this->toDomainResource($resource);
+    $domainResource = $this->resourceKey($resource);
     $limit = $this->limitFor($organizationId, $domainResource);
 
     if (null === $limit) {
@@ -254,7 +248,7 @@ final class OrganizationQuotaService implements OrganizationQuotaPort
     // dry-run batch) that persists nothing and therefore has no insert to
     // serialize against — see the port contract.
     if ($this->usageFor($organizationId, $domainResource) + $additionalOffset >= $limit) {
-      throw OrganizationQuotaExceededException::forResource($resource->value, $limit);
+      throw OrganizationQuotaExceededException::forResource($domainResource, $limit);
     }
   }
 
@@ -273,9 +267,10 @@ final class OrganizationQuotaService implements OrganizationQuotaPort
   {
     $summary = [];
 
-    foreach (DomainQuotaResource::cases() as $resource) {
+    foreach ($this->catalog->definitions() as $definition) {
+      $resource = $definition->key;
       $summary[] = [
-        'resource' => $resource->value,
+        'resource' => $resource,
         'used' => $this->usageFor($organizationId, $resource),
         'limit' => $this->limitFor($organizationId, $resource),
       ];
@@ -308,18 +303,16 @@ final class OrganizationQuotaService implements OrganizationQuotaPort
    * @access private
    * @since 1.0.0
    *
-   * @param OrganizationQuotaResource $resource the contract resource
+   * @param OrganizationQuotaResource|string $resource the contract resource
    *
-   * @return DomainQuotaResource the Domain resource
+   * @return string the registered resource key
    */
-  private function toDomainResource(OrganizationQuotaResource $resource): DomainQuotaResource
+  private function resourceKey(OrganizationQuotaResource|string $resource): string
   {
-    return match ($resource) {
-      OrganizationQuotaResource::MEMBERS => DomainQuotaResource::MEMBERS,
-      OrganizationQuotaResource::FACILITIES => DomainQuotaResource::FACILITIES,
-      OrganizationQuotaResource::EQUIPMENT => DomainQuotaResource::EQUIPMENT,
-      OrganizationQuotaResource::INSPECTIONS => DomainQuotaResource::INSPECTIONS,
-    };
+    $key = $resource instanceof OrganizationQuotaResource ? $resource->value : $resource;
+    $this->catalog->get($key);
+
+    return $key;
   }
 
   /**
@@ -332,11 +325,11 @@ final class OrganizationQuotaService implements OrganizationQuotaPort
    * @since 1.0.0
    *
    * @param string $organizationId the organization identifier
-   * @param DomainQuotaResource $resource the resource to look up
+   * @param string $resource the resource to look up
    *
    * @return ?int the cap, or null when unlimited
    */
-  private function limitFor(string $organizationId, DomainQuotaResource $resource): ?int
+  private function limitFor(string $organizationId, string $resource): ?int
   {
     $plan = $this->resolvePlan($organizationId);
 
@@ -352,44 +345,13 @@ final class OrganizationQuotaService implements OrganizationQuotaPort
    * @since 1.0.0
    *
    * @param string $organizationId the organization identifier
-   * @param DomainQuotaResource $resource the resource to count
+   * @param string $resource the resource to count
    *
    * @return int the current usage
    */
-  private function usageFor(string $organizationId, DomainQuotaResource $resource): int
+  private function usageFor(string $organizationId, string $resource): int
   {
-    // Usage counts the resources that occupy a plan slot: active members plus the
-    // pending invitations that reserve one, and only the "active" (published and
-    // not archived/decommissioned/cancelled) assets, so archiving, decommissioning
-    // or cancelling frees capacity.
-    return match ($resource) {
-      DomainQuotaResource::MEMBERS => $this->countMemberUsage($organizationId),
-      DomainQuotaResource::FACILITIES => $this->facilityStatistics->countActiveFacilities($organizationId),
-      DomainQuotaResource::EQUIPMENT => $this->equipmentStatistics->countActiveEquipment($organizationId),
-      DomainQuotaResource::INSPECTIONS => $this->inspectionStatistics->countActiveInspections($organizationId),
-    };
-  }
-
-  /**
-   * Method countMemberUsage
-   *
-   * Counts the member slots occupied by an organization: its active members
-   * plus its pending invitations, each of which reserves a slot until it is
-   * accepted, revoked, or expired.
-   *
-   * @access private
-   * @since 1.0.0
-   *
-   * @param string $organizationId the organization identifier
-   *
-   * @return int the occupied member slots
-   */
-  private function countMemberUsage(string $organizationId): int
-  {
-    $organization = OrganizationId::fromString($organizationId);
-
-    return $this->memberRepository->countActiveByOrganizationId($organization)
-      + $this->invitationRepository->countPendingByOrganizationId($organization);
+    return $this->catalog->usage($organizationId, $resource);
   }
 
   /**

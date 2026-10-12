@@ -29,6 +29,7 @@ use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Contract\Exception\{MessengerExceptionUnwrapperTrait, MessengerRuntimeException};
 use Shared\Application\Contract\Http\ResourceIriParser;
 use Shared\Application\Port\Inbound\CommandBusPort;
+use Shared\Application\Port\Outbound\Idempotency\HttpIdempotencyExecutionPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\{
@@ -69,6 +70,7 @@ final readonly class CreateEquipmentProcessor implements ProcessorInterface
    * @param EquipmentOutputFactory $outputFactory the shared Result -> EquipmentOutput mapper
    * @param ?InterventionResourcesPort $interventionResourceManager the intervention resource manager value
    * @param ?CreationPreconditionGuard $creationPreconditionGuard the creation precondition guard value
+   * @param ?HttpIdempotencyExecutionPort $idempotency currently authorized completed replay state
    */
   public function __construct(
     private CommandBusPort $commandBus,
@@ -77,6 +79,7 @@ final readonly class CreateEquipmentProcessor implements ProcessorInterface
     private EquipmentOutputFactory $outputFactory,
     private ?InterventionResourcesPort $interventionResourceManager = null,
     private ?CreationPreconditionGuard $creationPreconditionGuard = null,
+    private ?HttpIdempotencyExecutionPort $idempotency = null,
   ) {
   }
   // #endregion
@@ -127,15 +130,19 @@ final readonly class CreateEquipmentProcessor implements ProcessorInterface
       throw new BadRequestHttpException('OrganizationId URI parameter is required.');
     }
 
-    $permission = $this->interventionPermission($data->intervention, $user->getId(), $organizationId) ?? 'organization.equipment.write';
-    $decision = $this->authorization->resolveAccess($user->getId(), $organizationId, $permission);
-    if ($decision->isOutsideScope()) {
-      throw new NotFoundHttpException('Organization not found.');
+    if (!$this->idempotency?->isReplay()) {
+      $permission = $this->interventionPermission($data->intervention, $user->getId(), $organizationId) ?? 'organization.equipment.write';
+      $decision = $this->authorization->resolveAccess($user->getId(), $organizationId, $permission);
+      if ($decision->isOutsideScope()) {
+        throw new NotFoundHttpException('Organization not found.');
+      }
+      if (!$decision->isGranted()) {
+        throw new AccessDeniedHttpException('Missing ' . $permission . ' permission.');
+      }
+      $this->assertOfflineCreate($data->clientId, null !== $resourceId);
     }
-    if (!$decision->isGranted()) {
-      throw new AccessDeniedHttpException('Missing ' . $permission . ' permission.');
-    }
-    $this->assertOfflineCreate($data->clientId, null !== $resourceId);
+    // Completed replay has freshly checked the original scope and grants at the boundary;
+    // dispatch restores that result without testing whether the original creation could run again.
 
     $result = $this->dispatchCreation($data, $organizationId, $resourceId, $user->getId());
 

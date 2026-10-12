@@ -1,3 +1,8 @@
+imports:
+  - { resource: 'inspection/doctrine.yaml' }
+  - { resource: 'inspection/api_platform.yaml' }
+  - { resource: 'inspection/framework.yaml' }
+
 services:
   Inspection\Infrastructure\Adapter\ServiceRequest\ServiceRequestOriginAdapter:
     arguments:
@@ -85,7 +90,8 @@ services:
     class: Shared\Infrastructure\Symfony\Adapter\Outbound\DoctrineTransactionManagerAdapter
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
-
+      $database: main
+      $idempotency: '@Shared\Infrastructure\Idempotency\HttpIdempotencyExecutionContext'
   # Port aliases
   Inspection\Application\Port\Outbound\Internal\InspectionRepositoryPort:
     alias: Inspection\Infrastructure\Persistence\Doctrine\Repository\InspectionRepository
@@ -134,7 +140,9 @@ services:
       $entityManager: '@doctrine.orm.main_entity_manager'
 
   # Cross-module read model for the Calendar module (unified feed source)
-  Inspection\Infrastructure\Adapter\Calendar\InspectionCalendarFeedAdapter: ~
+  Inspection\Infrastructure\Adapter\Calendar\InspectionCalendarFeedAdapter:
+    tags:
+      - { name: calendar.feed_source, priority: 300 }
 
   # Cross-module outbound port for the Equipment module (adapter hosted here,
   # in the module owning the read model): org-wide open non-conformity count
@@ -431,3 +439,77 @@ services:
     tags: ['messenger.message_handler']
 
   Inspection\Application\Service\InspectionResponseViewMapper: ~
+
+  Inspection\Infrastructure\Adapter\Event\IntegrationEventConverterAdapter: ~
+
+
+  Inspection\Infrastructure\Adapter\Approval\NonConformityWaiverDescriptorAdapter:
+    tags:
+      - { name: approval.action_descriptor, priority: 200 }
+
+  Inspection\Infrastructure\Adapter\Webhook\InspectionWebhookEventSourceAdapter:
+    tags:
+      - { name: webhook.event_source, priority: 400 }
+
+  Inspection\Infrastructure\Adapter\Schema\SchemaContributionAdapter:
+    tags: [shared.schema_contribution]
+
+  Inspection\Infrastructure\Adapter\Audit\AuditRecordEventAdapter: ~
+
+  Inspection\Infrastructure\Adapter\OrganizationCatalog\InspectionQuotaContributionAdapter:
+    tags: [organization.quota_contribution]
+
+  Inspection\Infrastructure\Adapter\OrganizationCatalog\InspectionSystemRoleContributionAdapter:
+    tags: [organization.system_role_contribution]
+
+  Inspection\Infrastructure\Adapter\OrganizationCatalog\InspectionSettingsPolicyContributionAdapter:
+    tags: [organization.settings_policy_contribution]
+
+  Inspection\Infrastructure\Adapter\Idempotency\ResponseProjection\InspectionHttpIdempotencyResponseProjectionAdapter:
+    tags: [shared.http_idempotency_response_projection]
+
+  Inspection\Infrastructure\Adapter\Idempotency\InspectionHttpIdempotencyOperationContributionAdapter:
+    tags: [http.idempotency_operation]
+
+  Inspection\Infrastructure\Adapter\Idempotency\InspectionHttpIdempotencyReplayAuthorizationAdapter:
+    arguments:
+      $entitlement: '@Organization\Infrastructure\Adapter\Idempotency\FreshOrganizationExportEntitlementAdapter'
+      $connection: '@doctrine.dbal.main_connection'
+    tags: [http.idempotency_replay_authorization]
+
+  Inspection\Application\UseCase\Command\Export\ExportInspectionsDocument\ExportInspectionsDocumentHandler:
+    arguments:
+      $transactions: '@inspection.main_transaction_manager'
+      $events: '@Shared\Infrastructure\Messaging\Outbox\TransactionalEventDispatcher'
+    tags: [messenger.message_handler]
+
+  Inspection\Application\UseCase\Command\Export\ExportNonConformitiesDocument\ExportNonConformitiesDocumentHandler:
+    arguments:
+      $transactions: '@inspection.main_transaction_manager'
+      $events: '@Shared\Infrastructure\Messaging\Outbox\TransactionalEventDispatcher'
+    tags: [messenger.message_handler]
+
+  Inspection\Application\UseCase\Command\Export\ExportInspectionReportDocument\ExportInspectionReportDocumentHandler:
+    arguments:
+      $transactions: '@inspection.main_transaction_manager'
+      $events: '@Shared\Infrastructure\Messaging\Outbox\TransactionalEventDispatcher'
+    tags: [messenger.message_handler]
+
+  Inspection\Application\UseCase\Command\Export\ExportNonConformitiesReportDocument\ExportNonConformitiesReportDocumentHandler:
+    arguments:
+      $transactions: '@inspection.main_transaction_manager'
+      $events: '@Shared\Infrastructure\Messaging\Outbox\TransactionalEventDispatcher'
+    tags: [messenger.message_handler]
+
+  Inspection\Application\Port\Outbound\InspectionCsvRendererPort: '@Inspection\Infrastructure\Adapter\Export\InspectionCsvRendererAdapter'
+  Inspection\Infrastructure\Adapter\Export\InspectionCsvRendererAdapter: ~
+
+  Inspection\Application\Port\Outbound\NonConformityCsvRendererPort: '@Inspection\Infrastructure\Adapter\Export\NonConformityCsvRendererAdapter'
+  Inspection\Infrastructure\Adapter\Export\NonConformityCsvRendererAdapter: ~
+when@dev:
+  imports:
+    - { resource: 'inspection/seeds.yaml' }
+
+when@test:
+  imports:
+    - { resource: 'inspection/seeds.yaml' }

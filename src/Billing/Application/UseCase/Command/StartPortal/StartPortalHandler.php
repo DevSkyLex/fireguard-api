@@ -4,12 +4,11 @@ declare(strict_types=1);
 
 namespace Billing\Application\UseCase\Command\StartPortal;
 
+use Billing\Application\Port\Outbound\BillingReturnUrlPort;
 use Billing\Application\Port\Outbound\Internal\{StripeGatewayPort, SubscriptionRepositoryPort};
 use Billing\Domain\Exception\BillingCustomerNotFoundException;
 use Shared\Application\Message\CommandHandler;
-
-use function rtrim;
-use function sprintf;
+use Shared\Application\Port\Outbound\Idempotency\HttpIdempotencyExecutionPort;
 
 /**
  * UseCase StartPortalHandler.
@@ -33,12 +32,14 @@ final readonly class StartPortalHandler implements CommandHandler
    *
    * @param SubscriptionRepositoryPort $subscriptions the subscription repository
    * @param StripeGatewayPort $stripe the Stripe gateway
-   * @param string $frontendUrl the public frontend base URL for the return link
+   * @param BillingReturnUrlPort $returnUrls the server-owned hosted-payment return links
+   * @param ?HttpIdempotencyExecutionPort $httpExecution the current execution and stable external identity
    */
   public function __construct(
     private SubscriptionRepositoryPort $subscriptions,
     private StripeGatewayPort $stripe,
-    private string $frontendUrl,
+    private BillingReturnUrlPort $returnUrls,
+    private ?HttpIdempotencyExecutionPort $httpExecution = null,
   ) {
   }
   // #endregion
@@ -65,13 +66,11 @@ final readonly class StartPortalHandler implements CommandHandler
       throw BillingCustomerNotFoundException::forOrganization($command->organizationId);
     }
 
+    $this->httpExecution?->externalEffectStarted('stripe.portal');
     $url = $this->stripe->createBillingPortalSession(
       customerId: $subscription->stripeCustomerId(),
-      returnUrl: sprintf(
-        '%s/organizations/%s/settings?tab=subscription',
-        rtrim($this->frontendUrl, '/'),
-        $command->organizationId,
-      ),
+      returnUrl: $this->returnUrls->portal($command->organizationId),
+      idempotencyKey: $this->httpExecution?->providerKey('stripe.portal'),
     );
 
     return new StartPortalResult(url: $url);

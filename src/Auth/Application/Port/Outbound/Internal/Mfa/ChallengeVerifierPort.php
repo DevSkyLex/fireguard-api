@@ -20,8 +20,10 @@ interface ChallengeVerifierPort
    *
    * @param string $challengeToken the challenge token
    * @param string $code the verification code
+   * @param string $userId account identifier from the verified pre-auth token
+   * @param string $method otp or recovery_code
    *
    * @return MfaVerifyResult the verification result
    */
-  public function verify(string $challengeToken, string $code): MfaVerifyResult;
+  public function verify(string $challengeToken, string $code, string $userId, string $method = 'otp'): MfaVerifyResult;
 }

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Authorization\Infrastructure\Console;
 
-use Authorization\Infrastructure\Catalog\PermissionCatalog;
 use Authorization\Infrastructure\Console\SyncPermissionsCommand;
 use Authorization\Infrastructure\Persistence\Doctrine\Record\{PermissionRecord, RoleRecord};
 use DateTimeImmutable;
@@ -14,6 +13,7 @@ use PHPUnit\Framework\TestCase;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
 use Symfony\Component\Uid\Uuid;
+use Tests\Support\AuthorizationCatalogFixture;
 
 use function count;
 use function is_string;
@@ -33,7 +33,7 @@ final class SyncPermissionsCommandTest extends TestCase
   public function testDryRunReportsCountsWithoutWriting(): void
   {
     $permissionRepo = $this->createMock(EntityRepository::class);
-    $permissionRepo->expects(self::exactly(count(PermissionCatalog::definitions())))
+    $permissionRepo->expects(self::exactly(count(AuthorizationCatalogFixture::permissions()->definitions())))
       ->method('findOneBy')
       ->willReturn(null);
 
@@ -50,7 +50,7 @@ final class SyncPermissionsCommandTest extends TestCase
     $entityManager->expects(self::never())
       ->method('flush');
 
-    $command = new SyncPermissionsCommand(entityManager: $entityManager);
+    $command = new SyncPermissionsCommand(entityManager: $entityManager, permissionCatalog: AuthorizationCatalogFixture::permissions(), roleCatalog: AuthorizationCatalogFixture::roles());
     $tester = new CommandTester($command);
 
     $tester->execute(['--dry-run' => true]);
@@ -63,10 +63,10 @@ final class SyncPermissionsCommandTest extends TestCase
   #[Test]
   public function testUpdateRolesPersistsChanges(): void
   {
-    $definitions = PermissionCatalog::definitions();
+    $definitions = AuthorizationCatalogFixture::permissions()->definitions();
     $definitionMap = [];
     foreach ($definitions as $definition) {
-      $definitionMap[$definition['name']] = $definition['description'];
+      $definitionMap[$definition->name] = $definition->description;
     }
 
     $permissionRepo = $this->createStub(EntityRepository::class);
@@ -113,7 +113,7 @@ final class SyncPermissionsCommandTest extends TestCase
     $entityManager->expects(self::atLeastOnce())
       ->method('flush');
 
-    $command = new SyncPermissionsCommand(entityManager: $entityManager);
+    $command = new SyncPermissionsCommand(entityManager: $entityManager, permissionCatalog: AuthorizationCatalogFixture::permissions(), roleCatalog: AuthorizationCatalogFixture::roles());
     $tester = new CommandTester($command);
 
     $tester->execute(['--update-roles' => true]);
@@ -126,10 +126,10 @@ final class SyncPermissionsCommandTest extends TestCase
   #[Test]
   public function testUpdateRolesReportsSystemRoleCreationsInDryRun(): void
   {
-    $definitions = PermissionCatalog::definitions();
+    $definitions = AuthorizationCatalogFixture::permissions()->definitions();
     $definitionDescriptions = [];
     foreach ($definitions as $definition) {
-      $definitionDescriptions[$definition['name']] = $definition['description'];
+      $definitionDescriptions[$definition->name] = $definition->description;
     }
 
     $definitionCount = count($definitions);
@@ -175,7 +175,7 @@ final class SyncPermissionsCommandTest extends TestCase
     $entityManager->expects(self::never())
       ->method('flush');
 
-    $command = new SyncPermissionsCommand(entityManager: $entityManager);
+    $command = new SyncPermissionsCommand(entityManager: $entityManager, permissionCatalog: AuthorizationCatalogFixture::permissions(), roleCatalog: AuthorizationCatalogFixture::roles());
     $tester = new CommandTester($command);
 
     $tester->execute(['--update-roles' => true, '--dry-run' => true]);
@@ -207,7 +207,7 @@ final class SyncPermissionsCommandTest extends TestCase
     $entityManager->expects(self::never())
       ->method('flush');
 
-    $command = new SyncPermissionsCommand(entityManager: $entityManager);
+    $command = new SyncPermissionsCommand(entityManager: $entityManager, permissionCatalog: AuthorizationCatalogFixture::permissions(), roleCatalog: AuthorizationCatalogFixture::roles());
     $tester = new CommandTester($command);
 
     $tester->execute(['--update-roles' => true, '--dry-run' => true]);

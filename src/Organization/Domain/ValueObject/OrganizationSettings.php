@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 namespace Organization\Domain\ValueObject;
 
+use Shared\Domain\Exception\InvalidValueException;
+
+use function array_diff_key;
+use function array_flip;
+use function array_key_exists;
 use function is_array;
 
 /**
@@ -89,6 +94,7 @@ final readonly class OrganizationSettings
    * @param ?OrganizationAutomationSettings $automation the automation sub-section
    * @param ?OrganizationApprovalSettings $approval the approval sub-section
    * @param ?OrganizationAssistantSettings $assistant the assistant sub-section
+   * @param array<string, mixed> $additionalSections historical and owner-registered additional policy sections
    */
   public function __construct(
     ?OrganizationNotificationSettings $notifications = null,
@@ -97,6 +103,7 @@ final readonly class OrganizationSettings
     ?OrganizationAutomationSettings $automation = null,
     ?OrganizationApprovalSettings $approval = null,
     ?OrganizationAssistantSettings $assistant = null,
+    public array $additionalSections = [],
   ) {
     $this->notifications = $notifications ?? new OrganizationNotificationSettings();
     $this->regional = $regional ?? new OrganizationRegionalSettings();
@@ -144,6 +151,7 @@ final readonly class OrganizationSettings
       automation: $this->automation,
       approval: $this->approval,
       assistant: $this->assistant,
+      additionalSections: $this->additionalSections,
     );
   }
 
@@ -167,6 +175,7 @@ final readonly class OrganizationSettings
       automation: $this->automation,
       approval: $this->approval,
       assistant: $this->assistant,
+      additionalSections: $this->additionalSections,
     );
   }
 
@@ -190,6 +199,7 @@ final readonly class OrganizationSettings
       automation: $this->automation,
       approval: $this->approval,
       assistant: $this->assistant,
+      additionalSections: $this->additionalSections,
     );
   }
 
@@ -213,6 +223,7 @@ final readonly class OrganizationSettings
       automation: $automation,
       approval: $this->approval,
       assistant: $this->assistant,
+      additionalSections: $this->additionalSections,
     );
   }
 
@@ -236,6 +247,7 @@ final readonly class OrganizationSettings
       automation: $this->automation,
       approval: $approval,
       assistant: $this->assistant,
+      additionalSections: $this->additionalSections,
     );
   }
 
@@ -259,6 +271,32 @@ final readonly class OrganizationSettings
       automation: $this->automation,
       approval: $this->approval,
       assistant: $assistant,
+      additionalSections: $this->additionalSections,
+    );
+  }
+
+  /**
+   * Method withPolicySection
+   *
+   * @param string $section owner-registered section name
+   * @param array<string, mixed> $values validated stored section values
+   *
+   * @return self immutable settings with the owner policy replaced
+   */
+  public function withPolicySection(string $section, array $values): self
+  {
+    if (array_key_exists($section, $this->toArray()) && !array_key_exists($section, $this->additionalSections)) {
+      throw InvalidValueException::because('Use the typed organization settings capability for this section.');
+    }
+
+    return new self(
+      notifications: $this->notifications,
+      regional: $this->regional,
+      compliance: $this->compliance,
+      automation: $this->automation,
+      approval: $this->approval,
+      assistant: $this->assistant,
+      additionalSections: [...$this->additionalSections, $section => $values],
     );
   }
 
@@ -269,11 +307,12 @@ final readonly class OrganizationSettings
    *
    * @since 1.0.0
    *
-   * @return array{version: int, notifications: array<string, bool>, regional: array<string, string>, compliance: array<string, mixed>, automation: array<string, bool>, approval: array<string, mixed>, assistant: array<string, mixed>} the settings array
+   * @return array<string, mixed> the settings array, including preserved owner policy sections
    */
   public function toArray(): array
   {
     return [
+      ...$this->additionalSections,
       'version' => self::SCHEMA_VERSION,
       'notifications' => $this->notifications->toArray(),
       'regional' => $this->regional->toArray(),
@@ -295,11 +334,17 @@ final readonly class OrganizationSettings
    * @since 1.0.0
    *
    * @param array<string, mixed> $data the settings data
+   * @param array<string, array<string, mixed>> $defaults registered section defaults
    *
    * @return self the settings instance
    */
-  public static function fromArray(array $data): self
+  public static function fromArray(array $data, array $defaults = []): self
   {
+    foreach ($defaults as $section => $fields) {
+      if ('compliance' !== $section) {
+        $data[$section] = [...$fields, ...(is_array($data[$section] ?? null) ? $data[$section] : [])];
+      }
+    }
     $notifications = $data['notifications'] ?? [];
     $regional = $data['regional'] ?? [];
     $compliance = $data['compliance'] ?? [];
@@ -310,10 +355,11 @@ final readonly class OrganizationSettings
     return new self(
       notifications: OrganizationNotificationSettings::fromArray(is_array($notifications) ? $notifications : []),
       regional: OrganizationRegionalSettings::fromArray(is_array($regional) ? $regional : []),
-      compliance: OrganizationComplianceSettings::fromArray(is_array($compliance) ? $compliance : []),
+      compliance: OrganizationComplianceSettings::fromArray(is_array($compliance) ? $compliance : [], $defaults['compliance'] ?? []),
       automation: OrganizationAutomationSettings::fromArray(is_array($automation) ? $automation : []),
       approval: OrganizationApprovalSettings::fromArray(is_array($approval) ? $approval : []),
       assistant: OrganizationAssistantSettings::fromArray(is_array($assistant) ? $assistant : []),
+      additionalSections: array_diff_key($data, array_flip(['version', 'notifications', 'regional', 'compliance', 'automation', 'approval', 'assistant'])),
     );
   }
   // #endregion

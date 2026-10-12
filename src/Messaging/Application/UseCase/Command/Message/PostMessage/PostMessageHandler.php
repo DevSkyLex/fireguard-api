@@ -17,6 +17,7 @@ use Messaging\Domain\Model\Message\{Message, MessageCreationLinks};
 use Messaging\Domain\Service\{MentionExtractor, UrlExtractor};
 use Messaging\Domain\ValueObject\{ConversationVisibility, MessageId, MessageReference, MessagingSubjectType};
 use Shared\Application\Message\CommandHandler;
+use Shared\Application\Port\Outbound\Idempotency\HttpIdempotencyExecutionPort;
 use Shared\Application\Port\Outbound\{LoggerPort, RootTransactionManagerPort};
 use Shared\Application\Port\Outbound\UuidGeneratorPort;
 use Shared\Domain\Exception\InvalidValueException;
@@ -89,6 +90,7 @@ final readonly class PostMessageHandler implements CommandHandler
     private UuidGeneratorPort $uuidFactory,
     private LoggerPort $logger,
     private RootTransactionManagerPort $transactions,
+    private ?HttpIdempotencyExecutionPort $idempotency = null,
   ) {
   }
 
@@ -144,7 +146,7 @@ final readonly class PostMessageHandler implements CommandHandler
       links: new MessageCreationLinks(references: $references),
     );
 
-    [$view, $participantMemberIds] = $this->transactions->transactional(function () use ($message, $command, $isChannel) {
+    [$result, $participantMemberIds] = $this->transactions->transactional(function () use ($message, $command, $isChannel, $authorMemberId) {
       $view = $this->messages->append($message);
       $this->conversations->touchOnNewMessage($command->conversationId, $view->createdAt);
       $urls = $this->urlExtractor->extract($view->body);
@@ -153,8 +155,12 @@ final readonly class PostMessageHandler implements CommandHandler
       // Capture recipients before commit so a failed lookup also rolls back the write.
       $participantMemberIds = $isChannel ? $this->participants->listMemberIds($command->conversationId) : [];
 
-      return [$view, $participantMemberIds];
+      $result = new PostMessageResult($view, $authorMemberId);
+      $this->idempotency?->captureResult($result);
+
+      return [$result, $participantMemberIds];
     });
+    $view = $result->message;
 
     try {
       $this->realtime->publishMessage($organizationId, $command->conversationId, [
@@ -187,7 +193,7 @@ final readonly class PostMessageHandler implements CommandHandler
       );
     }
 
-    return new PostMessageResult($view, $authorMemberId);
+    return $result;
   }
 
   /**

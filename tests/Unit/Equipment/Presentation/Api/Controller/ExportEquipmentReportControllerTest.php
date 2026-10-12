@@ -46,6 +46,8 @@ use Throwable;
 #[CoversClass(ExportEquipmentReportController::class)]
 final class ExportEquipmentReportControllerTest extends TestCase
 {
+  use \Tests\Support\Export\ExportArtifactCommandBusTrait;
+
   use \Tests\Unit\Equipment\Support\EquipmentHttpFailures;
 
   private const string ORGANIZATION_ID = '550e8400-e29b-41d4-a716-446655508101';
@@ -322,7 +324,7 @@ final class ExportEquipmentReportControllerTest extends TestCase
       }
     });
 
-    return new ExportEquipmentReportController($queries, $security);
+    return new ExportEquipmentReportController($this->equipmentExportCommands($queries), $security);
   }
 
   /**

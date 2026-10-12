@@ -34,7 +34,7 @@ final class UpdatePlanHandlerTest extends TestCase
     $plans->method('findById')->willReturn(null);
     $plans->expects(self::never())->method('save');
 
-    $handler = new UpdatePlanHandler($plans, $this->transactionManager());
+    $handler = new UpdatePlanHandler($plans, $this->transactionManager(), quotaCatalog: \Tests\Support\OrganizationCatalogTestFactory::quota());
 
     $this->expectException(PlanNotFoundException::class);
 
@@ -50,7 +50,7 @@ final class UpdatePlanHandlerTest extends TestCase
     $plans->method('findById')->willReturn($plan);
     $plans->expects(self::once())->method('save')->with($plan);
 
-    $handler = new UpdatePlanHandler($plans, $this->transactionManager());
+    $handler = new UpdatePlanHandler($plans, $this->transactionManager(), quotaCatalog: \Tests\Support\OrganizationCatalogTestFactory::quota());
 
     $result = $handler(new UpdatePlanCommand(self::PLAN_ID, name: 'Premium', description: 'New description'));
 
@@ -68,7 +68,7 @@ final class UpdatePlanHandlerTest extends TestCase
     $plans->method('findById')->willReturn($plan);
     $plans->expects(self::once())->method('save')->with($plan);
 
-    $handler = new UpdatePlanHandler($plans, $this->transactionManager());
+    $handler = new UpdatePlanHandler($plans, $this->transactionManager(), quotaCatalog: \Tests\Support\OrganizationCatalogTestFactory::quota());
 
     $handler(new UpdatePlanCommand(self::PLAN_ID, name: 'Premium'));
 
@@ -85,7 +85,7 @@ final class UpdatePlanHandlerTest extends TestCase
     $plans->method('findById')->willReturn($plan);
     $plans->expects(self::once())->method('save')->with($plan);
 
-    $handler = new UpdatePlanHandler($plans, $this->transactionManager());
+    $handler = new UpdatePlanHandler($plans, $this->transactionManager(), quotaCatalog: \Tests\Support\OrganizationCatalogTestFactory::quota());
 
     $handler(new UpdatePlanCommand(self::PLAN_ID, limits: ['members' => 5, 'facilities' => 10]));
 
@@ -101,7 +101,7 @@ final class UpdatePlanHandlerTest extends TestCase
     $plans->method('findById')->willReturn($plan);
     $plans->expects(self::once())->method('save')->with($plan);
 
-    $handler = new UpdatePlanHandler($plans, $this->transactionManager());
+    $handler = new UpdatePlanHandler($plans, $this->transactionManager(), quotaCatalog: \Tests\Support\OrganizationCatalogTestFactory::quota());
 
     $handler(new UpdatePlanCommand(self::PLAN_ID, isActive: true));
 
@@ -117,7 +117,7 @@ final class UpdatePlanHandlerTest extends TestCase
     $plans->method('findById')->willReturn($plan);
     $plans->expects(self::once())->method('save')->with($plan);
 
-    $handler = new UpdatePlanHandler($plans, $this->transactionManager());
+    $handler = new UpdatePlanHandler($plans, $this->transactionManager(), quotaCatalog: \Tests\Support\OrganizationCatalogTestFactory::quota());
 
     $handler(new UpdatePlanCommand(self::PLAN_ID, isActive: false));
 
@@ -133,7 +133,7 @@ final class UpdatePlanHandlerTest extends TestCase
     $plans->method('findById')->willReturn($plan);
     $plans->expects(self::once())->method('save')->with($plan);
 
-    $handler = new UpdatePlanHandler($plans, $this->transactionManager());
+    $handler = new UpdatePlanHandler($plans, $this->transactionManager(), quotaCatalog: \Tests\Support\OrganizationCatalogTestFactory::quota());
 
     $handler(new UpdatePlanCommand(self::PLAN_ID, sortOrder: 42));
 
@@ -151,7 +151,7 @@ final class UpdatePlanHandlerTest extends TestCase
     $plans->method('findDefault')->willReturn($current);
     $plans->expects(self::exactly(2))->method('save');
 
-    $handler = new UpdatePlanHandler($plans, $this->transactionManager());
+    $handler = new UpdatePlanHandler($plans, $this->transactionManager(), quotaCatalog: \Tests\Support\OrganizationCatalogTestFactory::quota());
 
     $handler(new UpdatePlanCommand(self::PLAN_ID, isDefault: true));
 
@@ -169,7 +169,7 @@ final class UpdatePlanHandlerTest extends TestCase
     $plans->method('findDefault')->willReturn($plan);
     $plans->expects(self::once())->method('save')->with($plan);
 
-    $handler = new UpdatePlanHandler($plans, $this->transactionManager());
+    $handler = new UpdatePlanHandler($plans, $this->transactionManager(), quotaCatalog: \Tests\Support\OrganizationCatalogTestFactory::quota());
 
     $handler(new UpdatePlanCommand(self::PLAN_ID, isDefault: true));
 
@@ -186,7 +186,7 @@ final class UpdatePlanHandlerTest extends TestCase
     $plans->method('findDefault')->willReturn(null);
     $plans->expects(self::once())->method('save')->with($plan);
 
-    $handler = new UpdatePlanHandler($plans, $this->transactionManager());
+    $handler = new UpdatePlanHandler($plans, $this->transactionManager(), quotaCatalog: \Tests\Support\OrganizationCatalogTestFactory::quota());
 
     $handler(new UpdatePlanCommand(self::PLAN_ID, isDefault: true));
 
@@ -203,7 +203,7 @@ final class UpdatePlanHandlerTest extends TestCase
     $plans->expects(self::never())->method('findDefault');
     $plans->expects(self::once())->method('save')->with($plan);
 
-    $handler = new UpdatePlanHandler($plans, $this->transactionManager());
+    $handler = new UpdatePlanHandler($plans, $this->transactionManager(), quotaCatalog: \Tests\Support\OrganizationCatalogTestFactory::quota());
 
     $handler(new UpdatePlanCommand(self::PLAN_ID, isDefault: false));
 

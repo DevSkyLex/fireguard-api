@@ -13,12 +13,11 @@ use Approval\Application\Contract\Event\Request\{
   ApprovalRequestedEvent
 };
 use Audit\Application\UseCase\Command\RecordAuditEvent\{RecordAuditEventCommand, RecordAuditEventResult};
-use Audit\Infrastructure\EventSubscriber\{AbstractAuditEventSubscriber, ExportAuditEventSubscriber, GovernanceAuditEventSubscriber, OperationsAuditEventSubscriber};
 use Audit\Infrastructure\Service\AuditPiiSanitizer;
 use Compliance\Application\Contract\Event\SafetyRegisterExportedEvent;
 use DateTimeImmutable;
 use Import\Application\Contract\Event\{ImportJobCompletedEvent, ImportJobFailedEvent};
-use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use Shared\Application\Port\Inbound\CommandBusPort;
@@ -43,10 +42,6 @@ use function sprintf;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-#[CoversClass(className: AbstractAuditEventSubscriber::class)]
-#[CoversClass(className: GovernanceAuditEventSubscriber::class)]
-#[CoversClass(className: OperationsAuditEventSubscriber::class)]
-#[CoversClass(className: ExportAuditEventSubscriber::class)]
 final class GovernanceAuditWiringTest extends TestCase
 {
   // #region Constants

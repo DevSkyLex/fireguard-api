@@ -40,6 +40,7 @@ final class GetCurrentOrganizationMemberProfileProviderTest extends TestCase
     $provider = new GetCurrentOrganizationMemberProfileProvider(
       queryBus: $queryBus,
       security: $security,
+      permissionCatalog: \Tests\Support\OrganizationCatalogTestFactory::permissions(),
     );
 
     $output = $provider->provide(new Get(), []);
@@ -58,6 +59,7 @@ final class GetCurrentOrganizationMemberProfileProviderTest extends TestCase
     $provider = new GetCurrentOrganizationMemberProfileProvider(
       queryBus: $this->createStub(QueryBusPort::class),
       security: $security,
+      permissionCatalog: \Tests\Support\OrganizationCatalogTestFactory::permissions(),
     );
 
     $this->expectException(AccessDeniedHttpException::class);
@@ -105,6 +107,7 @@ final class GetCurrentOrganizationMemberProfileProviderTest extends TestCase
     $provider = new GetCurrentOrganizationMemberProfileProvider(
       queryBus: $queryBus,
       security: $security,
+      permissionCatalog: \Tests\Support\OrganizationCatalogTestFactory::permissions(),
     );
 
     $output = $provider->provide(new Get(), ['organizationId' => '550e8400-e29b-41d4-a716-446655442304']);
@@ -140,6 +143,7 @@ final class GetCurrentOrganizationMemberProfileProviderTest extends TestCase
     $provider = new GetCurrentOrganizationMemberProfileProvider(
       queryBus: $queryBus,
       security: $security,
+      permissionCatalog: \Tests\Support\OrganizationCatalogTestFactory::permissions(),
     );
 
     $this->expectException(OrganizationMemberNotFoundException::class);

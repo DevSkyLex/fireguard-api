@@ -1,3 +1,7 @@
+imports:
+  - { resource: 'oauth/doctrine.yaml' }
+  - { resource: 'oauth/api_platform.yaml' }
+
 services:
   OAuth\Application\Port\Outbound\SessionRotationPort:
     alias: OAuth\Infrastructure\Adapter\Session\SessionRotationAdapter
@@ -9,7 +13,9 @@ services:
     autowire: true
     autoconfigure: true
 
-  OAuth\Presentation\Api\Service\AuthorizationGrantCompletion: ~
+  OAuth\Presentation\Api\Service\AuthorizationGrantCompletion:
+    arguments:
+      $idempotency: '@OAuth\Application\Port\Outbound\Token\AuthorizationReceiptPort'
 
   # OAuth Module - Validators
   OAuth\Presentation\Api\Validator\ValidScopes\ValidScopesValidator: ~
@@ -38,21 +44,39 @@ services:
       - { name: messenger.message_handler, handles: OAuth\Application\UseCase\Query\Client\ListClients\ListClientsQuery }
 
   OAuth\Application\UseCase\Command\Client\RegisterClient\RegisterClientHandler:
+    arguments:
+      $transactionManager: '@Shared\Infrastructure\Symfony\Adapter\Outbound\DoctrineTransactionManagerAdapter'
+      $eventBus: '@OAuth\Infrastructure\Adapter\Event\TransactionalOAuthEventBusAdapter'
     tags: ['messenger.message_handler']
 
   OAuth\Application\UseCase\Command\Client\UpdateClientDetails\UpdateClientDetailsHandler:
+    arguments:
+      $transactionManager: '@Shared\Infrastructure\Symfony\Adapter\Outbound\DoctrineTransactionManagerAdapter'
+      $eventBus: '@OAuth\Infrastructure\Adapter\Event\TransactionalOAuthEventBusAdapter'
     tags: ['messenger.message_handler']
 
   OAuth\Application\UseCase\Command\Client\DeleteClient\DeleteClientHandler:
+    arguments:
+      $transactionManager: '@Shared\Infrastructure\Symfony\Adapter\Outbound\DoctrineTransactionManagerAdapter'
+      $eventBus: '@OAuth\Infrastructure\Adapter\Event\TransactionalOAuthEventBusAdapter'
     tags: ['messenger.message_handler']
 
   OAuth\Application\UseCase\Command\Client\ActivateClient\ActivateClientHandler:
+    arguments:
+      $transactionManager: '@Shared\Infrastructure\Symfony\Adapter\Outbound\DoctrineTransactionManagerAdapter'
+      $eventBus: '@OAuth\Infrastructure\Adapter\Event\TransactionalOAuthEventBusAdapter'
     tags: ['messenger.message_handler']
 
   OAuth\Application\UseCase\Command\Client\DeactivateClient\DeactivateClientHandler:
+    arguments:
+      $transactionManager: '@Shared\Infrastructure\Symfony\Adapter\Outbound\DoctrineTransactionManagerAdapter'
+      $eventBus: '@OAuth\Infrastructure\Adapter\Event\TransactionalOAuthEventBusAdapter'
     tags: ['messenger.message_handler']
 
   OAuth\Application\UseCase\Command\Client\RegenerateClientSecret\RegenerateClientSecretHandler:
+    arguments:
+      $transactionManager: '@Shared\Infrastructure\Symfony\Adapter\Outbound\DoctrineTransactionManagerAdapter'
+      $eventBus: '@OAuth\Infrastructure\Adapter\Event\TransactionalOAuthEventBusAdapter'
     tags: ['messenger.message_handler']
 
   # Token/Consent Handlers
@@ -60,6 +84,8 @@ services:
     tags: ['messenger.message_handler']
 
   OAuth\Application\UseCase\Command\Token\RevokeToken\RevokeTokenHandler:
+    arguments:
+      $transactionManager: '@Shared\Infrastructure\Symfony\Adapter\Outbound\DoctrineTransactionManagerAdapter'
     tags: ['messenger.message_handler']
 
   OAuth\Application\UseCase\Query\Token\ValidateToken\ValidateTokenHandler:
@@ -175,7 +201,9 @@ services:
 
   # OAuth Adapters
   OAuth\Infrastructure\Adapter\Cache\TokenCacheAdapter: ~
-  OAuth\Infrastructure\Adapter\Token\TokenRevocationAdapter: ~
+  OAuth\Infrastructure\Adapter\Token\TokenRevocationAdapter:
+    arguments:
+      $eventDispatcher: '@OAuth\Infrastructure\Adapter\Event\TransactionalOAuthEventDispatcherAdapter'
   OAuth\Infrastructure\Adapter\Jwt\JwtParserAdapter: ~
 
   # Console Commands
@@ -286,3 +314,70 @@ services:
     tags: ['messenger.message_handler']
 
   OAuth\Presentation\Api\Service\RefreshTokenCookieService: ~
+
+  OAuth\Infrastructure\Adapter\Event\IntegrationEventConverterAdapter: ~
+
+  OAuth\Infrastructure\Adapter\Authorization\OAuthPermissionContributionAdapter:
+    tags: [authorization.permission_catalog_contribution]
+
+  OAuth\Infrastructure\Adapter\Audit\AuditRecordEventAdapter: ~
+
+  OAuth\Application\Port\Inbound\ClientSecurityProofPort: '@OAuth\Infrastructure\Adapter\Idempotency\ClientSecurityProofAdapter'
+  OAuth\Infrastructure\Adapter\Idempotency\ClientSecurityProofAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.auth_entity_manager'
+
+  OAuth\Infrastructure\Adapter\Idempotency\TokenIdempotencyProofAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.auth_entity_manager'
+    tags: [shared.sensitive_idempotency_proof]
+
+  OAuth\Infrastructure\Adapter\Idempotency\OAuthProtocolHttpIdempotencyOperationContributionAdapter:
+    tags: [http.idempotency_operation]
+
+  OAuth\Application\Port\Outbound\Token\AuthorizationReceiptPort: '@OAuth\Infrastructure\Adapter\Idempotency\AuthorizationIdempotencyAdapter'
+  OAuth\Infrastructure\Adapter\Idempotency\AuthorizationIdempotencyAdapter:
+    arguments:
+      $engine: '@shared.http_idempotency.auth'
+      $transaction: '@shared.auth_root_transaction'
+      $entityManager: '@doctrine.orm.auth_entity_manager'
+  OAuth\Infrastructure\EventSubscriber\Idempotency\OAuthIdempotencyExceptionSubscriber: ~
+
+  OAuth\Application\Port\Inbound\ClientLifecycleProofPort: '@OAuth\Infrastructure\Adapter\Idempotency\ClientLifecycleProofAdapter'
+  OAuth\Infrastructure\Adapter\Idempotency\ClientLifecycleProofAdapter:
+    arguments:
+      $connection: '@doctrine.dbal.auth_connection'
+  OAuth\Infrastructure\Adapter\Idempotency\OAuthClientHttpIdempotencyOperationContributionAdapter:
+    tags: [http.idempotency_operation]
+  OAuth\Infrastructure\Adapter\Idempotency\OAuthClientMutationIdempotencyProofAdapter:
+    tags: [shared.sensitive_idempotency_proof]
+  OAuth\Infrastructure\Adapter\Idempotency\OAuthClientHttpIdempotencyResponseProjectionAdapter:
+    tags: [shared.http_idempotency_response_projection]
+
+  OAuth\Infrastructure\Adapter\Event\TransactionalOAuthEventBusAdapter:
+    arguments:
+      $events: '@shared.auth_event_dispatcher'
+
+  OAuth\Application\Port\Inbound\TokenRevocationProofPort: '@OAuth\Infrastructure\Adapter\Idempotency\TokenRevocationProofAdapter'
+  OAuth\Infrastructure\Adapter\Idempotency\TokenRevocationProofAdapter:
+    arguments:
+      $connection: '@doctrine.dbal.auth_connection'
+      $encryptionKey: '%env(OAUTH_ENCRYPTION_KEY)%'
+  OAuth\Infrastructure\Adapter\Idempotency\TokenRevocationIdempotencyProofAdapter:
+    tags: [shared.sensitive_idempotency_proof]
+  OAuth\Infrastructure\Adapter\Idempotency\OAuthRevocationHttpIdempotencyOperationContributionAdapter:
+    tags: [http.idempotency_operation]
+  OAuth\Infrastructure\Adapter\Event\TransactionalOAuthEventDispatcherAdapter:
+    arguments:
+      $events: '@shared.auth_event_dispatcher'
+
+  OAuth\Presentation\Api\Serialization\Decoder\OAuthFormDecoder:
+    autoconfigure: false
+    tags: [serializer.encoder]
+when@dev:
+  imports:
+    - { resource: 'oauth/seeds.yaml' }
+
+when@test:
+  imports:
+    - { resource: 'oauth/seeds.yaml' }

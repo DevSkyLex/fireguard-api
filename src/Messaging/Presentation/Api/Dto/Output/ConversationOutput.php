@@ -34,7 +34,7 @@ final class ConversationOutput
   /**
    * Property subjectType.
    *
-   * One of `facility`, `equipment`, `intervention`, `non_conformity`.
+   * The stable subject key published by its registered owner contributor.
    *
    * @since 1.0.0
    */

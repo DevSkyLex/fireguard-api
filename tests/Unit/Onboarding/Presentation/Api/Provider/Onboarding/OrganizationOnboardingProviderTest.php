@@ -29,7 +29,7 @@ final class OrganizationOnboardingProviderTest extends TestCase
       ->willReturn(null);
 
     $provider = new OrganizationOnboardingProvider(
-      flowService: $this->createUnusedFlowService(),
+      commandBus: new \Tests\Helper\Onboarding\OrganizationOnboardingCommandBus($this->createUnusedFlowService()),
       security: $security,
     );
 
@@ -49,7 +49,7 @@ final class OrganizationOnboardingProviderTest extends TestCase
       ->willReturn($this->createSecurityUser($userId));
 
     $provider = new OrganizationOnboardingProvider(
-      flowService: $this->createFlowServiceForNoOrganization(),
+      commandBus: new \Tests\Helper\Onboarding\OrganizationOnboardingCommandBus($this->createFlowServiceForNoOrganization()),
       security: $security,
     );
 
@@ -102,8 +102,7 @@ final class OrganizationOnboardingProviderTest extends TestCase
     return new OrganizationOnboardingFlowService(
       sessionRepository: $sessionRepository,
       organizationDirectory: new \Organization\Infrastructure\Adapter\Onboarding\OrganizationOnboardingDirectoryAdapter($queryBus, $commandBus),
-      facilities: new \Facility\Infrastructure\Adapter\Onboarding\FacilityAvailabilityAdapter($queryBus),
-      equipment: new \Equipment\Infrastructure\Adapter\Onboarding\EquipmentAvailabilityAdapter($queryBus),
+      steps: \Tests\Helper\Onboarding\RegisteredOrganizationOnboardingSteps::withAvailability(new \Facility\Infrastructure\Adapter\Onboarding\FacilityAvailabilityAdapter($queryBus), new \Equipment\Infrastructure\Adapter\Onboarding\EquipmentAvailabilityAdapter($queryBus)),
       uuidFactory: $uuidFactory,
       transactionManager: $transactions,
       eventDispatcher: $this->createStub(EventDispatcherPort::class),
@@ -115,8 +114,7 @@ final class OrganizationOnboardingProviderTest extends TestCase
     return new OrganizationOnboardingFlowService(
       sessionRepository: $this->createStub(OrganizationOnboardingSessionRepositoryPort::class),
       organizationDirectory: new \Organization\Infrastructure\Adapter\Onboarding\OrganizationOnboardingDirectoryAdapter($this->createStub(QueryBusPort::class), $this->createStub(CommandBusPort::class)),
-      facilities: new \Facility\Infrastructure\Adapter\Onboarding\FacilityAvailabilityAdapter($this->createStub(QueryBusPort::class)),
-      equipment: new \Equipment\Infrastructure\Adapter\Onboarding\EquipmentAvailabilityAdapter($this->createStub(QueryBusPort::class)),
+      steps: \Tests\Helper\Onboarding\RegisteredOrganizationOnboardingSteps::withAvailability(new \Facility\Infrastructure\Adapter\Onboarding\FacilityAvailabilityAdapter($this->createStub(QueryBusPort::class)), new \Equipment\Infrastructure\Adapter\Onboarding\EquipmentAvailabilityAdapter($this->createStub(QueryBusPort::class))),
       uuidFactory: $this->createStub(UuidGeneratorPort::class),
       transactionManager: $this->createStub(TransactionManagerPort::class),
       eventDispatcher: $this->createStub(EventDispatcherPort::class),

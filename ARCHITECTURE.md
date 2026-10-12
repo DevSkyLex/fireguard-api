@@ -253,6 +253,16 @@ Example registration (config/modules/<module>.yaml):
 - Expose cross-module types (enums/DTOs) under `Application/Contract`.
 - Ports may reference contract types; do not expose Domain types outside the module.
 - Keep contract types stable and independent from framework/persistence details.
+- Publish immutable aggregate snapshots and typed capabilities across modules.
+  Aggregate instances, persistence Records and model-oriented repositories remain
+  owner-private; owner-local view mappers produce the public contract. Consumers
+  do not assemble business invariants by reading another module's private state.
+- Business catalog keys are open, syntactically validated identifiers. Owners publish
+  typed definitions through application contribution ports; registries order those
+  definitions and reject duplicate ownership during container boot. New writes and
+  execution require a registered key. Historical hydration preserves valid persisted
+  keys even when their contributor is absent. Technical protocol, lifecycle and
+  transaction-state enums remain closed.
 - `Application/Port/{Inbound,Outbound}/Internal` contains owner-private ports that expose the owner's
   Domain models or other private types. Preserve the port's direction; repositories normally
   belong under `Outbound/Internal`. Their public
@@ -328,10 +338,57 @@ Checklist for each endpoint:
 
 ### Service Wiring
 
-- Each module has a config file: `config/modules/<module>.yaml`.
-- Register ports with aliases to adapters.
-- Register processors/providers and event subscribers.
-- Keep env driven config under `config/packages` or `.env`.
+`config/packages/modules.yaml` selects the full FireGuard production composition.
+Each `config/modules/<owner>.yaml` is the service entry point and imports only its
+owner's configuration fragments. Selecting a module contributes its services and
+metadata together:
+
+| Fragment under `config/modules/<owner>/` | Owner contribution |
+| --- | --- |
+| `doctrine.yaml` | Record mapping namespace and its explicit auth/main entity manager |
+| `api_platform.yaml` | Resource discovery paths and module exception-to-status mappings |
+| `framework*.yaml` | Messenger transports, message routing and other owned framework settings |
+| `seeds.yaml` | Environment-scoped fixture services, seed identifiers and prerequisite order |
+
+Global Doctrine configuration retains the connection and entity-manager definitions;
+it does not enumerate business mappings. Package configuration retains shared
+framework defaults. Module services alias ports to adapters and explicitly select
+the entity manager and transaction owner. Production keeps its complete module set,
+routes, transports, persisted values and existing migration histories.
+
+Owners publish existing scalar foreign keys and partial indexes through
+[`SchemaContributionPort`](src/Shared/Application/Port/Outbound/Schema/SchemaContributionPort.php),
+tagged `shared.schema_contribution`. Shared's schema listeners apply those descriptors
+only to the relevant manager's generated schema. Names, columns, predicates and SQL
+semantics remain identical; a descriptor does not create a replacement schema or a
+cross-database constraint.
+
+Catalogs, event conversion, audit mapping and operation capabilities use explicit
+module contributions through published ports/contracts. Contributions remain
+framework-free at the application boundary and keep policy in the owning module.
+Changing a contributor requires the owner's wiring, tests and MODULE.md in the same
+change; a shared engine must not import business models to discover behavior.
+
+Keep deployment-controlled settings in package configuration and environment
+references, with example values in `.env.example` or `.env.dist` only.
+
+### Mutation and replay contracts
+
+Every client write declares an owner-published
+[`HttpIdempotencyOperation`](src/Shared/Application/Contract/Http/HttpIdempotencyOperation.php):
+stable operation name, auth/main database, final transaction mode, primary command,
+typed result schema and any additional immutable result contracts. The HTTP layer
+checks current authorization and scope before either execution or replay. Callbacks
+use their verified provider-native event identity instead of a browser-supplied key.
+
+Ordinary commands use the declared bus transaction owner. Media commands retain
+their root transaction and reject an enclosing transaction before writing bytes.
+The application result snapshot and receipt complete before the owning business
+commit. A confirmed rollback permits retry; an indeterminate commit requires
+reconciliation and must not repeat the effect. No receipt or transaction spans auth
+and main. See [Security](SECURITY.md#durable-http-idempotency) for replay proof and
+retention requirements and [Operations](OPERATIONS.md#http-idempotency-rollout) for
+the staged client cutover.
 
 ### Security
 
@@ -397,6 +454,18 @@ Minimum tests for a new endpoint:
 - [ ] Add missing tests and documentation.
 
 ## Executable module boundary gate
+
+The separate [core composition suite](tests/Composition/phpunit.xml) boots
+[`CoreKernel`](tests/Support/Kernel/CoreKernel.php) with exactly Shared, Auth, OAuth,
+User, Session, Otp, TrustedDevice, Authorization, Tenant, Audit and Notification.
+It inspects actual services, routes, resource metadata, receivers and ORM ownership,
+and exercises the protected-route denial path. It uses clones of the full migrated
+PostgreSQL test templates; unselected tables may exist but are not mapped or exposed.
+This is a composition proof, not another starter application or migration history.
+
+Run `php -d memory_limit=1G vendor/bin/phpunit -c tests/Composition/phpunit.xml`
+after owner discovery or composition changes, in addition to the full production
+container and relevant endpoint/schema checks.
 
 `make deptrac` and CI run both the original layer rules and `tests/Architecture/deptrac/modules.php`.
 Each documented module has disjoint public (`Application/Port`, except

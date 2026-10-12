@@ -30,7 +30,7 @@ security:
     # stay authenticated — a firewall matches before access_control runs, so a
     # prefix match here silently voids their ROLE_USER rules below.
     oauth2_public:
-      pattern: ^/api/(oauth2/token$|oauth2/logout|\.well-known|auth/login|auth/refresh|auth/logout|auth/mfa/verify|auth/mfa/resend|auth/password/reset|auth/register|auth/federated/providers$|auth/federated/[^/]+/(start|complete)$)
+      pattern: ^/api/(oauth2/token$|oauth2/logout|\.well-known|auth/login|auth/refresh|auth/logout|auth/mfa/verify|auth/mfa/resend|auth/password-policy$|auth/password/reset|auth/register|auth/federated/providers$|auth/federated/[^/]+/(start|complete)$)
       security: false
 
     # Stripe webhook (public; Stripe signature is verified in the controller)
@@ -67,6 +67,7 @@ security:
     - { path: ^/api/oauth2/authorize$, roles: ROLE_USER }
     - { path: ^/api/\.well-known, roles: PUBLIC_ACCESS }
     - { path: ^/api/auth/login$, roles: PUBLIC_ACCESS }
+    - { path: ^/api/auth/password-policy$, roles: PUBLIC_ACCESS, methods: [GET] }
     - { path: ^/api/auth/refresh$, roles: PUBLIC_ACCESS }
     - { path: ^/api/auth/logout$, roles: PUBLIC_ACCESS }
     - { path: ^/api/auth/mfa/verify$, roles: PUBLIC_ACCESS }

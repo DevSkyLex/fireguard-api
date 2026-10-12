@@ -12,7 +12,7 @@ use Organization\Application\Service\OrganizationQuotaService;
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\Model\Organization\{RestoredOrganizationCore, RestoredOrganizationProfile};
 use Organization\Domain\Model\Plan\Plan;
-use Organization\Domain\ValueObject\{OrganizationId, OrganizationName, OrganizationQuotaResource as DomainQuotaResource, PlanId, PlanKey};
+use Organization\Domain\ValueObject\{OrganizationId, OrganizationName, PlanId, PlanKey};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -223,14 +223,11 @@ final class OrganizationQuotaServiceTest extends TestCase
     $invitationRepository->method('countPendingByOrganizationId')->willReturn(0);
 
     $service = new OrganizationQuotaService(
-      $organizationRepository,
-      $planRepository,
-      $memberRepository,
-      $invitationRepository,
-      $this->createStub(FacilityStatisticsPort::class),
-      $this->createStub(EquipmentStatisticsPort::class),
-      $this->createStub(InspectionStatisticsPort::class),
-      $this->createStub(OrganizationQuotaLockPort::class),
+      organizationRepository: $organizationRepository,
+      planRepository: $planRepository,
+      memberRepository: $memberRepository,
+      quotaLock: $this->createStub(OrganizationQuotaLockPort::class),
+      catalog: \Tests\Support\OrganizationCatalogTestFactory::quota($memberRepository, $invitationRepository, $this->createStub(FacilityStatisticsPort::class), $this->createStub(EquipmentStatisticsPort::class), $this->createStub(InspectionStatisticsPort::class)),
     );
 
     self::assertSame(5, $service->getLimit(self::ORGANIZATION_ID, OrganizationQuotaResource::MEMBERS));
@@ -244,7 +241,7 @@ final class OrganizationQuotaServiceTest extends TestCase
     $quotaLock = $this->createMock(OrganizationQuotaLockPort::class);
     $quotaLock->expects(self::once())
       ->method('acquire')
-      ->with(self::ORGANIZATION_ID, DomainQuotaResource::FACILITIES);
+      ->with(self::ORGANIZATION_ID, 'facilities');
 
     $service = $this->service(plan: $this->plan(['facilities' => 5]), facilityCount: 2, quotaLock: $quotaLock);
 
@@ -327,7 +324,7 @@ final class OrganizationQuotaServiceTest extends TestCase
     $quotaLock = $this->createMock(OrganizationQuotaLockPort::class);
     $quotaLock->expects(self::once())
       ->method('acquire')
-      ->with(self::ORGANIZATION_ID, DomainQuotaResource::FACILITIES);
+      ->with(self::ORGANIZATION_ID, 'facilities');
 
     $service = $this->service(plan: $this->plan(['facilities' => 5]), facilityCount: 2, quotaLock: $quotaLock);
 
@@ -365,14 +362,11 @@ final class OrganizationQuotaServiceTest extends TestCase
     $inspectionStatistics->method('countActiveInspections')->willReturn($inspectionCount);
 
     return new OrganizationQuotaService(
-      $organizationRepository,
-      $planRepository,
-      $memberRepository,
-      $invitationRepository,
-      $facilityStatistics,
-      $equipmentStatistics,
-      $inspectionStatistics,
-      $quotaLock ?? $this->createStub(OrganizationQuotaLockPort::class),
+      organizationRepository: $organizationRepository,
+      planRepository: $planRepository,
+      memberRepository: $memberRepository,
+      quotaLock: $quotaLock ?? $this->createStub(OrganizationQuotaLockPort::class),
+      catalog: \Tests\Support\OrganizationCatalogTestFactory::quota($memberRepository, $invitationRepository, $facilityStatistics, $equipmentStatistics, $inspectionStatistics),
     );
   }
 

@@ -19,6 +19,15 @@ final class MfaVerifyInput
 {
   // #region Properties
   /**
+   * Property method
+   *
+   * Selects the authenticator/email proof or a one-time authenticator recovery code.
+   */
+  #[Assert\Choice(choices: ['otp', 'recovery_code'])]
+  #[ApiProperty(description: 'MFA proof method; recovery codes are available only for active TOTP challenges.', openapiContext: ['type' => 'string', 'enum' => ['otp', 'recovery_code'], 'default' => 'otp'])]
+  public string $method = 'otp';
+
+  /**
    * Property preAuthToken.
    *
    * The Pre-Auth Token received during login.
@@ -49,7 +58,7 @@ final class MfaVerifyInput
    */
   #[Assert\NotBlank]
   #[ApiProperty(
-    description: 'The OTP code received by the user.',
+    description: 'The OTP, TOTP or unconsumed recovery proof for the selected method.',
     readable: false,
     writable: true,
     required: true,

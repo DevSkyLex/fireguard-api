@@ -1,0 +1,16 @@
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: false
+
+  Authorization\Infrastructure\DataFixtures\AuthorizationFixtures: ~
+
+  app.seed.authorization:
+    class: Shared\Infrastructure\DataFixtures\SeedFixtureAdapter
+    arguments:
+      $fixture: '@Authorization\Infrastructure\DataFixtures\AuthorizationFixtures'
+      $manager: '@doctrine.orm.auth_entity_manager'
+      $seedKey: 'authorization'
+      $prerequisites: []
+    tags:
+      - { name: 'app.seed_fixture.auth' }

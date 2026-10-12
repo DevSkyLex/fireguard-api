@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Messaging\Application\Port\Outbound;
 
-use Messaging\Application\Contract\Subject\{MessagingSubjectResolution, MessagingSubjectType};
+use Messaging\Application\Contract\Subject\{MessagingSubjectDescriptor, MessagingSubjectResolution};
 
 /**
  * Port MessagingSubjectResolverPort.
@@ -27,15 +27,15 @@ interface MessagingSubjectResolverPort
 {
   // #region Methods
   /**
-   * Method supports.
+   * Method descriptor.
+   *
+   * Publishes the stable subject key, display metadata and read permission.
    *
    * @since 1.0.0
    *
-   * @param MessagingSubjectType $type the subject type value
-   *
-   * @return bool true when this adapter resolves the given subject type
+   * @return MessagingSubjectDescriptor the owner-published subject descriptor
    */
-  public function supports(MessagingSubjectType $type): bool;
+  public function descriptor(): MessagingSubjectDescriptor;
 
   /**
    * Method resolve.

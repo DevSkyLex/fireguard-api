@@ -70,17 +70,34 @@ final class MessagingConversationRepositoryTest extends KernelTestCase
   }
 
   #[Test]
+  public function testPersistedUnloadedSubjectHydratesWithoutAContributor(): void
+  {
+    $organization = $this->entityManager->find(OrganizationRecord::class, self::ORG_ID);
+    self::assertInstanceOf(OrganizationRecord::class, $organization);
+    $id = '550e8400-e29b-41d4-a716-446655447009';
+    $this->createConversation($id, $organization, 'retired_owner', 'subject-1', 'subject');
+    $this->entityManager->flush();
+    $this->entityManager->clear();
+
+    $conversation = $this->repository->findAggregateById($id);
+
+    self::assertInstanceOf(Conversation::class, $conversation);
+    self::assertSame('retired_owner', $conversation->subjectType()->value);
+    self::assertSame('subject-1', $conversation->subjectId());
+  }
+
+  #[Test]
   public function testGetOrCreatePersistsTheGivenVisibilityInsteadOfHardcodingSubject(): void
   {
     $memberA = '550e8400-e29b-41d4-a716-446655447101';
     $memberB = '550e8400-e29b-41d4-a716-446655447102';
     $pairKey = DirectConversationKey::for($memberA, $memberB);
 
-    $direct = $this->repository->getOrCreate(self::ORG_ID, MessagingSubjectType::DIRECT, $pairKey, ConversationVisibility::PARTICIPANTS);
+    $direct = $this->repository->getOrCreate(self::ORG_ID, MessagingSubjectType::from(MessagingSubjectType::DIRECT), $pairKey, ConversationVisibility::PARTICIPANTS);
 
     self::assertSame(ConversationVisibility::PARTICIPANTS->value, $direct->visibility, 'A direct conversation must be created PARTICIPANTS-visible, never the hardcoded SUBJECT default.');
 
-    $subjectThread = $this->repository->getOrCreate(self::ORG_ID, MessagingSubjectType::FACILITY, 'facility-1', ConversationVisibility::SUBJECT);
+    $subjectThread = $this->repository->getOrCreate(self::ORG_ID, MessagingSubjectType::from('facility'), 'facility-1', ConversationVisibility::SUBJECT);
 
     self::assertSame(ConversationVisibility::SUBJECT->value, $subjectThread->visibility);
   }
@@ -94,8 +111,8 @@ final class MessagingConversationRepositoryTest extends KernelTestCase
     $keyForward = DirectConversationKey::for($memberA, $memberB);
     $keyBackward = DirectConversationKey::for($memberB, $memberA);
 
-    $first = $this->repository->getOrCreate(self::ORG_ID, MessagingSubjectType::DIRECT, $keyForward, ConversationVisibility::PARTICIPANTS);
-    $second = $this->repository->getOrCreate(self::ORG_ID, MessagingSubjectType::DIRECT, $keyBackward, ConversationVisibility::PARTICIPANTS);
+    $first = $this->repository->getOrCreate(self::ORG_ID, MessagingSubjectType::from(MessagingSubjectType::DIRECT), $keyForward, ConversationVisibility::PARTICIPANTS);
+    $second = $this->repository->getOrCreate(self::ORG_ID, MessagingSubjectType::from(MessagingSubjectType::DIRECT), $keyBackward, ConversationVisibility::PARTICIPANTS);
 
     self::assertSame($first->id, $second->id, 'Both members deriving the pair key (in either order) must resolve to the SAME conversation.');
   }
@@ -221,7 +238,7 @@ final class MessagingConversationRepositoryTest extends KernelTestCase
     $takenId = '550e8400-e29b-41d4-a716-446655447301';
     $organization = $this->entityManager->find(OrganizationRecord::class, self::ORG_ID);
     self::assertInstanceOf(OrganizationRecord::class, $organization);
-    $this->createConversation($takenId, $organization, MessagingSubjectType::FACILITY->value, '550e8400-e29b-41d4-a716-446655447302', ConversationVisibility::SUBJECT->value);
+    $this->createConversation($takenId, $organization, 'facility', '550e8400-e29b-41d4-a716-446655447302', ConversationVisibility::SUBJECT->value);
     $this->entityManager->flush();
 
     $generator = self::createStub(UuidGeneratorPort::class);
@@ -232,7 +249,7 @@ final class MessagingConversationRepositoryTest extends KernelTestCase
 
     $repository->getOrCreate(
       self::ORG_ID,
-      MessagingSubjectType::FACILITY,
+      MessagingSubjectType::from('facility'),
       '550e8400-e29b-41d4-a716-446655447303',
       ConversationVisibility::SUBJECT,
     );
@@ -259,7 +276,7 @@ final class MessagingConversationRepositoryTest extends KernelTestCase
     $conversationId = '550e8400-e29b-41d4-a716-446655447501';
     $organization = $this->entityManager->find(OrganizationRecord::class, self::ORG_ID);
     self::assertInstanceOf(OrganizationRecord::class, $organization);
-    $this->createConversation($conversationId, $organization, MessagingSubjectType::FACILITY->value, '550e8400-e29b-41d4-a716-446655447502', ConversationVisibility::SUBJECT->value);
+    $this->createConversation($conversationId, $organization, 'facility', '550e8400-e29b-41d4-a716-446655447502', ConversationVisibility::SUBJECT->value);
     $this->entityManager->flush();
 
     self::assertSame(self::ORG_ID, $this->repository->findById($conversationId)?->organizationId);

@@ -4,11 +4,26 @@
 
 ## Overview
 
-Durable event deliveries use an auth-owned consumer receipt, committed with the
+AuditRecordingPort publishes the generic write capability through the pure
+AuditRecordRequest contract. Each owning module projects its event into action,
+actor, subject, scope, occurrence time and metadata; Audit owns context capture,
+PII reduction, durable enqueue and ledger persistence. Requests carry raw email
+facts only through actorEmail and emailMetadata; owners never compute PII hashes.
+
+The recording adapter sanitizes the snapshot before enqueue. An active main
+producer transaction writes its request to main_outbox; an active auth producer
+transaction writes to auth_outbox. Producer rollback removes the request with
+its state changes. Concurrent active transactions on both databases are rejected
+as ambiguous. A legacy event emitted after its producer commits, or a standalone
+recording call, commits an auth request enqueue in its own local transaction.
+The request never appends the auth ledger synchronously inside a main transaction.
+
+Durable request delivery uses an auth-owned consumer receipt, committed with the
 ledger append and hash-chain update. Replaying a delivery does not append another
-entry. Failures propagate to the outbox worker for retry; legacy synchronous
-events retain their existing best-effort behavior. No main/auth transaction is
-shared. Receipt history must remain for the lifetime of replayable messages.
+entry. The original durable event identity and historical action/subject receipt
+key survive owner-event fan-out retries, including historical already-consumed
+events. Enqueue and consumer failures propagate for retry. No main/auth transaction
+is shared. Receipt history remains for the lifetime of replayable messages.
 
 The Audit module records security and compliance events into an immutable, append-only ledger.
 It exposes read-only APIs for querying audit events with filters and pagination.
@@ -79,11 +94,16 @@ is currently looking at.
   rather than a mandatory `from`/`to` range: a narrow, dateless filter (e.g. a
   single `subjectId`) is still exportable, while a truly unbounded query is
   rejected with guidance to narrow the range or add a more specific filter.
-- **Streamed, not materialized.** Under the cap, rows are produced by
-  `AuditEventRepository::stream()` (Doctrine `toIterable()`) and written one
-  row at a time by `AuditEventCsvWriter` straight to the HTTP response body
-  (`StreamedResponse`) — the full result set is never held in memory as an
-  array, so a 50,000-row export costs O(1) memory regardless of size.
+- **Durable original CSV.** HTTP dispatches `ExportAuditCsvCommand`. Its auth
+  transaction reads lazy ledger rows into a temporary CSV spool, rejects more
+  than 64 MiB with HTTP 422, then captures the complete bytes, original filename
+  and row count as an application result before committing its export event and
+  idempotency receipt. The HTTP response streams those committed bytes. A retry
+  with the same key and filters returns the original CSV and filename for the
+  normal 24-hour receipt lifetime, even when the ledger later changes, without
+  emitting a second export event. Current account, tenant and `audit.export`
+  permission are rechecked before stored result decoding. The historical internal
+  query keeps its lazy row contract; HTTP uses the effectful command.
 - **PII posture — no new leak surface.** The CSV projects exactly the same
   fields already exposed by the JSON list/get endpoints, governed by
   `AuditPiiSanitizer` and `SECURITY_LOG_INCLUDE_PII` **at the time the event
@@ -95,7 +115,7 @@ is currently looking at.
   same governed data. `actorEmailHash`/`ipHash` (irreversible hashes) are
   always present regardless of the PII flag, same as today.
 - **Self-auditing.** Every export dispatches `AuditEventsExportedEvent`,
-  emitted by the export Application handler and recorded by `ExportAuditEventSubscriber::onAuditEventsExported()` as ledger action
+  emitted by the export Application handler and projected by Audit's own `AuditRecordEventAdapter::onAuditEventsExported()` as ledger action
   `audit.export_performed` (subject type `audit_export`) — the ledger
   auditing its own export, the same convention every other module's
   significant action follows. Its metadata carries `format`, `row_count`, and
@@ -113,11 +133,12 @@ is currently looking at.
 
 ## Recorded actions
 
-The Audit subscribers consume owner-published `Application/Contract/Event` snapshots from other modules
-(dispatched through `EventDispatcherPort`, event name = `<module>.<snake_case_class>`)
-and append one ledger entry per action. Security, organization lifecycle/access,
-resources, intervention, operations, governance and exports have separate subscribers;
-they share actor resolution, request context, PII policy and durable ledger dispatch:
+Owner-local AuditRecordEventAdapter subscribers consume their published
+Application/Contract/Event snapshots (event name = `<module>.<snake_case_class>`)
+and request one ledger entry per action through AuditRecordingPort. Audit consumes
+only AuditRecordRequestedEvent; it has no foreign event-to-action mapping. Security,
+organization lifecycle/access, resources, intervention, operations, governance and
+exports retain the action names and metadata below:
 
 - `auth.*` — `login_success`, `login_failed`, `logout`, `token_issued`
 - `oauth.*` — `token_issued`, `token_issue_failed`, `token_refreshed`,
@@ -269,7 +290,7 @@ they share actor resolution, request context, PII policy and durable ledger disp
   `ExportAuditEventsHandler` after permission and row-cap checks, before
   the response is returned.
 
-Organization actions resolve their actor from the domain event when it
+Organization actions resolve their actor from the owner event when it
 carries one (inviter, revoker, acceptor…), otherwise from the authenticated
 security token, falling back to `system` for CLI/async paths. Their metadata
 always includes `organization_id`, and invited emails are stored through the
@@ -289,7 +310,7 @@ the column is always provably derived from a hash-covered field — no caller
 can persist a column value the ledger's tamper-evidence does not cover.
 
 `organization.ownership_transferred` is part of this set like the rest:
-`recordOrganizationAudit()` gives it the column, so it appears in the
+the scoped recording request gives it the column, so it appears in the
 organization feed, and its payload (`previous_owner_user_id`,
 `new_owner_user_id` — two opaque ids) is vetted in the projection below
 rather than admitted by default.
@@ -329,8 +350,8 @@ has to remember. Note that `deptrac.yaml` defines hexagonal layers with no
 per-module layers, so an Application→Application import passes green — the
 gate does not police this, review does.
 
-**Metadata producer contract**: metadata dispatched through
-`recordOrganizationAudit()` is potentially readable by organization admins.
+**Metadata producer contract**: metadata dispatched through an
+organization-scoped AuditRecordRequest is potentially readable by organization admins.
 It is filtered by `Application\Service\OrganizationAuditMetadataProjection`,
 a **per-action allowlist**, and the default is _drop_: an action absent from
 the map publishes an empty payload, and a key absent from its action's entry
@@ -357,15 +378,33 @@ Historical Domain event classes remain deserializable. Each owning module conver
 
 CSV export orchestration belongs to `ExportAuditEventsHandler`: its query carries the authenticated actor, the handler verifies `audit.export` before reading, enforces the row cap and emits `AuditEventsExportedEvent` with filter names only. The HTTP controller retains the coarse authentication/permission gate to preserve refusal order before parsing filters, then translates the typed result into a stream.
 
+Audit publishes its global permission vocabulary through Authorization's pure
+`PermissionCatalogContributionPort`. Its owner-local
+`AuditPermissionContributionAdapter` is registered with
+`authorization.permission_catalog_contribution`; composition rejects duplicate keys
+at boot and preserves explicit publication order. This contribution defines available
+permission keys and does not grant them to a subject.
+
 ## Configuration
 
+Module selection loads [the service entry point](../../config/modules/audit.yaml)
+together with its [owner configuration fragments](../../config/modules/audit/).
+Those fragments contribute owned mappings, API/error metadata and configured
+framework/seed registrations. Shared package configuration supplies connections and
+manager definitions; this module's persistence remains explicitly wired to `auth`.
+See the [composition standard](../../ARCHITECTURE.md#service-wiring).
+
 - Audit events are stored in `audit_events` and `audit_event_chains`.
+- AuditRecordingPort is aliased to Infrastructure/Adapter/Doctrine/AuditRecordingAdapter. Both DBAL connections
+  and both strict outbox dispatchers are explicitly bound in audit.yaml;
+  AuditRecordRequestedSubscriber receives shared.auth_event_consumer. Owner
+  AuditRecordEventAdapter services are explicitly registered in their module YAML.
 - `Audit\Application\Port\Inbound\OrganizationAuditFeedPort` is aliased to
   `Audit\Application\Service\OrganizationAuditFeedService` in
   `config/modules/audit.yaml`. It reads through `AuditEventRepositoryPort` and
   touches no entity manager of its own, so it names none;
-  `AuditEventRepository` resolves the default manager, which is `auth` — the
-  database `audit_events` lives in.
+  `AuditEventRepository` explicitly receives the auth entity manager, sharing
+  that connection with the auth-owned request-consumer receipt.
 - PII handling uses the same flags as security logs:
   - `SECURITY_LOG_INCLUDE_PII`
   - `SECURITY_LOG_PII_SALT`
@@ -383,6 +422,14 @@ than the previous 64-character limit.
 
 ## Testing
 
+- AuditRecordingAdapterTest covers auth/main transaction ownership, ambiguous
+  ownership refusal, durable request identity and PII reduction before enqueue.
+  AuditRecordRequestedSubscriberTest checks sanitized payload forwarding,
+  historical receipt keys, duplicate refusal and failure propagation.
+- Native PostgreSQL AuditRecordingAdapterTest verifies producer rollback removes
+  the request, serialized outbox privacy, a single auth ledger/chain/receipt append
+  on duplicate delivery, and receipt/chain rollback followed by successful retry
+  when ledger persistence fails.
 - Unit: `tests/Unit/Audit` — includes `ExportAuditEventsHandlerTest` (row-cap
   enforcement + streamed result), `AuditEventCsvWriterTest` (CSV shape, JSON
   metadata cell, no PHP `NULL` leakage), `AuditEventExportCriteriaFactoryTest`
@@ -422,4 +469,7 @@ notes stay on the access-controlled approval resource, outside generic audit met
 
 ## Flows
 
-Committed owner events reach the audit consumer; auth-owned receipts and ledger writes preserve deduplication and hash-chain integrity. Authorized reads apply the same tenant scope to items, collections and totals.
+Owner projections request a sanitized durable audit fact. Committed outbox requests
+reach the generic Audit consumer; auth-owned receipts and ledger writes preserve
+deduplication and hash-chain integrity. Authorized reads apply the same tenant scope
+to items, collections and totals.

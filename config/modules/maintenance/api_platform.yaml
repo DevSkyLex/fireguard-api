@@ -1,0 +1,8 @@
+api_platform:
+  mapping:
+    paths:
+      - '%kernel.project_dir%/src/Maintenance/Presentation/Api/Resource'
+  exception_to_status:
+    Maintenance\Domain\Exception\MaintenanceAccessDeniedException: 403
+    Maintenance\Domain\Exception\MaintenanceNotFoundException: 404
+    Maintenance\Domain\Exception\MaintenanceValidationException: 422

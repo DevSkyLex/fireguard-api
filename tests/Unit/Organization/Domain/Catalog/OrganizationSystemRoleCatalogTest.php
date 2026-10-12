@@ -14,7 +14,7 @@ final class OrganizationSystemRoleCatalogTest extends TestCase
   #[Test]
   public function testPermissionsForAdminIsTheWildcard(): void
   {
-    self::assertSame(['organization.*'], OrganizationSystemRoleCatalog::permissionsFor(
+    self::assertSame(['organization.*'], \Tests\Support\OrganizationCatalogTestFactory::systemRoles()->permissionsFor(
       OrganizationSystemRoleCatalog::ADMIN,
     ));
   }
@@ -22,13 +22,13 @@ final class OrganizationSystemRoleCatalogTest extends TestCase
   #[Test]
   public function testPermissionsForAnUnknownRoleIsEmpty(): void
   {
-    self::assertSame([], OrganizationSystemRoleCatalog::permissionsFor('inspector'));
+    self::assertSame([], \Tests\Support\OrganizationCatalogTestFactory::systemRoles()->permissionsFor('inspector'));
   }
 
   #[Test]
   public function testMergePermissionsLeavesACustomRoleUntouched(): void
   {
-    self::assertSame(['organization.read'], OrganizationSystemRoleCatalog::mergePermissions(
+    self::assertSame(['organization.read'], \Tests\Support\OrganizationCatalogTestFactory::systemRoles()->mergePermissions(
       roleName: OrganizationSystemRoleCatalog::MEMBER,
       permissions: ['organization.read'],
       isSystem: false,
@@ -38,7 +38,7 @@ final class OrganizationSystemRoleCatalogTest extends TestCase
   #[Test]
   public function testMergePermissionsLeavesAnUncatalogedSystemRoleUntouched(): void
   {
-    self::assertSame(['organization.read'], OrganizationSystemRoleCatalog::mergePermissions(
+    self::assertSame(['organization.read'], \Tests\Support\OrganizationCatalogTestFactory::systemRoles()->mergePermissions(
       roleName: 'inspector',
       permissions: ['organization.read'],
       isSystem: true,
@@ -65,7 +65,7 @@ final class OrganizationSystemRoleCatalogTest extends TestCase
       'organization.approvals.read',
       'organization.approvals.request',
       'organization.events.read',
-    ], OrganizationSystemRoleCatalog::permissionsFor(OrganizationSystemRoleCatalog::MEMBER));
+    ], \Tests\Support\OrganizationCatalogTestFactory::systemRoles()->permissionsFor(OrganizationSystemRoleCatalog::MEMBER));
   }
 
   #[Test]
@@ -88,7 +88,7 @@ final class OrganizationSystemRoleCatalogTest extends TestCase
       'organization.approvals.read',
       'organization.approvals.request',
       'organization.events.read',
-    ], OrganizationSystemRoleCatalog::mergePermissions(
+    ], \Tests\Support\OrganizationCatalogTestFactory::systemRoles()->mergePermissions(
       roleName: OrganizationSystemRoleCatalog::MEMBER,
       permissions: [
         'organization.read',

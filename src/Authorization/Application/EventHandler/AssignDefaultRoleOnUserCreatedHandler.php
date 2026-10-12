@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Authorization\Application\EventHandler;
 
 use Authorization\Application\Port\Outbound\Internal\{RoleAssignmentRepositoryPort, RoleRepositoryPort};
+use Authorization\Application\Port\Outbound\RoleCatalogPort;
 use Authorization\Domain\Model\Role\Role;
 use Authorization\Domain\Model\RoleAssignment\RoleAssignment;
 use Authorization\Domain\ValueObject\{RoleAssignmentId, RoleName, SubjectType};
@@ -15,11 +16,9 @@ use User\Application\Contract\Event\UserCreatedEvent;
 /**
  * Handler AssignDefaultRoleOnUserCreatedHandler.
  *
- * Grants the default global "user" role to every newly created user so they
- * receive the baseline self-service permissions (profile, sessions, OTP,
- * trusted devices). Without a global role assignment a user authenticates
- * successfully but is denied (403) on every permission-gated self-service
- * endpoint such as POST /api/trusted-devices.
+ * Grants the contributed default global role after account creation. Without
+ * a registered default it performs no assignment. The installed policy retains
+ * the "user" role and its baseline self-service permissions.
  *
  * @category EventHandler
  * @version 1.0.0
@@ -28,19 +27,6 @@ use User\Application\Contract\Event\UserCreatedEvent;
  */
 final readonly class AssignDefaultRoleOnUserCreatedHandler
 {
-  // #region Constants
-  /**
-   * Constant DEFAULT_ROLE_NAME.
-   *
-   * Name of the global role granting baseline self-service permissions.
-   *
-   * @since 1.0.0
-   *
-   * @var string
-   */
-  private const string DEFAULT_ROLE_NAME = 'user';
-  // #endregion
-
   // #region Constructor
   /**
    * Constructor.
@@ -53,12 +39,14 @@ final readonly class AssignDefaultRoleOnUserCreatedHandler
    * @param RoleAssignmentRepositoryPort $roleAssignmentRepository the role assignment repository
    * @param UuidGeneratorPort $uuidFactory the UUID factory
    * @param LoggerPort $logger the logger
+   * @param RoleCatalogPort $roleCatalog contributed default assignment policy
    */
   public function __construct(
     private RoleRepositoryPort $roleRepository,
     private RoleAssignmentRepositoryPort $roleAssignmentRepository,
     private UuidGeneratorPort $uuidFactory,
     private LoggerPort $logger,
+    private RoleCatalogPort $roleCatalog,
   ) {
   }
   // #endregion
@@ -67,7 +55,7 @@ final readonly class AssignDefaultRoleOnUserCreatedHandler
   /**
    * Method __invoke.
    *
-   * Handles the event by assigning the default "user" role to the new user.
+   * Handles the event by assigning the contributed default role to the new user.
    * Failures are logged but never abort user creation; the role can always be
    * granted afterwards via the app:user:assign-role console command.
    *
@@ -79,14 +67,19 @@ final readonly class AssignDefaultRoleOnUserCreatedHandler
    */
   public function __invoke(UserCreatedEvent $event): void
   {
-    $role = $this->roleRepository->findByName(new RoleName(self::DEFAULT_ROLE_NAME));
+    $defaultRoleName = $this->roleCatalog->defaultRoleName();
+    if (null === $defaultRoleName) {
+      return;
+    }
+
+    $role = $this->roleRepository->findByName(new RoleName($defaultRoleName));
 
     if (null === $role) {
       $this->logger->warning(
         message: 'Default user role not found; skipping default role assignment.',
         context: [
           'user_id' => $event->userId,
-          'role' => self::DEFAULT_ROLE_NAME,
+          'role' => $defaultRoleName,
         ],
       );
 
@@ -113,7 +106,7 @@ final readonly class AssignDefaultRoleOnUserCreatedHandler
         message: 'Default user role assigned.',
         context: [
           'user_id' => $event->userId,
-          'role' => self::DEFAULT_ROLE_NAME,
+          'role' => $defaultRoleName,
         ],
       );
     } catch (Throwable $exception) {
@@ -121,7 +114,7 @@ final readonly class AssignDefaultRoleOnUserCreatedHandler
         message: 'Failed to assign default user role.',
         context: [
           'user_id' => $event->userId,
-          'role' => self::DEFAULT_ROLE_NAME,
+          'role' => $defaultRoleName,
           'error' => $exception->getMessage(),
         ],
       );

@@ -1,0 +1,20 @@
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: false
+
+  Intervention\Infrastructure\DataFixtures\InterventionFixtures: ~
+
+  app.seed.intervention:
+    class: Shared\Infrastructure\DataFixtures\SeedFixtureAdapter
+    arguments:
+      $fixture: '@Intervention\Infrastructure\DataFixtures\InterventionFixtures'
+      $manager: '@doctrine.orm.main_entity_manager'
+      $seedKey: 'intervention'
+      $prerequisites: ['organization', 'facility', 'equipment']
+    tags:
+      - { name: 'app.seed_fixture.main' }
+
+  Intervention\Infrastructure\DataFixtures\InterventionWorkloadFixtures:
+    tags:
+      - { name: 'app.seed_fixture.append' }

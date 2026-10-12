@@ -10,7 +10,8 @@ use OAuth\Application\Port\Inbound\OAuthDataLifecyclePort;
 use Otp\Application\Port\Inbound\OtpDataLifecyclePort;
 use Otp\Application\Port\Inbound\Totp\TotpEnrollmentPurgePort;
 use Session\Application\Port\Inbound\SessionDataLifecyclePort;
-use Shared\Application\Port\Outbound\FileCleanupPort;
+use Shared\Application\Port\Outbound\{FileCleanupPort, RootTransactionManagerPort};
+use Shared\Application\Port\Outbound\Idempotency\HttpIdempotencyExecutionPort;
 use TrustedDevice\Application\Port\Inbound\TrustedDeviceDataLifecyclePort;
 use User\Application\Contract\User\AvatarPaths;
 use User\Application\Port\Outbound\{AvatarPersistencePort, UserDataPurgePort};
@@ -46,6 +47,8 @@ final readonly class UserDataPurgeAdapter implements UserDataPurgePort
     private OAuthDataLifecyclePort $oauthLifecycle,
     private AvatarPersistencePort $avatars,
     private FileCleanupPort $avatarCleanup,
+    private ?RootTransactionManagerPort $rootTransaction = null,
+    private ?HttpIdempotencyExecutionPort $execution = null,
   ) {
   }
   // #endregion
@@ -57,7 +60,9 @@ final readonly class UserDataPurgeAdapter implements UserDataPurgePort
    */
   public function withUserLock(string $userId, callable $operation): mixed
   {
-    return $this->totpEnrollmentPurge->withUserLock($userId, $operation);
+    return null === $this->rootTransaction || null === $this->execution?->executionLease()
+      ? $this->totpEnrollmentPurge->withUserLock($userId, $operation)
+      : $this->rootTransaction->transactional(fn () => $this->totpEnrollmentPurge->withUserLock($userId, $operation));
   }
 
   /**

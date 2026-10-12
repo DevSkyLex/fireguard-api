@@ -9,6 +9,7 @@ use Shared\Application\Port\Outbound\UuidGeneratorPort;
 use Shared\Domain\Service\EventIdProvider;
 use Shared\Domain\ValueObject\{Email, TenantId};
 use User\Application\Port\Outbound\Internal\UserRepositoryPort;
+use User\Application\Port\Outbound\PasswordPolicyPort;
 use User\Domain\Model\User\User;
 use User\Domain\ValueObject\{HashedPassword, UserId, UserProfile, Username};
 
@@ -33,6 +34,7 @@ final readonly class CreateUserHandler implements \Shared\Application\Message\Co
    * @param HashingPort $hashing the hashing service
    * @param EventBusPort $eventBus the event bus
    * @param EventIdProvider $eventIdProvider the event ID provider
+   * @param PasswordPolicyPort $passwordPolicy authoritative project creation requirements
    */
   public function __construct(
     private readonly UserRepositoryPort $userRepository,
@@ -40,6 +42,7 @@ final readonly class CreateUserHandler implements \Shared\Application\Message\Co
     private readonly HashingPort $hashing,
     private readonly EventBusPort $eventBus,
     private readonly EventIdProvider $eventIdProvider,
+    private readonly PasswordPolicyPort $passwordPolicy,
   ) {
   }
   // #endregion
@@ -56,6 +59,8 @@ final readonly class CreateUserHandler implements \Shared\Application\Message\Co
    */
   public function __invoke(CreateUserCommand $command): CreateUserResult
   {
+    $this->passwordPolicy->assertAcceptable($command->password);
+
     // Generate user ID using factory
     $userId = new UserId($this->uuidFactory->generate());
 
@@ -78,6 +83,10 @@ final readonly class CreateUserHandler implements \Shared\Application\Message\Co
       eventIdProvider: $this->eventIdProvider,
       tenantId: null === $command->tenantId ? null : TenantId::fromString($command->tenantId),
     );
+
+    if (!$command->requireEmailVerification) {
+      $user->activateWithoutEmailVerification();
+    }
 
     // Save the user
     $this->userRepository->save(user: $user);

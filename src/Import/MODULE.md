@@ -155,19 +155,37 @@ projection reconstruction and row outcomes.
 
 ## Architecture
 
+HTTP mutation receipts resolve the current registered kind and its declared write permission before replay. They recheck the current source job and the created result job in the original organization; a removed contributor or changed entitlement cannot disclose the stored result. Creation declares final root transaction ownership: the lease is claimed before CSV bytes are written, and the initial result is captured before that same main commit. Confirmed rollback compensates the attempted file; uncertain commit outcomes retain its bytes for reconciliation. Worker progress does not replace the original accepted job snapshot.
+
 Application processing logs through Shared's published LoggerPort; vendor logging
 stays in Infrastructure. ImportExceptionSubscriber owns HTTP translation after the
 existing stable failure-code subscriber, preserving permission, scope and lease errors.
 
-Use cases own decisions and inject public provisioning/coordination ports from the business owners. Infrastructure implements persistence/storage/transport; HTTP adapters translate. The ownership and transaction boundaries above remain authoritative.
+Use cases own parsing, authorization, checkpoints, confirmation, queueing and row receipts.
+Equipment, Facility and Organization register contributions through the published
+`ImportKindProcessorPort`. Each descriptor supplies its stable kind key, read/write
+permissions and empty CSV template. Each execution creates a fresh row session;
+only decoded row input and safe row outcomes cross the seam. Owner sessions keep
+quota projections, typed parent graphs and stable simulated identities locally.
+Restoring confirmed successful simulation rows performs no provisioning, quota
+consumption or durable mutation. Technical exceptions still roll back the current
+leased row and propagate for retry.
+
+The registry rejects duplicate keys. Creation, templates and filtered collections
+require a configured contributor; unavailable contributions never grant access or
+start a worker lease. Persisted jobs retain an independently validated kind string,
+so removing a registration cannot prevent job hydration. The existing `equipment`,
+`facility` and `member` keys remain unchanged, and every key fits the existing
+sixteen-character column. Infrastructure implements persistence/storage/transport;
+HTTP adapters translate. The ownership and transaction boundaries above remain authoritative.
 
 ## Configuration
 
-Bindings are defined in [Import configuration](../../config/modules/import.yaml). Persistence consumers name their entity manager explicitly according to [Doctrine mapping](../../config/packages/doctrine.yaml). Runtime and recovery requirements in the sections above remain part of this contract.
+Bindings are defined in [Import configuration](../../config/modules/import.yaml). Owner modules register each processor with the `fireguard.import_kind_processor` tag; the registry is injected through its internal port. Mutable execution sessions are constructed per job and are never shared container services. Persistence consumers name their entity manager explicitly according to [Doctrine mapping](../../config/packages/doctrine.yaml). Runtime and recovery requirements in the sections above remain part of this contract.
 
 ## Testing
 
-Use [Import unit tests](../../tests/Unit/Import) and the endpoint/integration/E2E suites for this capability. Tests cover owned results and denial paths; PostgreSQL checks establish actual transactions, isolation and replay. See [testing procedures](../../docs/guides/testing.md).
+Use [Import unit tests](../../tests/Unit/Import) and the endpoint/integration/E2E suites for this capability. Tests cover owned results and denial paths, a fake fourth contribution through creation/listing/templates/processing, duplicate registration and isolated simulation restoration; PostgreSQL checks establish actual transactions, isolation and replay. See [testing procedures](../../docs/guides/testing.md).
 
 ## Error Codes
 
@@ -178,3 +196,5 @@ Use [Import unit tests](../../tests/Unit/Import) and the endpoint/integration/E2
 | `import_confirmation_unavailable` | 409  | Retained simulation cannot currently be confirmed |
 
 Row report codes in the CSV/simulation section are business outcomes, not HTTP failures. API Platform retains its ordinary scope and input-validation errors.
+
+Owner-specific CSV row factories and simulation projections are private helpers in their owner `Infrastructure/Import` directories. The registered port implementations remain in `Infrastructure/Adapter/Import`.

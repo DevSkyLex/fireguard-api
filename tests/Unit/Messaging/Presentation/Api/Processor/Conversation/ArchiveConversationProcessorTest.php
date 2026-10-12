@@ -91,7 +91,7 @@ final class ArchiveConversationProcessorTest extends TestCase
 
     $processor = new ArchiveConversationProcessor(
       $this->createStub(CommandBusPort::class),
-      new ConversationOutputFactory(),
+      new ConversationOutputFactory(\Tests\Support\Messaging\MessagingSubjectCatalog::create()),
       $security,
     );
 
@@ -114,7 +114,7 @@ final class ArchiveConversationProcessorTest extends TestCase
 
   private function createProcessor(CommandBusPort $commandBus): ArchiveConversationProcessor
   {
-    return new ArchiveConversationProcessor($commandBus, new ConversationOutputFactory(), $this->securityWithUser());
+    return new ArchiveConversationProcessor($commandBus, new ConversationOutputFactory(\Tests\Support\Messaging\MessagingSubjectCatalog::create()), $this->securityWithUser());
   }
 
   private function securityWithUser(): Security

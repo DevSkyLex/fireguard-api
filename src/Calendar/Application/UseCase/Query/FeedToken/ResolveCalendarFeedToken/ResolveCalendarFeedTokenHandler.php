@@ -20,10 +20,7 @@ use function sprintf;
  *
  * Hash-based lookup for the public `.ics` endpoint: an unknown and a
  * revoked token, unusable account and removed membership are indistinguishable (all raise
- * {@see CalendarFeedTokenNotFoundException} — no oracle). Records
- * `lastUsedAt` at most once per hour (see
- * {@see \Calendar\Domain\Model\FeedToken\CalendarFeedToken::shouldRecordUsage()})
- * so polling calendar clients do not turn every fetch into a write. Computes
+ * {@see CalendarFeedTokenNotFoundException} — no oracle). Resolves without mutation; the owning subscription command records usage. Computes
  * the fixed feed window (now minus 30 days / now plus 180 days, well under
  * the feed's 366-day cap) so the caller can reuse the interactive feed use
  * case as-is.
@@ -103,11 +100,6 @@ final readonly class ResolveCalendarFeedTokenHandler implements QueryHandler
     }
 
     $now = new DateTimeImmutable('now', new DateTimeZone('UTC'));
-
-    if ($token->shouldRecordUsage($now)) {
-      $token->recordUsage($now);
-      $this->repository->save($token);
-    }
 
     return new ResolveCalendarFeedTokenResult(
       organizationId: $token->organizationId(),

@@ -6,6 +6,7 @@ namespace Otp\Presentation\Api\Processor\Challenge;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use DateTimeImmutable;
 use Otp\Application\Contract\Challenge\{OtpChannel, OtpPurpose};
 use Otp\Application\Service\ChallengeResendPolicy;
@@ -60,11 +61,11 @@ final readonly class CreateChallengeProcessor implements ProcessorInterface
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): ChallengeOutput
   {
     $user = $this->security->getUser();
-    if (null === $user) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new BadRequestHttpException('User must be authenticated.');
     }
 
-    $userId = $user->getUserIdentifier();
+    $userId = $user->getId();
 
     // Get recipient - use provided or get from user
     $recipient = $data->recipient ?? $this->getDefaultRecipient($data->channel, $user);

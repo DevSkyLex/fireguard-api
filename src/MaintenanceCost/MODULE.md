@@ -51,6 +51,8 @@ MaintenanceEconomicAggregator sums exact decimal strings and retains null valuat
 
 ## Configuration
 
+HTTP mutations require `Idempotency-Key`. The owner manifest declares the complete immutable financial graph for planning and expense responses, and the exact currency/rate snapshots for their writes. Planning and expense receipts require both current financial manage and read permissions before decoding. Current intervention ownership is resolved through Intervention's fresh public scope capability; rate membership uses Organization's fresh public member scope. The owner only reads its own rate table through scalar SQL and retains the original rate identifier. The contribution and replay adapters are tagged for Shared's HTTP driver with an explicit main connection.
+
 `config/modules/maintenance_cost.yaml` registers the financial query handlers, trusted read adapter, public currency/rate ports and the failure subscriber. Every persistence consumer explicitly uses the main entity manager or connection. Organization financial read/manage permissions are independent of operational, inventory and procurement permissions.
 
 Allocation fields extend existing JSON snapshots additively and do not require a new table or rewrite of stored publications. Ordinary reports and PDFs continue to omit every internal amount.

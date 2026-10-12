@@ -12,7 +12,11 @@ use Symfony\Component\Mailer\Event\MessageEvent;
 use Symfony\Component\Mime\Address;
 use Symfony\Component\Mime\{Email, RawMessage};
 
+use function copy;
 use function dirname;
+use function sys_get_temp_dir;
+use function tempnam;
+use function unlink;
 
 /**
  * Test EmbedBrandMarkSubscriberTest.
@@ -43,6 +47,44 @@ final class EmbedBrandMarkSubscriberTest extends TestCase
     self::assertStringContainsString('Content-Type: image/png', $mime);
     self::assertStringContainsString('Content-Disposition: inline', $mime);
     self::assertStringNotContainsString('src="cid:fireguard-mark"', $mime, 'Symfony rewrites the CID to the generated Content-ID.');
+  }
+
+  #[Test]
+  public function testItEmbedsTheConfiguredFileAndContentId(): void
+  {
+    $markPath = tempnam(sys_get_temp_dir(), 'product-mark-');
+    self::assertIsString($markPath);
+    self::assertTrue(copy($this->markPath(), $markPath));
+
+    try {
+      $email = $this->email('<img src="cid:workshop-mark" alt="">');
+      $subscriber = new EmbedBrandMarkSubscriber(product: \Tests\Support\Shared\ProductConfigFixture::create([
+        'product.email_mark_path' => $markPath,
+        'product.email_mark_cid' => 'workshop-mark',
+      ]));
+
+      $subscriber->onMessage($this->event($email));
+
+      $mime = $email->toString();
+      self::assertStringContainsString('Content-Type: image/png', $mime);
+      self::assertStringContainsString('Content-Disposition: inline', $mime);
+      self::assertStringNotContainsString('src="cid:workshop-mark"', $mime);
+    } finally {
+      unlink($markPath);
+    }
+  }
+
+  #[Test]
+  public function testItOnlyEmbedsTheConfiguredContentId(): void
+  {
+    $email = $this->email('<img src="cid:fireguard-mark" alt="">');
+    $subscriber = new EmbedBrandMarkSubscriber(product: \Tests\Support\Shared\ProductConfigFixture::create([
+      'product.email_mark_cid' => 'workshop-mark',
+    ]));
+
+    $subscriber->onMessage($this->event($email));
+
+    self::assertStringNotContainsString('image/png', $email->toString());
   }
 
   #[Test]
@@ -84,7 +126,7 @@ final class EmbedBrandMarkSubscriberTest extends TestCase
   {
     $email = $this->email('<img src="cid:fireguard-mark" alt="">');
 
-    new EmbedBrandMarkSubscriber(markPath: '/nonexistent/fireguard-mark.png')->onMessage($this->event($email));
+    new EmbedBrandMarkSubscriber(product: \Tests\Support\Shared\ProductConfigFixture::create(['product.email_mark_path' => '/nonexistent/fireguard-mark.png']))->onMessage($this->event($email));
 
     self::assertStringNotContainsString('image/png', $email->toString());
   }
@@ -104,7 +146,7 @@ final class EmbedBrandMarkSubscriberTest extends TestCase
 
   private function subscriber(): EmbedBrandMarkSubscriber
   {
-    return new EmbedBrandMarkSubscriber(markPath: $this->markPath());
+    return new EmbedBrandMarkSubscriber(product: \Tests\Support\Shared\ProductConfigFixture::create());
   }
 
   private function email(string $html): Email

@@ -1,0 +1,4 @@
+framework:
+    messenger:
+        routing:
+            'Assistant\Application\UseCase\Command\Message\GenerateAssistantReply\GenerateAssistantReplyCommand': assistant

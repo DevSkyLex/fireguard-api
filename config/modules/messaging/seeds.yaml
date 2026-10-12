@@ -1,0 +1,16 @@
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: false
+
+  Messaging\Infrastructure\DataFixtures\MessagingFixtures: ~
+
+  app.seed.messaging:
+    class: Shared\Infrastructure\DataFixtures\SeedFixtureAdapter
+    arguments:
+      $fixture: '@Messaging\Infrastructure\DataFixtures\MessagingFixtures'
+      $manager: '@doctrine.orm.main_entity_manager'
+      $seedKey: 'messaging'
+      $prerequisites: ['organization']
+    tags:
+      - { name: 'app.seed_fixture.main' }

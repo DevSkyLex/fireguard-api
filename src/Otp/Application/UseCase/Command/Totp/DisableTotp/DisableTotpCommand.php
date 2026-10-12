@@ -24,10 +24,12 @@ final readonly class DisableTotpCommand implements CommandMessage
    *
    * @param string $userId the user ID
    * @param string $code the current TOTP code, proving possession of the authenticator
+   * @param string $proofType totp or recovery_code
    */
   public function __construct(
     public readonly string $userId,
     public readonly string $code,
+    public readonly string $proofType = 'totp',
   ) {
   }
   // #endregion

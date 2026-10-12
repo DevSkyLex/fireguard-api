@@ -32,6 +32,26 @@ final class ListImportJobsHandlerTest extends TestCase
   private const string USER_ID = 'user-1';
 
   #[Test]
+  public function itScopesUnfilteredRowsAndTotalsToAnIndependentContributionPermission(): void
+  {
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->method('isMemberOf')->willReturn(true);
+    $authorization->expects(self::once())->method('hasPermission')
+      ->with(self::USER_ID, self::ORGANIZATION_ID, 'organization.test_assets.read')->willReturn(true);
+    $repository = $this->createMock(ImportJobRepositoryPort::class);
+    $repository->expects(self::once())->method('listByOrganization')
+      ->with(self::ORGANIZATION_ID, null, 30, 0, [ImportKind::from('test_asset')])->willReturn([]);
+    $repository->expects(self::once())->method('countByOrganization')
+      ->with(self::ORGANIZATION_ID, null, [ImportKind::from('test_asset')])->willReturn(0);
+    $registry = new \Import\Application\Service\ImportKindProcessorRegistry([new \Tests\Support\Import\RecordingImportKindProcessor()]);
+
+    $result = new ListImportJobsHandler($repository, $authorization, $registry)(new ListImportJobsQuery(self::USER_ID, self::ORGANIZATION_ID));
+
+    self::assertSame([], $result->items);
+    self::assertSame(0, $result->total);
+  }
+
+  #[Test]
   public function itScopesBothRowsAndTotalsToTheKindsTheMemberCanRead(): void
   {
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
@@ -41,11 +61,11 @@ final class ListImportJobsHandlerTest extends TestCase
     );
     $repository = $this->createMock(ImportJobRepositoryPort::class);
     $repository->expects(self::once())->method('listByOrganization')
-      ->with(self::ORGANIZATION_ID, null, 10, 10, [ImportKind::FACILITY])->willReturn([]);
+      ->with(self::ORGANIZATION_ID, null, 10, 10, [ImportKind::from('facility')])->willReturn([]);
     $repository->expects(self::once())->method('countByOrganization')
-      ->with(self::ORGANIZATION_ID, null, [ImportKind::FACILITY])->willReturn(10);
+      ->with(self::ORGANIZATION_ID, null, [ImportKind::from('facility')])->willReturn(10);
 
-    $result = (new ListImportJobsHandler($repository, $authorization))(
+    $result = (new ListImportJobsHandler($repository, $authorization, \Tests\Support\Import\BuiltinImportProcessors::create()))(
       new ListImportJobsQuery(self::USER_ID, self::ORGANIZATION_ID, page: 2, itemsPerPage: 10),
     );
     self::assertSame(10, $result->total);
@@ -59,7 +79,7 @@ final class ListImportJobsHandlerTest extends TestCase
     $repository->method('listByOrganization')->willReturn([$this->equipmentJob()]);
     $repository->method('countByOrganization')->willReturn(1);
 
-    $handler = new ListImportJobsHandler($repository, $this->memberHolding(true));
+    $handler = new ListImportJobsHandler($repository, $this->memberHolding(true), \Tests\Support\Import\BuiltinImportProcessors::create());
 
     $result = $handler->__invoke(new ListImportJobsQuery(self::USER_ID, self::ORGANIZATION_ID));
 
@@ -83,7 +103,7 @@ final class ListImportJobsHandlerTest extends TestCase
       ->with(self::USER_ID, self::ORGANIZATION_ID, 'organization.equipment.read')
       ->willReturn(OrganizationAccessDecision::GRANTED);
 
-    $handler = new ListImportJobsHandler($repository, $authorization);
+    $handler = new ListImportJobsHandler($repository, $authorization, \Tests\Support\Import\BuiltinImportProcessors::create());
 
     $result = $handler->__invoke(new ListImportJobsQuery(self::USER_ID, self::ORGANIZATION_ID, kind: 'equipment'));
 
@@ -98,7 +118,7 @@ final class ListImportJobsHandlerTest extends TestCase
     $repository->method('listByOrganization')->willReturn([]);
     $repository->method('countByOrganization')->willReturn(0);
 
-    $handler = new ListImportJobsHandler($repository, $this->memberHolding(true));
+    $handler = new ListImportJobsHandler($repository, $this->memberHolding(true), \Tests\Support\Import\BuiltinImportProcessors::create());
 
     $result = $handler->__invoke(new ListImportJobsQuery(
       self::USER_ID,
@@ -118,6 +138,7 @@ final class ListImportJobsHandlerTest extends TestCase
     $handler = new ListImportJobsHandler(
       $this->createStub(ImportJobRepositoryPort::class),
       $this->createStub(OrganizationAuthorizationPort::class),
+      \Tests\Support\Import\BuiltinImportProcessors::create(),
     );
 
     $this->expectException(InvalidValueException::class);
@@ -131,6 +152,7 @@ final class ListImportJobsHandlerTest extends TestCase
     $handler = new ListImportJobsHandler(
       $this->createStub(ImportJobRepositoryPort::class),
       $this->memberHolding(false),
+      \Tests\Support\Import\BuiltinImportProcessors::create(),
     );
 
     $this->expectException(ImportAccessDeniedException::class);
@@ -147,7 +169,7 @@ final class ListImportJobsHandlerTest extends TestCase
     $authorization->method('isMemberOf')->willReturn(false);
     $authorization->expects(self::never())->method('hasPermission');
 
-    $handler = new ListImportJobsHandler($this->createStub(ImportJobRepositoryPort::class), $authorization);
+    $handler = new ListImportJobsHandler($this->createStub(ImportJobRepositoryPort::class), $authorization, \Tests\Support\Import\BuiltinImportProcessors::create());
 
     $this->expectException(ImportJobNotFoundException::class);
     $this->expectExceptionMessage(self::ORGANIZATION_ID);
@@ -161,7 +183,7 @@ final class ListImportJobsHandlerTest extends TestCase
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::OUTSIDE_SCOPE);
 
-    $handler = new ListImportJobsHandler($this->createStub(ImportJobRepositoryPort::class), $authorization);
+    $handler = new ListImportJobsHandler($this->createStub(ImportJobRepositoryPort::class), $authorization, \Tests\Support\Import\BuiltinImportProcessors::create());
 
     $this->expectException(ImportJobNotFoundException::class);
     $this->expectExceptionMessage(self::ORGANIZATION_ID);
@@ -175,7 +197,7 @@ final class ListImportJobsHandlerTest extends TestCase
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::MISSING_PERMISSION);
 
-    $handler = new ListImportJobsHandler($this->createStub(ImportJobRepositoryPort::class), $authorization);
+    $handler = new ListImportJobsHandler($this->createStub(ImportJobRepositoryPort::class), $authorization, \Tests\Support\Import\BuiltinImportProcessors::create());
 
     $this->expectException(ImportAccessDeniedException::class);
     $this->expectExceptionMessage('organization.facilities.read');
@@ -201,7 +223,7 @@ final class ListImportJobsHandlerTest extends TestCase
     return ImportJob::create(
       id: ImportJobId::fromString(self::JOB_ID),
       organizationId: self::ORGANIZATION_ID,
-      kind: ImportKind::EQUIPMENT,
+      kind: ImportKind::from('equipment'),
       storagePath: 'imports/org-1/job.csv',
       originalFilename: 'equipment.csv',
       createdBy: self::USER_ID,

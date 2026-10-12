@@ -9,13 +9,13 @@ use ApiPlatform\State\ProcessorInterface;
 use Auth\Application\Contract\User\AuthenticatedUser;
 use InvalidArgumentException;
 use LogicException;
-use Onboarding\Application\Port\Inbound\Internal\OrganizationOnboardingServicePort;
-use Onboarding\Application\Service\ExecuteOnboardingStepPayload;
+use Onboarding\Application\UseCase\Command\Flow\ExecuteOrganizationOnboardingStep\{ExecuteOrganizationOnboardingStepCommand, ExecuteOrganizationOnboardingStepResult};
 use Onboarding\Presentation\Api\Dto\Input\Onboarding\ExecuteOrganizationOnboardingStepInput;
 use Onboarding\Presentation\Api\Dto\Output\Onboarding\OrganizationOnboardingOutput;
 use Onboarding\Presentation\Api\Mapper\Onboarding\OrganizationOnboardingOutputAssembler;
 use Organization\Application\Contract\Exception\{OrganizationNotFoundException, OrganizationSlugAlreadyExistsException};
 use Shared\Application\Contract\Exception\{MessengerExceptionUnwrapperTrait, MessengerRuntimeException};
+use Shared\Application\Port\Inbound\CommandBusPort;
 use Shared\Domain\Exception\InvalidValueException;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{
@@ -50,13 +50,13 @@ final readonly class ExecuteOrganizationOnboardingStepProcessor implements Proce
    *
    * @access public
    *
-   * @param OrganizationOnboardingServicePort $flowService executes organization onboarding steps
+   * @param CommandBusPort $commandBus owns the durable onboarding transition and result
    * @param Security $security resolves the authenticated user
    *
    * @return void
    */
   public function __construct(
-    private OrganizationOnboardingServicePort $flowService,
+    private CommandBusPort $commandBus,
     private Security $security,
   ) {
   }
@@ -92,16 +92,14 @@ final readonly class ExecuteOrganizationOnboardingStepProcessor implements Proce
       throw new BadRequestHttpException('stepKey URI parameter is required.');
     }
 
-    $payload = new ExecuteOnboardingStepPayload();
-
     try {
-      return OrganizationOnboardingOutputAssembler::fromState(
-        $this->flowService->executeStep(
-          userId: $user->getId(),
-          stepKey: $stepKey,
-          input: $payload,
-        ),
-      );
+      /** @var ExecuteOrganizationOnboardingStepResult $result */
+      $result = $this->commandBus->dispatch(new ExecuteOrganizationOnboardingStepCommand(
+        userId: $user->getId(),
+        stepKey: $stepKey,
+      ));
+
+      return OrganizationOnboardingOutputAssembler::fromState($result->state);
     } catch (OrganizationSlugAlreadyExistsException $exception) {
       throw new ConflictHttpException($exception->getMessage(), $exception);
     } catch (OrganizationNotFoundException $exception) {

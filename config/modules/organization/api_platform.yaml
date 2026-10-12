@@ -1,0 +1,34 @@
+api_platform:
+  mapping:
+    paths:
+      - '%kernel.project_dir%/src/Organization/Presentation/Api/Resource'
+  exception_to_status:
+    Organization\Domain\Exception\OrganizationJoinException: 409
+    Organization\Domain\Exception\OrganizationJoinInputException: 422
+    Organization\Application\Contract\Quota\OrganizationQuotaExceededException: 409
+    Organization\Domain\Exception\OrganizationPlanUsageExceededException: 409
+    Organization\Domain\Exception\DefaultPlanCannotBeDeletedException: 409
+    Organization\Domain\Exception\OrganizationInvitationNotPendingException: 409
+    Organization\Domain\Exception\OrganizationMembershipConflictException: 409
+    Organization\Domain\Exception\OrganizationRoleNameAlreadyExistsException: 409
+    Organization\Domain\Exception\OrganizationSystemRoleImmutableException: 409
+    Organization\Domain\Exception\TeamMembershipException: 409
+    Organization\Domain\Exception\PlanNotAvailableException: 400
+    Organization\Domain\Exception\OrganizationUserNotFoundException: 404
+    Organization\Application\Contract\Exception\OrganizationAccessDeniedException: 403
+    Organization\Domain\Exception\OrganizationArchivedException: 409
+    Organization\Domain\Exception\OrganizationDeletionConfirmationMismatchException: 422
+    Organization\Domain\Exception\OrganizationInvitationNotFoundException: 404
+    Organization\Domain\Exception\OrganizationLastAdminException: 409
+    Organization\Domain\Exception\OrganizationMemberNotInactiveException: 409
+    Organization\Domain\Exception\OrganizationMemberNotFoundException: 404
+    Organization\Application\Contract\Exception\OrganizationNotFoundException: 404
+    Organization\Domain\Exception\OrganizationOwnerCannotLeaveException: 409
+    Organization\Domain\Exception\OrganizationOwnershipUnchangedException: 409
+    Organization\Domain\Exception\OrganizationRoleNotFoundException: 404
+    Organization\Application\Contract\Exception\OrganizationSlugAlreadyExistsException: 409
+    Organization\Domain\Exception\PlanKeyAlreadyExistsException: 409
+    Organization\Domain\Exception\PlanNotFoundException: 404
+    Organization\Domain\Exception\TeamMemberNotFoundException: 404
+    Organization\Domain\Exception\TeamNameAlreadyExistsException: 409
+    Organization\Domain\Exception\TeamNotFoundException: 404

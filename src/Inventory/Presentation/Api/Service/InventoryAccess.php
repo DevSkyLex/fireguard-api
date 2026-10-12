@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Inventory\Presentation\Api\Service;
 
 use Auth\Application\Contract\User\AuthenticatedUser;
+use Inventory\Application\Port\Outbound\InventoryHttpResponseVisibilityPort;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException,BadRequestHttpException,NotFoundHttpException};
@@ -15,7 +16,7 @@ use function preg_match;
 /** Organization scope and dedicated quantity/financial permissions. @category Service */
 final readonly class InventoryAccess
 {
-  public function __construct(private Security $security, private OrganizationAuthorizationPort $authorization)
+  public function __construct(private Security $security, private OrganizationAuthorizationPort $authorization, private ?InventoryHttpResponseVisibilityPort $visibility = null)
   {
   }
 
@@ -51,7 +52,7 @@ final readonly class InventoryAccess
 
   public function financial(string $org): bool
   {
-    return $this->authorization->resolveAccess($this->actor(), $org, 'organization.maintenance_cost.read')->isGranted();
+    return $this->visibility?->financial($org) ?? $this->authorization->resolveAccess($this->actor(), $org, 'organization.maintenance_cost.read')->isGranted();
   }
 
   public function requirePermission(string $org, string $permission): void

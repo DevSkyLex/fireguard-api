@@ -16,6 +16,7 @@ use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Shared\Application\Port\Outbound\EventDispatcherPort;
 
+use function base64_encode;
 use function sprintf;
 
 /**
@@ -109,7 +110,7 @@ final readonly class ExportSafetyRegisterHandler implements CommandHandler
       new DateTimeImmutable()->format('Ymd-His'),
     );
 
-    return new ExportSafetyRegisterResult($pdf, $fileName);
+    return new ExportSafetyRegisterResult(base64_encode($pdf), $fileName);
   }
 
   /**

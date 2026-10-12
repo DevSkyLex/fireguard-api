@@ -841,7 +841,7 @@ Cross-module contracts and lifecycle invariants:
   for reconciliation) is deliberately NOT built — the complete archival guard
   already refuses to archive a facility with active equipment, so there is
   never anything to reconcile. `facility.created` and `facility.updated` are
-  also in Webhook's curated allowlist (`WebhookEventCatalog`,
+  also in Facility's contributed webhook source (`WebhookEventSourcePort`,
   `WebhookEventType`) alongside the pre-existing `facility.archived` /
   `facility.restored` — see `src/Webhook/MODULE.md`.
 - **Subtree duplication and the plan quota**: `DuplicateFacilitySubtreeHandler`
@@ -1023,6 +1023,12 @@ complete immutable Results and perform no reads.
 
 ## Configuration
 
+Facility contributes `create_first_facility` through Onboarding's published
+`OrganizationOnboardingStepContributionPort`, registered with
+`onboarding.organization_step_contribution`. Its pure descriptor preserves the required
+step and advertised creation action; confirmation checks the owning availability port for
+the pinned organization before the onboarding engine records completion.
+
 Uploads use Shared's main `RootTransactionManagerPort`. Cleanup uses its strict
 transactional `FileCleanupPort` and `main_outbox` consumer. Presentation has no entity
 manager bindings; repository/read adapters explicitly name the main manager. Hierarchy
@@ -1179,3 +1185,25 @@ Publication validates attachment kind and ancestry, including a proposed parent 
 ## Flows
 
 Authorized commands enforce hierarchy, organization scope and lifecycle invariants before persistence. Related equipment/intervention operations use their owner-published contracts; geocoding remains a bounded external adapter read.
+
+## Durable HTTP mutation replay
+
+The effectful `facility_export` GET uses the same required `Idempotency-Key`
+protocol. The owner command generates the complete CSV as a typed base64 artifact
+with its original filename and response metadata. The receipt and one export
+audit event commit together on main; rendering failure rolls both back. Parsed
+filters, the import-compatible CSV schema and the 50,000-row cap stay unchanged.
+Replays return the original file for 24 hours after a fresh organization READ
+permission check, without querying later modified facility values.
+
+Every HTTP mutation publishes an explicit module-owned idempotency operation and immutable
+application result schema. The receipt commits with the owning main-database mutation and
+outbox. Media handlers retain their final transaction boundary; upload processing does not
+run under a parent HTTP transaction.
+
+Before any replay result is opened, the owner reads current scalar scope on the explicitly
+selected main connection and checks fresh organization grants. Global resource deletions
+retain signed original organization evidence so a completed deletion can replay after the
+row disappears. Saved response projections preserve the original result rather than reading
+later modified state. Intervention-derived operations also recheck current participation and
+assignment through the published fresh owner capability.

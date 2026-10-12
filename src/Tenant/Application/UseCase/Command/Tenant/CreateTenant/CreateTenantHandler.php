@@ -76,6 +76,7 @@ final readonly class CreateTenantHandler implements CommandHandler
 
     return new CreateTenantResult(
       tenantId: (string) $tenantId,
+      createdAt: $tenant->createdAt(),
     );
   }
   // #endregion

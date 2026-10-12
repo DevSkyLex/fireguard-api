@@ -1,0 +1,18 @@
+framework:
+    messenger:
+        transports:
+            assistant:
+                dsn: 'doctrine://main'
+                options:
+                    queue_name: assistant
+                retry_strategy:
+                    max_retries: 1
+                    delay: 1000
+                    multiplier: 2
+                failure_transport: failed
+
+when@test:
+    framework:
+        messenger:
+            transports:
+                assistant: 'in-memory://'

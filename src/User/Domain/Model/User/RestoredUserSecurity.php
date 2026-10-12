@@ -39,6 +39,7 @@ final readonly class RestoredUserSecurity
     public bool $emailVerified,
     public int $failedLoginAttempts,
     public ?DateTimeImmutable $emailOwnershipVerifiedAt,
+    public int $securityRevision = 1,
   ) {
   }
   // #endregion

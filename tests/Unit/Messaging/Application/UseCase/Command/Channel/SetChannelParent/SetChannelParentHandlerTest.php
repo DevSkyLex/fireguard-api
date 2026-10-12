@@ -89,7 +89,7 @@ final class SetChannelParentHandlerTest extends TestCase
     $subjectThread = Conversation::create(
       ConversationId::fromString(self::CHILD_ID),
       self::ORG_ID,
-      MessagingSubjectType::FACILITY,
+      MessagingSubjectType::from('facility'),
       'facility-1',
     );
 

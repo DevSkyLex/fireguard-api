@@ -55,6 +55,7 @@ final class FakeStripeGatewayAdapter implements StripeGatewayPort
     string $planKey,
     string $successUrl,
     string $cancelUrl,
+    ?string $idempotencyKey = null,
   ): string {
     return 'https://checkout.stripe.test/pay/cs_fake_' . bin2hex(random_bytes(8));
   }
@@ -62,7 +63,7 @@ final class FakeStripeGatewayAdapter implements StripeGatewayPort
   /**
    * {@inheritDoc}
    */
-  public function createBillingPortalSession(string $customerId, string $returnUrl): string
+  public function createBillingPortalSession(string $customerId, string $returnUrl, ?string $idempotencyKey = null): string
   {
     return 'https://billing.stripe.test/session/bps_fake_' . bin2hex(random_bytes(8));
   }
@@ -125,14 +126,14 @@ final class FakeStripeGatewayAdapter implements StripeGatewayPort
   /**
    * {@inheritDoc}
    */
-  public function scheduleCancellation(string $subscriptionId): void
+  public function scheduleCancellation(string $subscriptionId, ?string $idempotencyKey = null): void
   {
   }
 
   /**
    * {@inheritDoc}
    */
-  public function resumeCancellation(string $subscriptionId): void
+  public function resumeCancellation(string $subscriptionId, ?string $idempotencyKey = null): void
   {
   }
 

@@ -1,0 +1,147 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Intervention\Infrastructure\Adapter\Export;
+
+use Intervention\Application\Contract\Export\InterventionExportRow;
+use Intervention\Application\Port\Outbound\InterventionCsvRendererPort;
+use RuntimeException;
+use Shared\Application\Port\Outbound\SpreadsheetSafeTextPort;
+
+use function array_map;
+use function fclose;
+use function fopen;
+use function fputcsv;
+use function rewind;
+use function stream_get_contents;
+
+/**
+ * Service InterventionCsvWriter.
+ *
+ * Writes a list of {@see InterventionExportRow} rows as CSV directly to a
+ * given stream resource, one row at a time — mirrors
+ * `Audit\...\AuditEventCsvWriter`. Every cell, including the resolved
+ * `facility`/`assignee` display names, already exists on the row by the time
+ * it reaches this writer: it formats, it never resolves anything itself.
+ *
+ * @category Service
+ * @version 1.0.0
+ *
+ * @author Valentin FORTIN <contact@valentin-fortin.pro>
+ */
+final readonly class InterventionCsvRendererAdapter implements InterventionCsvRendererPort
+{
+  // #region Constants
+  /**
+   * Constant HEADER.
+   *
+   * @since 1.0.0
+   *
+   * @var list<string>
+   */
+  private const array HEADER = [
+    'id',
+    'name',
+    'type',
+    'status',
+    'priority',
+    'facility',
+    'assignee',
+    'due_at',
+    'created_at',
+    'updated_at',
+    SpreadsheetSafeTextPort::ENCODING_COLUMN,
+  ];
+  // #endregion
+
+  // #region Constructor
+  /**
+   * Constructor
+   *
+   * @param SpreadsheetSafeTextPort $spreadsheetText reversible text-cell encoder
+   */
+  public function __construct(private SpreadsheetSafeTextPort $spreadsheetText)
+  {
+  }
+  // #endregion
+
+  /**
+   * @param list<InterventionExportRow> $rows authorized rows
+   */
+  public function render(array $rows): string
+  {
+    $handle = fopen('php://temp', 'w+b');
+    if (false === $handle) {
+      throw new RuntimeException('Unable to open the export buffer.');
+    }
+
+    try {
+      $this->write($rows, $handle);
+      rewind($handle);
+      $bytes = stream_get_contents($handle);
+      if (false === $bytes) {
+        throw new RuntimeException('Unable to read the export buffer.');
+      }
+
+      return $bytes;
+    } finally {
+      fclose($handle);
+    }
+  }
+
+  // #region Methods
+  /**
+   * Method write.
+   *
+   * Writes the CSV header followed by one row per intervention.
+   *
+   * @since 1.0.0
+   *
+   * @param list<InterventionExportRow> $rows the intervention export rows to write, in caller order
+   * @param resource $handle an open, writable stream resource
+   */
+  public function write(array $rows, $handle): void
+  {
+    fputcsv($handle, self::HEADER, escape: '');
+
+    foreach ($rows as $row) {
+      $cells = array_map($this->spreadsheetText->encode(...), $this->toRow($row));
+      $cells[] = SpreadsheetSafeTextPort::ENCODING_VERSION;
+      fputcsv($handle, $cells, escape: '');
+    }
+  }
+
+  /**
+   * Method toRow.
+   *
+   * Maps a single intervention export row to a CSV row. The `facility` and
+   * `assignee` cells fall back to the raw identifier when the name could not
+   * be resolved (a deleted facility, a member who left the organization), and
+   * to an empty string only when the intervention carries no site/responsible
+   * at all — a name that could not be resolved is not the same as an absent
+   * one.
+   *
+   * @since 1.0.0
+   *
+   * @param InterventionExportRow $row the intervention export row
+   *
+   * @return list<string> the CSV row values
+   */
+  private function toRow(InterventionExportRow $row): array
+  {
+    return [
+      $row->id,
+      $row->name,
+      $row->type,
+      $row->status,
+      $row->priority,
+      $row->siteName ?? $row->siteId ?? '',
+      $row->responsibleName ?? $row->responsibleId ?? '',
+      $row->dueAt ?? '',
+      $row->createdAt,
+      $row->updatedAt,
+    ];
+  }
+  // #endregion
+}

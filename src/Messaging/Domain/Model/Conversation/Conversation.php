@@ -161,7 +161,7 @@ final class Conversation
     return new self(
       id: $id,
       organizationId: $organizationId,
-      subjectType: MessagingSubjectType::CHANNEL,
+      subjectType: MessagingSubjectType::from(MessagingSubjectType::CHANNEL),
       subjectId: null,
       visibility: ConversationVisibility::PARTICIPANTS,
       lastMessageAt: null,

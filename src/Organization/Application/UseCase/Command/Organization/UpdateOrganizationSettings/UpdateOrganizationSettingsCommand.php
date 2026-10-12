@@ -50,6 +50,7 @@ final readonly class UpdateOrganizationSettingsCommand implements CommandMessage
    * @param ?string $vatNumber the new VAT number (empty clears it), or null to leave unchanged
    * @param ?array<string, ?string> $registeredAddress the whole replacement address (empty clears it), or null to leave unchanged
    * @param ?string $privacyContactEmail the privacy contact (empty clears it), or null to leave unchanged
+   * @param ?array<string, array<string, mixed>> $policySections partial owner-registered policy sections for programmatic callers
    */
   public function __construct(
     public string $organizationId,
@@ -72,6 +73,7 @@ final readonly class UpdateOrganizationSettingsCommand implements CommandMessage
     public ?array $registeredAddress = null,
     public ?string $privacyContactEmail = null,
     public ?string $operatingProfile = null,
+    public ?array $policySections = null,
   ) {
   }
   // #endregion

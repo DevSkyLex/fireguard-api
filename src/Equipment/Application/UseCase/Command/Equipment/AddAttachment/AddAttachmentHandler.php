@@ -14,6 +14,7 @@ use Intervention\Application\Port\Inbound\InterventionResourcesPort;
 use Shared\Application\Contract\Transaction\CommitOutcomeUnknownException;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\{FileCleanupPort, FileStoragePort, LoggerPort, RootTransactionManagerPort};
+use Shared\Application\Port\Outbound\Idempotency\HttpIdempotencyExecutionPort;
 use Shared\Application\Port\Outbound\UuidGeneratorPort;
 use Shared\Domain\Attachment\AttachmentConstraints;
 use Throwable;
@@ -48,6 +49,7 @@ final readonly class AddAttachmentHandler implements CommandHandler
     private InterventionResourcesPort $interventions,
     private FileCleanupPort $cleanup,
     private LoggerPort $logger,
+    private ?HttpIdempotencyExecutionPort $idempotency = null,
   ) {
   }
   // #endregion
@@ -63,7 +65,10 @@ final readonly class AddAttachmentHandler implements CommandHandler
 
     try {
       return $this->transactions->transactional(function () use ($command, &$attemptPath): AddAttachmentResult {
-        return $this->upload($command, $attemptPath);
+        $result = $this->upload($command, $attemptPath);
+        $this->idempotency?->captureResult($result);
+
+        return $result;
       });
     } catch (Throwable $failure) {
       /** @var string|null $attemptPath the callback retains its written key even when the transaction throws */
@@ -98,6 +103,9 @@ final readonly class AddAttachmentHandler implements CommandHandler
       }
 
       return $this->result($existing);
+    }
+    if ($command->acknowledgementOnly) {
+      throw AttachmentNotFoundException::withId((string) $attachmentId);
     }
     AttachmentConstraints::validateCount($this->attachmentRepository->countByEquipmentId($equipmentId));
     $attemptPath = sprintf('equipment/%s/attachments/%s/%s_%s', $command->equipmentId, (string) $attachmentId, $this->uuidFactory->generate(), basename($command->fileName));

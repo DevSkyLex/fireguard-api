@@ -5,13 +5,18 @@ declare(strict_types=1);
 namespace Tests\Functional\Api;
 
 use Auth\Infrastructure\Security\User\SecurityUser;
+use DAMA\DoctrineTestBundle\PHPUnit\SkipDatabaseRollback;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Inspection\Infrastructure\Persistence\Doctrine\Record\{InspectionRecord, NonConformityRecord};
+use LogicException;
 use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationMemberRecord, OrganizationMemberRoleRecord, OrganizationRecord, OrganizationRoleRecord, PlanRecord};
 use PHPUnit\Framework\Attributes\Test;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Tests\Support\Auth\InteractiveTokenFactory;
+use Tests\Support\Database\RootCommitDatabaseIsolationTrait;
+use User\Infrastructure\Persistence\Doctrine\Record\UserRecord;
 
 use function str_starts_with;
 
@@ -33,8 +38,11 @@ use function str_starts_with;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
+#[SkipDatabaseRollback]
 final class NonConformityReportExportApiTest extends WebTestCase
 {
+  use RootCommitDatabaseIsolationTrait;
+
   private const string DUMMY_UUID = '550e8400-e29b-41d4-a716-446655440000';
 
   private const string ORGANIZATION_ID = '550e8400-e29b-41d4-a716-446655540001';
@@ -59,6 +67,7 @@ final class NonConformityReportExportApiTest extends WebTestCase
   public function testExportNonConformityReportRequiresAuthentication(): void
   {
     $client = static::createClient();
+    $client->disableReboot();
 
     $client->request('GET', '/api/organizations/' . self::DUMMY_UUID . '/non-conformities/report');
 
@@ -81,6 +90,7 @@ final class NonConformityReportExportApiTest extends WebTestCase
   public function testExportNonConformityReportSucceedsAndStreamsAPdf(): void
   {
     $client = static::createClient();
+    $client->disableReboot();
     $this->seedOrganization(planKey: 'pro');
     $this->seedNonConformity();
 
@@ -105,6 +115,7 @@ final class NonConformityReportExportApiTest extends WebTestCase
   public function testExportNonConformityReportAcceptsTheCsvExportFilters(): void
   {
     $client = static::createClient();
+    $client->disableReboot();
     $this->seedOrganization(planKey: 'pro');
     $this->seedNonConformity();
 
@@ -119,6 +130,7 @@ final class NonConformityReportExportApiTest extends WebTestCase
   public function testExportNonConformityReportRejectsAnInvalidSeverityFilter(): void
   {
     $client = static::createClient();
+    $client->disableReboot();
     $this->seedOrganization(planKey: 'pro');
 
     $this->loginAs($client, self::ADMIN_USER_ID, 'nc-report-admin@example.com');
@@ -132,6 +144,7 @@ final class NonConformityReportExportApiTest extends WebTestCase
   public function testExportNonConformityReportRejectsMemberWithoutReadPermission(): void
   {
     $client = static::createClient();
+    $client->disableReboot();
     $this->seedOrganization(planKey: 'pro');
 
     $this->loginAs($client, self::PLAIN_MEMBER_USER_ID, 'nc-report-plain@example.com');
@@ -149,6 +162,7 @@ final class NonConformityReportExportApiTest extends WebTestCase
   public function testExportNonConformityReportReturns404ForACallerFromAnotherOrganization(): void
   {
     $client = static::createClient();
+    $client->disableReboot();
     $this->seedOrganization(planKey: 'pro');
 
     $this->loginAs($client, self::OUTSIDER_USER_ID, 'nc-report-outsider@example.com');
@@ -166,6 +180,7 @@ final class NonConformityReportExportApiTest extends WebTestCase
   public function testExportNonConformityReportRejectsANonEntitledPlanWith403(): void
   {
     $client = static::createClient();
+    $client->disableReboot();
     $this->seedOrganization(planKey: 'nc-report-basic-test');
 
     $this->loginAs($client, self::ADMIN_USER_ID, 'nc-report-admin@example.com');
@@ -192,7 +207,7 @@ final class NonConformityReportExportApiTest extends WebTestCase
       password: 'hashed-password',
       roles: ['ROLE_USER'],
     );
-    $client->loginUser($user, 'api');
+    $this->authenticateExport($client, $user);
   }
 
   /**
@@ -382,5 +397,28 @@ final class NonConformityReportExportApiTest extends WebTestCase
     $entityManager->persist($nonConformity);
 
     $entityManager->flush();
+  }
+
+  private function authenticateExport(KernelBrowser $client, SecurityUser $identity): void
+  {
+    $auth = self::getContainer()->get('doctrine.orm.auth_entity_manager');
+    self::assertInstanceOf(EntityManagerInterface::class, $auth);
+    $user = new UserRecord();
+    $user->id = $identity->getId();
+    $user->username = 'export-' . $identity->getId();
+    $user->email = $identity->getUserIdentifier();
+    $user->firstName = 'Export';
+    $user->lastName = 'Contract';
+    $user->status = 'active';
+    $user->emailVerified = true;
+    $user->emailOwnershipVerifiedAt = new DateTimeImmutable();
+    $user->createdAt = new DateTimeImmutable();
+    $auth->persist($user);
+    $auth->flush();
+    $actorId = $user->id;
+    if ('' === $actorId) {
+      throw new LogicException('An export fixture account must have an identifier.');
+    }
+    $client->setServerParameter('HTTP_AUTHORIZATION', 'Bearer ' . InteractiveTokenFactory::issue(self::getContainer(), $actorId, $user->email));
   }
 }

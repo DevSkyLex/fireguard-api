@@ -48,8 +48,8 @@ interface OrganizationQuotaLockPort
    * @since 1.0.0
    *
    * @param string $organizationId the organization identifier
-   * @param OrganizationQuotaResource $resource the capped resource being guarded
+   * @param OrganizationQuotaResource|string $resource the capped resource being guarded
    */
-  public function acquire(string $organizationId, OrganizationQuotaResource $resource): void;
+  public function acquire(string $organizationId, OrganizationQuotaResource|string $resource): void;
   // #endregion
 }

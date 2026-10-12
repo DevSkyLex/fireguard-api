@@ -70,6 +70,8 @@ maps customer exceptions centrally to RFC 7807 responses.
 
 ## Configuration
 
+HTTP mutations require `Idempotency-Key`. The Customer contribution declares exact command/result classes and the immutable `CustomerView` graph; the first customer identifier is retained in signed receipt scope. Before decoding a receipt, the owner gate reads the current `customers` organization through scalar SQL and rechecks current active membership and `organization.customers.manage`. A moved or missing target remains hidden through the existing customer-not-found contract. The owning adapters are tagged for Shared's HTTP driver and use the explicitly wired main connection.
+
 Maintenance exports validate retained customer identities through the owner-hosted
 `MaintenanceExportCustomerIdentityAdapter`, explicitly wired to main and tagged
 `maintenance_export.identity_validator`. Archived customers remain valid historical

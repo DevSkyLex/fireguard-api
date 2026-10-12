@@ -1,0 +1,16 @@
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: false
+
+  Facility\Infrastructure\DataFixtures\FacilityFixtures: ~
+
+  app.seed.facility:
+    class: Shared\Infrastructure\DataFixtures\SeedFixtureAdapter
+    arguments:
+      $fixture: '@Facility\Infrastructure\DataFixtures\FacilityFixtures'
+      $manager: '@doctrine.orm.main_entity_manager'
+      $seedKey: 'facility'
+      $prerequisites: ['organization']
+    tags:
+      - { name: 'app.seed_fixture.main' }

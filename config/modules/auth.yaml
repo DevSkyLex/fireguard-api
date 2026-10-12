@@ -1,3 +1,7 @@
+imports:
+  - { resource: 'auth/doctrine.yaml' }
+  - { resource: 'auth/api_platform.yaml' }
+
 services:
   _defaults:
     autowire: true
@@ -28,7 +32,7 @@ services:
     alias: TrustedDevice\Infrastructure\Adapter\Auth\TrustedDeviceCheckAdapter
 
   Auth\Application\Port\Outbound\Federation\FederatedProviderClientPort:
-    alias: Auth\Infrastructure\Adapter\Federation\LeagueFederatedProviderAdapter
+    alias: Auth\Infrastructure\Adapter\Federation\ConfiguredFederatedProviderRegistryAdapter
 
   Auth\Application\Port\Outbound\Federation\FederatedIdentityRepositoryPort:
     alias: Auth\Infrastructure\Persistence\Doctrine\Repository\FederatedIdentityRepository
@@ -62,7 +66,8 @@ services:
     class: Shared\Infrastructure\Symfony\Adapter\Outbound\DoctrineTransactionManagerAdapter
     arguments:
       $entityManager: '@doctrine.orm.auth_entity_manager'
-
+      $database: auth
+      $idempotency: '@Shared\Infrastructure\Idempotency\HttpIdempotencyExecutionContext'
   # JWT Token Adapter (uses #[Autowire] attributes)
   Auth\Infrastructure\Adapter\Jwt\JwtTokenAdapter: ~
 
@@ -73,10 +78,9 @@ services:
 
   Auth\Application\Service\Federation\SessionIssuer:
     arguments:
-      $mfaEnabled: '%env(bool:MFA_ENABLED)%'
   Auth\Application\Service\Federation\FederatedAuthenticationService:
     arguments:
-      $transaction: '@auth.federated_transaction_manager'
+      $transaction: '@shared.auth_root_transaction'
       $frontendUrl: '%env(APP_FRONTEND_URL)%'
   Auth\Application\Service\Federation\InitialPasswordService: ~
 
@@ -90,7 +94,8 @@ services:
   Auth\Application\UseCase\Command\Mfa\MfaVerify\MfaVerifyHandler:
     tags: ['messenger.message_handler']
 
-  Auth\Application\UseCase\Command\Mfa\MfaResend\MfaResendHandler: ~
+  Auth\Application\UseCase\Command\Mfa\MfaResend\MfaResendHandler:
+    tags: ['messenger.message_handler']
 
   Auth\Application\UseCase\Command\PasswordReset\RequestPasswordReset\RequestPasswordResetHandler:
     tags: ['messenger.message_handler']
@@ -128,8 +133,13 @@ services:
   Auth\Presentation\Api\Processor\Auth\LoginProcessor: ~
   Auth\Presentation\Api\Processor\Auth\RefreshTokenProcessor: ~
   Auth\Presentation\Api\Processor\Auth\LogoutProcessor: ~
-  Auth\Presentation\Api\Processor\Auth\MfaVerifyProcessor: ~
-  Auth\Presentation\Api\Processor\Auth\MfaResendProcessor: ~
+  Auth\Presentation\Api\Processor\Auth\MfaVerifyProcessor:
+    arguments:
+      $commandBus: '@Shared\Application\Port\Inbound\CommandBusPort'
+      $tokens: '@Auth\Application\Port\Outbound\JwtTokenServicePort'
+  Auth\Presentation\Api\Processor\Auth\MfaResendProcessor:
+    arguments:
+      $commandBus: '@Shared\Application\Port\Inbound\CommandBusPort'
 
   Auth\Presentation\Api\Provider\Federation\FederatedProvidersProvider: ~
   Auth\Presentation\Api\Provider\Federation\FederatedConnectionsProvider: ~
@@ -219,3 +229,92 @@ services:
 
   Auth\Application\Port\Outbound\SecurityLogSanitizerPort:
     alias: Auth\Infrastructure\Logging\SecurityLogSanitizer
+
+  Auth\Infrastructure\Adapter\Event\IntegrationEventConverterAdapter: ~
+
+  Shared\Application\Port\Outbound\CurrentActorPort: '@Auth\Infrastructure\Adapter\Shared\CurrentActorAdapter'
+
+  Shared\Application\Port\Outbound\RateLimiterPort: '@Auth\Infrastructure\Adapter\RateLimiter\LoginRateLimiterAdapter'
+
+  # MFA Port/Adapter Configuration
+  Auth\Application\Port\Outbound\Internal\Mfa\ChallengeGeneratorPort:
+    class: Auth\Infrastructure\Adapter\Mfa\OtpModuleChallengeGeneratorAdapter
+
+  Auth\Application\Port\Outbound\Internal\Mfa\ChallengeVerifierPort:
+    class: Auth\Infrastructure\Adapter\Mfa\OtpModuleChallengeVerifierAdapter
+
+  Auth\Infrastructure\Adapter\Audit\AuditRecordEventAdapter: ~
+
+
+  Auth\Application\UseCase\Query\Password\GetPasswordPolicy\GetPasswordPolicyHandler:
+    tags: [messenger.message_handler]
+  Auth\Presentation\Api\Provider\Password\PasswordPolicyProvider: ~
+  Auth\Presentation\Api\Validator\ConfiguredPassword\ConfiguredPasswordValidator: ~
+
+  Auth\Application\Port\Outbound\AuthenticationPolicyPort: '@Auth\Infrastructure\Adapter\Policy\ConfiguredAuthenticationPolicyAdapter'
+  Auth\Infrastructure\Adapter\Policy\ConfiguredAuthenticationPolicyAdapter:
+    arguments:
+      $signupEnabled: '%authentication_policy.signup_enabled%'
+      $emailVerificationRequired: '%authentication_policy.email_verification_required%'
+      $mfaRequired: '%env(bool:MFA_ENABLED)%'
+      $trustedDeviceMfaBypassEnabled: '%authentication_policy.trusted_device_mfa_bypass_enabled%'
+      $federatedProvisioningEnabled: '%authentication_policy.federated_provisioning_enabled%'
+
+
+  Auth\Infrastructure\Adapter\Federation\ConfiguredFederatedProviderRegistryAdapter: ~
+  Auth\Infrastructure\Adapter\Federation\GenericOidcProviderAdapter:
+    arguments:
+      $providers: '%auth.federated_oidc_providers%'
+
+  Auth\Infrastructure\Adapter\Idempotency\LoginIdempotencyProofAdapter:
+    tags: [shared.sensitive_idempotency_proof]
+  Auth\Infrastructure\Adapter\Idempotency\RefreshIdempotencyProofAdapter:
+    tags: [shared.sensitive_idempotency_proof]
+  Auth\Application\UseCase\Command\Session\RefreshToken\RefreshTokenHandler:
+    tags: [messenger.message_handler]
+
+  Auth\Infrastructure\Adapter\Idempotency\FederatedProofRetentionAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.auth_entity_manager'
+    tags: [shared.http_idempotency_retention_contribution]
+
+
+  Auth\Infrastructure\Adapter\Idempotency\FederatedIdempotencyProofAdapter:
+    tags: [shared.sensitive_idempotency_proof]
+
+  Auth\Infrastructure\Adapter\Idempotency\MfaIdempotencyProofAdapter:
+    tags: [shared.sensitive_idempotency_proof]
+
+  Auth\Infrastructure\Adapter\Idempotency\AuthHttpIdempotencyOperationContributionAdapter:
+    tags: [http.idempotency_operation]
+
+  Shared\Application\Port\Outbound\Idempotency\HttpIdempotencyPrincipalPort: '@Auth\Infrastructure\Adapter\Idempotency\HttpIdempotencyPrincipalAdapter'
+  Auth\Infrastructure\Adapter\Idempotency\HttpIdempotencyPrincipalAdapter: ~
+
+  Auth\Infrastructure\Adapter\Idempotency\AuthCredentialHttpIdempotencyOperationContributionAdapter:
+    tags: [http.idempotency_operation]
+
+  Auth\Application\Port\Outbound\Federation\FederatedBrowserBindingPort: '@Auth\Infrastructure\Adapter\Federation\SignedFederatedBrowserBindingAdapter'
+  Auth\Infrastructure\Adapter\Federation\SignedFederatedBrowserBindingAdapter: ~
+  Auth\Application\Port\Outbound\Federation\FederatedStartFlowProofPort: '@Auth\Infrastructure\Adapter\Idempotency\FederatedStartFlowProofAdapter'
+  Auth\Infrastructure\Adapter\Idempotency\FederatedStartFlowProofAdapter:
+    arguments:
+      $connection: '@doctrine.dbal.auth_connection'
+  Auth\Infrastructure\Adapter\Idempotency\FederatedStartIdempotencyProofAdapter:
+    tags: [shared.sensitive_idempotency_proof]
+  Auth\Infrastructure\Adapter\Idempotency\FederatedStartHttpIdempotencyOperationContributionAdapter:
+    tags: [http.idempotency_operation]
+
+  Auth\Infrastructure\Adapter\Idempotency\SessionMutationIdempotencyProofAdapter:
+    tags: [shared.sensitive_idempotency_proof]
+
+  Auth\Infrastructure\Adapter\Idempotency\CredentialLifecycleIdempotencyProofAdapter:
+    tags: [shared.sensitive_idempotency_proof]
+
+  Auth\Infrastructure\Adapter\Idempotency\EvidenceHttpRoleAuthorizationCheckerAdapter:
+    decorates: security.authorization_checker
+    arguments:
+      $inner: '@Auth\Infrastructure\Adapter\Idempotency\EvidenceHttpRoleAuthorizationCheckerAdapter.inner'
+
+  Auth\Application\Port\Outbound\SessionAuthorizationProofPort: '@Auth\Infrastructure\Adapter\Idempotency\SessionAuthorizationProofAdapter'
+  Auth\Infrastructure\Adapter\Idempotency\SessionAuthorizationProofAdapter: ~

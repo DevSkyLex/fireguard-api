@@ -6,7 +6,7 @@ namespace Organization\Application\Service;
 
 use Organization\Application\Contract\Authorization\{OrganizationAccessDecision, OrganizationPermissionCatalog};
 use Organization\Application\Contract\Exception\OrganizationAccessDeniedException;
-use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
+use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationPermissionCatalogPort};
 use Organization\Application\Port\Outbound\Internal\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort};
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationStatus};
 
@@ -69,6 +69,7 @@ final class OrganizationAuthorizationService implements OrganizationAuthorizatio
   public function __construct(
     private readonly OrganizationMemberRepositoryPort $memberRepository,
     private readonly OrganizationRepositoryPort $organizationRepository,
+    private readonly OrganizationPermissionCatalogPort $permissionCatalog,
     private readonly ?OrganizationCacheInvalidator $cacheInvalidator = null,
   ) {
   }
@@ -90,6 +91,10 @@ final class OrganizationAuthorizationService implements OrganizationAuthorizatio
    */
   public function hasPermission(string $userId, string $organizationId, string $permission): bool
   {
+    $permission = $this->permissionCatalog->canonicalName($permission);
+    if (null === $permission) {
+      return false;
+    }
     if (!$this->isPermissionExercisable($organizationId, $permission)) {
       return false;
     }
@@ -201,6 +206,7 @@ final class OrganizationAuthorizationService implements OrganizationAuthorizatio
   {
     $grantedPermissions = $this->getUserPermissions($userId, $organizationId);
     foreach ($permissions as $permission) {
+      $permission = $this->permissionCatalog->canonicalName($permission) ?? $permission;
       if (!$this->isPermissionExercisable($organizationId, $permission)) {
         throw OrganizationAccessDeniedException::organizationSuspended(
           $permission,
@@ -286,6 +292,9 @@ final class OrganizationAuthorizationService implements OrganizationAuthorizatio
    */
   private function isPermissionExercisable(string $organizationId, string $permission): bool
   {
+    if (!$this->permissionCatalog->contains($permission)) {
+      return false;
+    }
     // Ordered so a plain read never pays for the status lookup.
     if (OrganizationPermissionCatalog::isRead($permission)) {
       return true;
@@ -347,6 +356,7 @@ final class OrganizationAuthorizationService implements OrganizationAuthorizatio
    */
   private function permissionMatches(string $granted, string $required): bool
   {
+    $granted = $this->permissionCatalog->canonicalName($granted) ?? $granted;
     if ('' === $granted || '' === $required) {
       return false;
     }

@@ -8,6 +8,7 @@ use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
 use Shared\Application\Contract\Transaction\{CommitOutcomeUnknownException, TransactionAlreadyActiveException};
 use Shared\Application\Port\Outbound\RootTransactionManagerPort;
+use Shared\Infrastructure\Idempotency\HttpIdempotencyExecutionContext;
 use Shared\Infrastructure\Persistence\DatabaseFailureTranslator;
 use Throwable;
 
@@ -31,11 +32,17 @@ final readonly class RootTransactionManagerAdapter implements RootTransactionMan
    *
    * @param Connection $connection the explicitly wired owning connection
    * @param ?EntityManagerInterface $entityManager its persistence context to clear after a failed transaction
+   * @param HttpIdempotencyExecutionContext|null $idempotency the current authorized HTTP transaction hooks
+   * @param string $database the explicitly declared owning database when HTTP hooks are wired
    *
    * @return void
    */
-  public function __construct(private Connection $connection, private ?EntityManagerInterface $entityManager = null)
-  {
+  public function __construct(
+    private Connection $connection,
+    private ?EntityManagerInterface $entityManager = null,
+    private ?HttpIdempotencyExecutionContext $idempotency = null,
+    private string $database = '',
+  ) {
   }
   // #endregion
 
@@ -72,21 +79,46 @@ final readonly class RootTransactionManagerAdapter implements RootTransactionMan
   public function transactional(callable $operation): mixed
   {
     $this->assertCanStart();
+    $tracked = $this->idempotency?->activeFor($this->database) ?? false;
     $this->connection->beginTransaction();
 
     try {
+      if ($tracked) {
+        $this->idempotency?->claimWithinTransaction($this->database);
+      }
       $result = $operation();
+      if ($tracked) {
+        $this->idempotency?->beforeCommit($this->database, $result);
+      }
     } catch (Throwable $failure) {
       try {
         $this->connection->rollBack();
       } catch (Throwable $rollbackFailure) {
         $this->connection->close();
-        $this->clearPersistenceState($failure, $rollbackFailure);
+
+        try {
+          $this->clearPersistenceState($failure, $rollbackFailure);
+        } finally {
+          if ($tracked) {
+            $this->markUnknown();
+          }
+        }
 
         throw new CommitOutcomeUnknownException($failure, $rollbackFailure);
       }
 
-      $this->clearPersistenceState($failure);
+      try {
+        $this->clearPersistenceState($failure);
+        if ($tracked) {
+          $this->idempotency?->confirmedRollback($this->database);
+        }
+      } catch (Throwable $resetFailure) {
+        if ($tracked) {
+          $this->markUnknown();
+        }
+
+        throw $resetFailure;
+      }
 
       throw DatabaseFailureTranslator::translate($failure);
     }
@@ -95,9 +127,19 @@ final readonly class RootTransactionManagerAdapter implements RootTransactionMan
       $this->connection->commit();
     } catch (Throwable $failure) {
       $this->connection->close();
-      $this->clearPersistenceState($failure);
+
+      try {
+        $this->clearPersistenceState($failure);
+      } finally {
+        if ($tracked) {
+          $this->markUnknown();
+        }
+      }
 
       throw new CommitOutcomeUnknownException($failure);
+    }
+    if ($tracked) {
+      $this->idempotency?->committed($this->database);
     }
 
     return $result;
@@ -121,6 +163,25 @@ final readonly class RootTransactionManagerAdapter implements RootTransactionMan
       $this->entityManager?->clear();
     } catch (Throwable $resetFailure) {
       throw new CommitOutcomeUnknownException($failure, $rollbackFailure, $resetFailure);
+    }
+  }
+
+  /**
+   * Method markUnknown
+   *
+   * Preserves the primary uncertainty failure if the independent receipt connection is also unavailable.
+   * The durable writing fence still prohibits automatic takeover.
+   *
+   * @access private
+   *
+   * @return void
+   */
+  private function markUnknown(): void
+  {
+    try {
+      $this->idempotency?->commitUnknown($this->database);
+    } catch (Throwable) {
+      // A failed acknowledgement cannot make the receipt safe to retry.
     }
   }
   // #endregion

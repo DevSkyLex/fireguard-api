@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Auth\Application\Port\Outbound\Federation;
 
 use Auth\Application\Contract\Federation\{FederatedAuthorization, FederatedProfile};
-use Auth\Application\Contract\Federation\FederatedProvider;
+use Auth\Application\Contract\Federation\{FederatedProviderDescriptor, ProviderId};
 
 /**
  * Interface FederatedProviderClientPort.
@@ -21,17 +21,26 @@ interface FederatedProviderClientPort
 {
   // #region Methods
   /**
+   * Method descriptors
+   *
+   * @access public
+   *
+   * @return list<FederatedProviderDescriptor> configured safe provider metadata
+   */
+  public function descriptors(): array;
+
+  /**
    * Method isEnabled
    *
    * Reports whether enabled the requested condition.
    *
    * @access public
    *
-   * @param FederatedProvider $provider the provider
+   * @param ProviderId $provider the provider
    *
    * @return bool
    */
-  public function isEnabled(FederatedProvider $provider): bool;
+  public function isEnabled(ProviderId $provider): bool;
 
   /**
    * Method start
@@ -40,14 +49,14 @@ interface FederatedProviderClientPort
    *
    * @access public
    *
-   * @param FederatedProvider $provider the provider
+   * @param ProviderId $provider the provider
    * @param string $redirectUri the redirect uri
    * @param string $state the state
    *
    * @return FederatedAuthorization
    */
   public function start(
-    FederatedProvider $provider,
+    ProviderId $provider,
     string $redirectUri,
     string $state,
   ): FederatedAuthorization;
@@ -59,7 +68,7 @@ interface FederatedProviderClientPort
    *
    * @access public
    *
-   * @param FederatedProvider $provider the provider
+   * @param ProviderId $provider the provider
    * @param string $redirectUri the redirect uri
    * @param string $code the submitted code
    * @param string $codeVerifier the code verifier
@@ -67,10 +76,11 @@ interface FederatedProviderClientPort
    * @return FederatedProfile
    */
   public function complete(
-    FederatedProvider $provider,
+    ProviderId $provider,
     string $redirectUri,
     string $code,
     string $codeVerifier,
+    ?string $nonceHash = null,
   ): FederatedProfile;
   // #endregion
 }

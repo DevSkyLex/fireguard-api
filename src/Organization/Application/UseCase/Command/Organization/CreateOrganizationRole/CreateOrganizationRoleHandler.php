@@ -6,6 +6,7 @@ namespace Organization\Application\UseCase\Command\Organization\CreateOrganizati
 
 use Organization\Application\Contract\Event\Role\OrganizationRoleCreatedEvent;
 use Organization\Application\Contract\Exception\OrganizationNotFoundException;
+use Organization\Application\Port\Inbound\OrganizationPermissionCatalogPort;
 use Organization\Application\Port\Outbound\Internal\{OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
 use Organization\Domain\Exception\OrganizationRoleNameAlreadyExistsException;
 use Organization\Domain\Model\OrganizationRole\OrganizationRole;
@@ -47,6 +48,7 @@ final readonly class CreateOrganizationRoleHandler implements CommandHandler
     private OrganizationRoleRepositoryPort $roleRepository,
     private UuidGeneratorPort $uuidFactory,
     private EventDispatcherPort $eventDispatcher,
+    private OrganizationPermissionCatalogPort $permissionCatalog,
   ) {
   }
   // #endregion
@@ -79,6 +81,7 @@ final readonly class CreateOrganizationRoleHandler implements CommandHandler
 
     /** @var list<string> $permissions */
     $permissions = array_values(array_unique($command->permissions));
+    $this->permissionCatalog->assertKnown($permissions);
 
     if (0 === count($permissions)) {
       throw InvalidValueException::because('At least one permission is required.');

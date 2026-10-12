@@ -29,7 +29,7 @@ final class ConversationOutputFactoryTest extends TestCase
   #[Test]
   public function testFromViewExposesTheParentChannelIdentifier(): void
   {
-    $output = new ConversationOutputFactory()->fromView($this->channelView(self::PARENT_ID));
+    $output = new ConversationOutputFactory(\Tests\Support\Messaging\MessagingSubjectCatalog::create())->fromView($this->channelView(self::PARENT_ID));
 
     self::assertTrue($output->isChannel);
     self::assertSame(self::PARENT_ID, $output->parentConversationId);
@@ -38,9 +38,32 @@ final class ConversationOutputFactoryTest extends TestCase
   #[Test]
   public function testFromViewLeavesRootChannelsWithoutParent(): void
   {
-    $output = new ConversationOutputFactory()->fromView($this->channelView(null));
+    $output = new ConversationOutputFactory(\Tests\Support\Messaging\MessagingSubjectCatalog::create())->fromView($this->channelView(null));
 
     self::assertNull($output->parentConversationId);
+  }
+
+  #[Test]
+  public function testHistoricalUnloadedSubjectRetainsItsRawTypeAndSafeFallbackLink(): void
+  {
+    $now = new DateTimeImmutable('2026-01-01T00:00:00+00:00');
+    $view = new ConversationView(self::CONVERSATION_ID, self::ORGANIZATION_ID, 'retired_owner', 'subject-1', 'subject', null, 0, false, $now, $now);
+    $mapper = new ConversationOutputFactory(new \Messaging\Application\Service\MessagingSubjectResolverRegistry([]));
+    $output = $mapper->fromView($view);
+
+    self::assertSame('retired_owner', $output->subjectType);
+    self::assertSame('/api/retired_owner/subject-1', $output->subject);
+  }
+
+  #[Test]
+  public function testRegisteredMetadataPreservesTheHistoricalResourceLinks(): void
+  {
+    $mapper = new ConversationOutputFactory(\Tests\Support\Messaging\MessagingSubjectCatalog::create());
+
+    self::assertSame('facilities', $mapper->subjectResourceSegment('facility'));
+    self::assertSame('equipment', $mapper->subjectResourceSegment('equipment'));
+    self::assertSame('interventions', $mapper->subjectResourceSegment('intervention'));
+    self::assertSame('non-conformities', $mapper->subjectResourceSegment('non_conformity'));
   }
 
   /**

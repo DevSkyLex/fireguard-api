@@ -52,6 +52,12 @@ final readonly class ListInventoryHandler implements QueryHandler
    */
   private function validateFilters(ListInventoryQuery $query): void
   {
+    if (isset($query->filters['clientOperationId'])) {
+      if ('consumptions' !== $query->type) {
+        throw new InvalidArgumentException('clientOperationId is only supported for consumptions.');
+      }
+      Uuid::assertValid($query->filters['clientOperationId']);
+    }
     if (isset($query->filters['archived']) && !in_array($query->filters['archived'], ['true', 'false'], true)) {
       throw new InvalidArgumentException('archived must be true or false.');
     }

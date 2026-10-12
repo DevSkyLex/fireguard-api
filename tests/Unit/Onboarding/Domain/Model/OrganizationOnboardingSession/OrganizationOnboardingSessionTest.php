@@ -60,8 +60,8 @@ final class OrganizationOnboardingSessionTest extends TestCase
         targetOrganizationName: null,
       ),
       history: new RestoredOnboardingHistory(
-        completedSteps: [OrganizationOnboardingStep::CREATE_ORGANIZATION, 'invalid_step'],
-        skippedSteps: ['also_invalid', OrganizationOnboardingStep::INVITE_MEMBERS],
+        completedSteps: [OrganizationOnboardingStep::CREATE_ORGANIZATION, 'invalid step'],
+        skippedSteps: ['also invalid', OrganizationOnboardingStep::INVITE_MEMBERS],
         rollbackStack: [],
         stepHistory: [],
       ),
@@ -161,7 +161,7 @@ final class OrganizationOnboardingSessionTest extends TestCase
       userId: '550e8400-e29b-41d4-a716-550000000002',
     );
 
-    $session->markStepCompleted('not_a_valid_step');
+    $session->markStepCompleted('not a valid step');
 
     self::assertSame([], $session->completedSteps());
     self::assertSame([], $session->stepHistory());
@@ -245,7 +245,7 @@ final class OrganizationOnboardingSessionTest extends TestCase
       userId: '550e8400-e29b-41d4-a716-550000000002',
     );
 
-    $session->markStepSkipped('not_a_valid_step');
+    $session->markStepSkipped('not a valid step');
 
     self::assertSame([], $session->skippedSteps());
     self::assertSame([], $session->stepHistory());

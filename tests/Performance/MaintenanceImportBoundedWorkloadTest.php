@@ -128,7 +128,7 @@ final class MaintenanceImportBoundedWorkloadTest extends KernelTestCase
     $samples = [];
     foreach ([1000, 5000, 10000] as $volume) {
       $id = ImportJobId::fromString(sprintf('a3100000-0000-4000-8000-%012d', $volume));
-      $jobs->save(ImportJob::create($id, self::ORG, ImportKind::EQUIPMENT, 'unused.csv', 'synthetic.csv', self::ORG, true));
+      $jobs->save(ImportJob::create($id, self::ORG, ImportKind::from('equipment'), 'unused.csv', 'synthetic.csv', self::ORG, true));
       $managed = $this->em->getUnitOfWork()->size();
       $this->counter->queries = 0;
       memory_reset_peak_usage();

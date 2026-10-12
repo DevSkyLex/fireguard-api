@@ -1,0 +1,4 @@
+framework:
+    messenger:
+        routing:
+            'Automation\Application\UseCase\Command\Rule\ExecuteAutomationRule\ExecuteAutomationRuleCommand': main_outbox

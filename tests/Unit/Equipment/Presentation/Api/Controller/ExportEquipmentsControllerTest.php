@@ -9,14 +9,12 @@ use Equipment\Application\Contract\Export\EquipmentExportRow;
 use Equipment\Application\UseCase\Query\ExportEquipments\{ExportEquipmentsQuery, ExportEquipmentsResult};
 use Equipment\Domain\Exception\{EquipmentAccessDeniedException, EquipmentExportTooLargeException, EquipmentNotFoundException};
 use Equipment\Presentation\Api\Controller\ExportEquipmentsController;
-use Equipment\Presentation\Api\Service\EquipmentCsvWriter;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Shared\Application\Port\Outbound\EventDispatcherPort;
-use Shared\Infrastructure\Csv\SpreadsheetSafeTextAdapter;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, StreamedResponse};
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException, UnprocessableEntityHttpException};
@@ -39,6 +37,8 @@ use function ob_start;
 #[CoversClass(ExportEquipmentsController::class)]
 final class ExportEquipmentsControllerTest extends TestCase
 {
+  use \Tests\Support\Export\ExportArtifactCommandBusTrait;
+
   private const string USER_ID = '550e8400-e29b-41d4-a716-446655560001';
 
   private const string ORGANIZATION_ID = '550e8400-e29b-41d4-a716-446655560002';
@@ -123,9 +123,8 @@ final class ExportEquipmentsControllerTest extends TestCase
     $queryBus->expects(self::never())->method('ask');
 
     $controller = new ExportEquipmentsController(
-      queryBus: $queryBus,
+      commands: $this->equipmentExportCommands($queryBus),
       security: $security,
-      csvWriter: new EquipmentCsvWriter(new SpreadsheetSafeTextAdapter()),
     );
 
     $this->expectException(AccessDeniedHttpException::class);
@@ -198,9 +197,8 @@ final class ExportEquipmentsControllerTest extends TestCase
     ));
 
     return new ExportEquipmentsController(
-      queryBus: $queryBus,
+      commands: $this->equipmentExportCommands($queryBus),
       security: $security,
-      csvWriter: new EquipmentCsvWriter(new SpreadsheetSafeTextAdapter()),
     );
   }
 }

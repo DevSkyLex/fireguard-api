@@ -190,6 +190,9 @@ final readonly class AddInterventionAttachmentHandler implements CommandHandler
 
       return $this->result($existing);
     }
+    if ($command->acknowledgementOnly) {
+      throw new InterventionNotFoundException('Attachment not found.');
+    }
     $this->authorizeAttachment($command, $context);
     $kind = InterventionAttachmentKind::tryFrom($command->kind);
     if (null === $kind) {

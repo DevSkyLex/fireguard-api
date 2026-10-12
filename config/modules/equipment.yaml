@@ -1,3 +1,7 @@
+imports:
+  - { resource: 'equipment/doctrine.yaml' }
+  - { resource: 'equipment/api_platform.yaml' }
+
 services:
   _defaults:
     autowire: true
@@ -66,7 +70,8 @@ services:
     class: Shared\Infrastructure\Symfony\Adapter\Outbound\DoctrineTransactionManagerAdapter
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
-
+      $database: main
+      $idempotency: '@Shared\Infrastructure\Idempotency\HttpIdempotencyExecutionContext'
   Equipment\Infrastructure\Adapter\Organization\EquipmentStatisticsAdapter: ~
 
   Equipment\Infrastructure\Adapter\Organization\EquipmentSearchAdapter:
@@ -298,6 +303,8 @@ services:
     tags: ['messenger.message_handler']
 
   Equipment\Application\UseCase\Query\ExportEquipments\ExportEquipmentsHandler:
+    arguments:
+      $events: '@equipment.export_events'
     tags: ['messenger.message_handler']
 
   Equipment\Application\UseCase\Query\ExportEquipmentLabels\ExportEquipmentLabelsHandler:
@@ -401,9 +408,13 @@ services:
     tags: ['messenger.message_handler']
 
   Equipment\Application\UseCase\Query\ExportEquipmentReport\ExportEquipmentReportHandler:
+    arguments:
+      $eventDispatcher: '@equipment.export_events'
     tags: ['messenger.message_handler']
 
   Equipment\Application\UseCase\Query\RenderEquipmentLabels\RenderEquipmentLabelsHandler:
+    arguments:
+      $events: '@equipment.export_events'
     tags: ['messenger.message_handler']
 
   Equipment\Infrastructure\Adapter\Intervention\InterventionEquipmentSummaryAdapter:
@@ -411,3 +422,73 @@ services:
       $entityManager: '@doctrine.orm.main_entity_manager'
 
   Equipment\Application\Service\EquipmentMediaAccess: ~
+
+  Equipment\Infrastructure\Adapter\Event\IntegrationEventConverterAdapter: ~
+
+  Equipment\Infrastructure\Adapter\Approval\EquipmentDecommissionDescriptorAdapter:
+    tags:
+      - { name: approval.action_descriptor, priority: 100 }
+
+  Equipment\Infrastructure\Adapter\Webhook\EquipmentWebhookEventSourceAdapter:
+    tags:
+      - { name: webhook.event_source, priority: 500 }
+
+  Equipment\Infrastructure\Adapter\Onboarding\CreateFirstEquipmentStepAdapter:
+    tags:
+      - { name: onboarding.organization_step_contribution }
+
+  Equipment\Infrastructure\Adapter\Schema\SchemaContributionAdapter:
+    tags: [shared.schema_contribution]
+
+  Equipment\Infrastructure\Adapter\Import\EquipmentImportKindProcessorAdapter:
+    tags: [fireguard.import_kind_processor]
+
+  Equipment\Infrastructure\Adapter\Audit\AuditRecordEventAdapter: ~
+
+  Equipment\Infrastructure\Adapter\OrganizationCatalog\EquipmentQuotaContributionAdapter:
+    tags: [organization.quota_contribution]
+
+  Equipment\Infrastructure\Adapter\OrganizationCatalog\EquipmentSystemRoleContributionAdapter:
+    tags: [organization.system_role_contribution]
+
+  Equipment\Infrastructure\Adapter\OrganizationCatalog\EquipmentSettingsPolicyContributionAdapter:
+    tags: [organization.settings_policy_contribution]
+
+  Equipment\Infrastructure\Adapter\Idempotency\ResponseProjection\EquipmentHttpIdempotencyResponseProjectionAdapter:
+    tags: [shared.http_idempotency_response_projection]
+
+  Equipment\Infrastructure\Adapter\Idempotency\EquipmentHttpIdempotencyOperationContributionAdapter:
+    tags: [http.idempotency_operation]
+
+  Equipment\Application\Port\Inbound\FreshEquipmentScopePort: '@Equipment\Infrastructure\Adapter\Idempotency\FreshEquipmentScopeAdapter'
+  Equipment\Infrastructure\Adapter\Idempotency\FreshEquipmentScopeAdapter:
+    arguments:
+      $connection: '@doctrine.dbal.main_connection'
+
+  Equipment\Infrastructure\Adapter\Idempotency\EquipmentHttpIdempotencyReplayAuthorizationAdapter:
+    arguments:
+      $exportEntitlement: '@Organization\Infrastructure\Adapter\Idempotency\FreshOrganizationExportEntitlementAdapter'
+      $connection: '@doctrine.dbal.main_connection'
+    tags: [http.idempotency_replay_authorization]
+
+  Equipment\Application\Port\Outbound\EquipmentCsvRendererPort: '@Equipment\Infrastructure\Adapter\Export\EquipmentCsvRendererAdapter'
+  Equipment\Infrastructure\Adapter\Export\EquipmentCsvRendererAdapter: ~
+  Equipment\Application\UseCase\Command\Export\GenerateEquipmentExport\GenerateEquipmentExportHandler:
+    arguments:
+      $transactions: '@equipment.main_transaction_manager'
+    tags: [messenger.message_handler]
+
+  Equipment\Application\Service\Export\EquipmentExportCsvSchema: ~
+
+  equipment.export_events:
+    class: Shared\Infrastructure\Messaging\Outbox\TransactionalEventDispatcher
+    arguments:
+      $connection: '@doctrine.dbal.main_connection'
+      $sender: '@messenger.transport.main_outbox'
+when@dev:
+  imports:
+    - { resource: 'equipment/seeds.yaml' }
+
+when@test:
+  imports:
+    - { resource: 'equipment/seeds.yaml' }

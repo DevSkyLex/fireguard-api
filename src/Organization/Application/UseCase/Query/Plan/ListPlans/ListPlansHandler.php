@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Organization\Application\UseCase\Query\Plan\ListPlans;
 
+use Organization\Application\Port\Inbound\OrganizationQuotaCatalogPort;
 use Organization\Application\Port\Outbound\Internal\PlanRepositoryPort;
 use Organization\Application\UseCase\Query\Plan\GetPlan\GetPlanResult;
 use Organization\Domain\Model\Plan\Plan;
@@ -36,6 +37,7 @@ final readonly class ListPlansHandler implements QueryHandler
   public function __construct(
     private PlanRepositoryPort $planRepository,
     private TranslationPort $translator,
+    private OrganizationQuotaCatalogPort $quotaCatalog,
   ) {
   }
   // #endregion
@@ -60,7 +62,7 @@ final readonly class ListPlansHandler implements QueryHandler
 
     return new ListPlansResult(
       plans: array_map(
-        fn (Plan $plan): GetPlanResult => GetPlanResult::fromDomain($plan, $this->translator),
+        fn (Plan $plan): GetPlanResult => GetPlanResult::fromDomain($plan, $this->translator, $this->quotaCatalog),
         $plans,
       ),
     );

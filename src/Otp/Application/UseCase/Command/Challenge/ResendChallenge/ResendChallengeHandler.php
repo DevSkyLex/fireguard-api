@@ -55,7 +55,7 @@ final readonly class ResendChallengeHandler implements CommandHandler
       token: ChallengeToken::fromString($command->challengeToken),
     );
 
-    if (null === $otp || 'pending' !== $otp->status()) {
+    if (null === $otp || $otp->userId() !== $command->userId || 'pending' !== $otp->status()) {
       throw OtpNotFoundException::forIdentifier($command->challengeToken);
     }
 

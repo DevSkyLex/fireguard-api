@@ -6,6 +6,7 @@ namespace Auth\Presentation\Api\Dto\Input\Registration;
 
 use ApiPlatform\Metadata\ApiProperty;
 use Auth\Presentation\Api\Serialization\AuthSerializationGroup;
+use Auth\Presentation\Api\Validator\ConfiguredPassword\ConfiguredPassword;
 use Symfony\Component\Serializer\Attribute\{Groups, SerializedName};
 use Symfony\Component\Validator\Constraints as Assert;
 
@@ -120,27 +121,18 @@ final class RegisterInput
   /**
    * Property password.
    *
-   * The account password (must meet security requirements).
+   * The account password (must satisfy GET /api/auth/password-policy).
    *
    * @example SecureP@ssw0rd!
    *
    * @since 1.0.0
    */
   #[Assert\NotBlank(message: 'The password field is required.')]
-  #[Assert\Length(
-    min: 8,
-    max: 128,
-    minMessage: 'Password must be at least {{ limit }} characters long.',
-    maxMessage: 'Password cannot exceed {{ limit }} characters.',
-  )]
-  #[Assert\Regex(
-    pattern: '/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#])[A-Za-z\d@$!%*?&#]/',
-    message: 'Password must contain at least one uppercase letter, one lowercase letter, one digit, and one special character.',
-  )]
+  #[ConfiguredPassword]
   #[Groups(groups: [AuthSerializationGroup::REGISTRATION_WRITE])]
   #[SerializedName(serializedName: 'password')]
   #[ApiProperty(
-    description: 'Account password (must meet security requirements)',
+    description: 'Account password (must satisfy GET /api/auth/password-policy)',
     readable: false,
     writable: true,
     required: true,
@@ -150,8 +142,6 @@ final class RegisterInput
     openapiContext: [
       'type' => 'string',
       'format' => 'password',
-      'minLength' => 8,
-      'maxLength' => 128,
       'writeOnly' => true,
     ],
     jsonSchemaContext: [

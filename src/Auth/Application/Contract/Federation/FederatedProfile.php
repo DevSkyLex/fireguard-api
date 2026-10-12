@@ -24,22 +24,24 @@ final readonly class FederatedProfile
    *
    * @access public
    *
-   * @param FederatedProvider $provider provider that authenticated the identity
+   * @param ProviderId $provider provider that authenticated the identity
    * @param string $subject provider-scoped subject identifier
    * @param string $email email address asserted by the provider
    * @param bool $emailVerified whether the provider reports the email as verified
    * @param string $firstName given name returned by the provider
    * @param string $lastName family name returned by the provider
+   * @param ?string $issuer verified generic issuer; absent for legacy provider identities
    *
    * @return void
    */
   public function __construct(
-    public FederatedProvider $provider,
+    public ProviderId $provider,
     public string $subject,
     public string $email,
     public bool $emailVerified,
     public string $firstName,
     public string $lastName,
+    public ?string $issuer = null,
   ) {
   }
   // #endregion

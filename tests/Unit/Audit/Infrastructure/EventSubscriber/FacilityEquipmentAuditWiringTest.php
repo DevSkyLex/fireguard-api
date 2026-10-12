@@ -5,11 +5,10 @@ declare(strict_types=1);
 namespace Tests\Unit\Audit\Infrastructure\EventSubscriber;
 
 use Audit\Application\UseCase\Command\RecordAuditEvent\{RecordAuditEventCommand, RecordAuditEventResult};
-use Audit\Infrastructure\EventSubscriber\{AbstractAuditEventSubscriber, ResourceAuditEventSubscriber};
 use Audit\Infrastructure\Service\AuditPiiSanitizer;
 use Equipment\Application\Contract\Event\Equipment\{EquipmentCommissionedEvent, EquipmentDecommissionedEvent, EquipmentPutUnderMaintenanceEvent, EquipmentReturnedToStockEvent};
 use Facility\Application\Contract\Event\Facility\{FacilityArchivedEvent, FacilityCreatedEvent, FacilityMovedEvent, FacilityRestoredEvent, FacilityUpdatedEvent};
-use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use Shared\Application\Port\Inbound\CommandBusPort;
@@ -33,8 +32,6 @@ use function sprintf;
  *
  * @category Event Subscriber Tests
  */
-#[CoversClass(className: AbstractAuditEventSubscriber::class)]
-#[CoversClass(className: ResourceAuditEventSubscriber::class)]
 final class FacilityEquipmentAuditWiringTest extends TestCase
 {
   // #region Tests

@@ -128,6 +128,7 @@ use User\Presentation\Api\Serialization\UserSerializationGroup;
     ),
     new Patch(
       name: UserOperations::UPDATE,
+      read: false,
       uriTemplate: self::USER_URI_TEMPLATE,
       input: UserInput::class,
       output: UserOutput::class,
@@ -161,6 +162,7 @@ use User\Presentation\Api\Serialization\UserSerializationGroup;
     ),
     new Put(
       name: UserOperations::REPLACE,
+      read: false,
       uriTemplate: self::USER_URI_TEMPLATE,
       input: UserInput::class,
       output: UserOutput::class,

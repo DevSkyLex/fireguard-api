@@ -87,7 +87,7 @@ final class ImportJobRepositoryTest extends KernelTestCase
     $job = ImportJob::create(
       ImportJobId::fromString(self::SAVE_JOB_ID),
       self::ORGANIZATION_ID,
-      ImportKind::EQUIPMENT,
+      ImportKind::from('equipment'),
       'imports/save.csv',
       'equipment-import.csv',
       self::ACTOR_ID,
@@ -100,7 +100,7 @@ final class ImportJobRepositoryTest extends KernelTestCase
     self::assertInstanceOf(ImportJob::class, $found);
     self::assertTrue($found->id()->equals($job->id()));
     self::assertSame(self::ORGANIZATION_ID, $found->organizationId());
-    self::assertSame(ImportKind::EQUIPMENT, $found->kind());
+    self::assertSame('equipment', $found->kind()->value);
     self::assertSame(ImportStatus::PENDING, $found->status());
     self::assertSame('imports/save.csv', $found->storagePath());
     self::assertSame('equipment-import.csv', $found->originalFilename());
@@ -121,7 +121,7 @@ final class ImportJobRepositoryTest extends KernelTestCase
   #[Test]
   public function reportMigrationPreservesLegacyRowsAndRestoresOrderedJsonOnRollback(): void
   {
-    $job = ImportJob::create(ImportJobId::fromString(self::SAVE_JOB_ID), self::ORGANIZATION_ID, ImportKind::EQUIPMENT, 'legacy.csv', 'legacy.csv', self::ACTOR_ID);
+    $job = ImportJob::create(ImportJobId::fromString(self::SAVE_JOB_ID), self::ORGANIZATION_ID, ImportKind::from('equipment'), 'legacy.csv', 'legacy.csv', self::ACTOR_ID);
     $this->repository->save($job);
     $connection = $this->entityManager->getConnection();
     $project = self::getContainer()->getParameter('kernel.project_dir');
@@ -169,7 +169,7 @@ final class ImportJobRepositoryTest extends KernelTestCase
     $job = ImportJob::create(
       ImportJobId::fromString(self::SAVE_JOB_ID),
       self::ORGANIZATION_ID,
-      ImportKind::FACILITY,
+      ImportKind::from('facility'),
       'imports/update.csv',
       'facilities.csv',
       self::ACTOR_ID,
@@ -214,11 +214,11 @@ final class ImportJobRepositoryTest extends KernelTestCase
   #[Test]
   public function testListByOrganizationReturnsScopedJobsNewestFirst(): void
   {
-    $this->saveJob(self::JOB_A, ImportKind::EQUIPMENT, ImportStatus::COMPLETED, new DateTimeImmutable('2026-04-01T08:00:00+00:00'));
-    $this->saveJob(self::JOB_B, ImportKind::FACILITY, ImportStatus::PENDING, new DateTimeImmutable('2026-04-02T08:00:00+00:00'));
-    $this->saveJob(self::JOB_C, ImportKind::EQUIPMENT, ImportStatus::PROCESSING, new DateTimeImmutable('2026-04-03T08:00:00+00:00'));
+    $this->saveJob(self::JOB_A, ImportKind::from('equipment'), ImportStatus::COMPLETED, new DateTimeImmutable('2026-04-01T08:00:00+00:00'));
+    $this->saveJob(self::JOB_B, ImportKind::from('facility'), ImportStatus::PENDING, new DateTimeImmutable('2026-04-02T08:00:00+00:00'));
+    $this->saveJob(self::JOB_C, ImportKind::from('equipment'), ImportStatus::PROCESSING, new DateTimeImmutable('2026-04-03T08:00:00+00:00'));
     // Belongs to another organization: must be excluded from the scoped listing.
-    $this->saveJob(self::OTHER_JOB, ImportKind::EQUIPMENT, ImportStatus::PENDING, new DateTimeImmutable('2026-04-04T08:00:00+00:00'), self::OTHER_ORGANIZATION_ID);
+    $this->saveJob(self::OTHER_JOB, ImportKind::from('equipment'), ImportStatus::PENDING, new DateTimeImmutable('2026-04-04T08:00:00+00:00'), self::OTHER_ORGANIZATION_ID);
 
     $jobs = $this->repository->listByOrganization(self::ORGANIZATION_ID, null, 10, 0);
 
@@ -230,8 +230,8 @@ final class ImportJobRepositoryTest extends KernelTestCase
   public function testListByOrganizationBreaksCreatedAtTiesByIdDescending(): void
   {
     $sharedCreatedAt = new DateTimeImmutable('2026-05-01T10:00:00+00:00');
-    $this->saveJob(self::JOB_TIE_LOW, ImportKind::EQUIPMENT, ImportStatus::PENDING, $sharedCreatedAt);
-    $this->saveJob(self::JOB_TIE_HIGH, ImportKind::EQUIPMENT, ImportStatus::PENDING, $sharedCreatedAt);
+    $this->saveJob(self::JOB_TIE_LOW, ImportKind::from('equipment'), ImportStatus::PENDING, $sharedCreatedAt);
+    $this->saveJob(self::JOB_TIE_HIGH, ImportKind::from('equipment'), ImportStatus::PENDING, $sharedCreatedAt);
 
     $jobs = $this->repository->listByOrganization(self::ORGANIZATION_ID, null, 10, 0);
 
@@ -241,11 +241,11 @@ final class ImportJobRepositoryTest extends KernelTestCase
   #[Test]
   public function testListByOrganizationFiltersByKindAndPaginates(): void
   {
-    $this->saveJob(self::JOB_A, ImportKind::EQUIPMENT, ImportStatus::COMPLETED, new DateTimeImmutable('2026-04-01T08:00:00+00:00'));
-    $this->saveJob(self::JOB_B, ImportKind::FACILITY, ImportStatus::PENDING, new DateTimeImmutable('2026-04-02T08:00:00+00:00'));
-    $this->saveJob(self::JOB_C, ImportKind::EQUIPMENT, ImportStatus::PROCESSING, new DateTimeImmutable('2026-04-03T08:00:00+00:00'));
+    $this->saveJob(self::JOB_A, ImportKind::from('equipment'), ImportStatus::COMPLETED, new DateTimeImmutable('2026-04-01T08:00:00+00:00'));
+    $this->saveJob(self::JOB_B, ImportKind::from('facility'), ImportStatus::PENDING, new DateTimeImmutable('2026-04-02T08:00:00+00:00'));
+    $this->saveJob(self::JOB_C, ImportKind::from('equipment'), ImportStatus::PROCESSING, new DateTimeImmutable('2026-04-03T08:00:00+00:00'));
 
-    $equipment = $this->repository->listByOrganization(self::ORGANIZATION_ID, ImportKind::EQUIPMENT, 10, 0);
+    $equipment = $this->repository->listByOrganization(self::ORGANIZATION_ID, ImportKind::from('equipment'), 10, 0);
     self::assertSame([self::JOB_C, self::JOB_A], $this->idsOf($equipment));
 
     $firstPage = $this->repository->listByOrganization(self::ORGANIZATION_ID, null, 2, 0);
@@ -258,15 +258,15 @@ final class ImportJobRepositoryTest extends KernelTestCase
   #[Test]
   public function testPermissionScopeFiltersBeforePaginationAndCounting(): void
   {
-    $this->saveJob(self::JOB_A, ImportKind::EQUIPMENT, ImportStatus::COMPLETED, new DateTimeImmutable('2026-04-01T08:00:00+00:00'));
-    $this->saveJob(self::JOB_B, ImportKind::FACILITY, ImportStatus::PENDING, new DateTimeImmutable('2026-04-02T08:00:00+00:00'));
-    $this->saveJob(self::JOB_C, ImportKind::EQUIPMENT, ImportStatus::PROCESSING, new DateTimeImmutable('2026-04-03T08:00:00+00:00'));
-    $this->saveJob(self::OTHER_JOB, ImportKind::EQUIPMENT, ImportStatus::PENDING, new DateTimeImmutable('2026-04-04T08:00:00+00:00'), self::OTHER_ORGANIZATION_ID);
+    $this->saveJob(self::JOB_A, ImportKind::from('equipment'), ImportStatus::COMPLETED, new DateTimeImmutable('2026-04-01T08:00:00+00:00'));
+    $this->saveJob(self::JOB_B, ImportKind::from('facility'), ImportStatus::PENDING, new DateTimeImmutable('2026-04-02T08:00:00+00:00'));
+    $this->saveJob(self::JOB_C, ImportKind::from('equipment'), ImportStatus::PROCESSING, new DateTimeImmutable('2026-04-03T08:00:00+00:00'));
+    $this->saveJob(self::OTHER_JOB, ImportKind::from('equipment'), ImportStatus::PENDING, new DateTimeImmutable('2026-04-04T08:00:00+00:00'), self::OTHER_ORGANIZATION_ID);
 
-    self::assertSame([self::JOB_A], $this->idsOf($this->repository->listByOrganization(self::ORGANIZATION_ID, null, 1, 1, [ImportKind::EQUIPMENT])));
-    self::assertSame(2, $this->repository->countByOrganization(self::ORGANIZATION_ID, null, [ImportKind::EQUIPMENT]));
-    self::assertSame([], $this->repository->listByOrganization(self::ORGANIZATION_ID, ImportKind::FACILITY, 10, 0, [ImportKind::EQUIPMENT]));
-    self::assertSame(0, $this->repository->countByOrganization(self::ORGANIZATION_ID, ImportKind::FACILITY, [ImportKind::EQUIPMENT]));
+    self::assertSame([self::JOB_A], $this->idsOf($this->repository->listByOrganization(self::ORGANIZATION_ID, null, 1, 1, [ImportKind::from('equipment')])));
+    self::assertSame(2, $this->repository->countByOrganization(self::ORGANIZATION_ID, null, [ImportKind::from('equipment')]));
+    self::assertSame([], $this->repository->listByOrganization(self::ORGANIZATION_ID, ImportKind::from('facility'), 10, 0, [ImportKind::from('equipment')]));
+    self::assertSame(0, $this->repository->countByOrganization(self::ORGANIZATION_ID, ImportKind::from('facility'), [ImportKind::from('equipment')]));
     self::assertSame([], $this->repository->listByOrganization(self::ORGANIZATION_ID, null, 10, 0, []));
     self::assertSame(0, $this->repository->countByOrganization(self::ORGANIZATION_ID, null, []));
   }
@@ -274,17 +274,17 @@ final class ImportJobRepositoryTest extends KernelTestCase
   #[Test]
   public function testCountByOrganizationHonoursTheKindFilterAndScope(): void
   {
-    $this->saveJob(self::JOB_A, ImportKind::EQUIPMENT, ImportStatus::COMPLETED, new DateTimeImmutable('2026-04-01T08:00:00+00:00'));
-    $this->saveJob(self::JOB_B, ImportKind::FACILITY, ImportStatus::PENDING, new DateTimeImmutable('2026-04-02T08:00:00+00:00'));
-    $this->saveJob(self::JOB_C, ImportKind::EQUIPMENT, ImportStatus::PROCESSING, new DateTimeImmutable('2026-04-03T08:00:00+00:00'));
-    $this->saveJob(self::OTHER_JOB, ImportKind::EQUIPMENT, ImportStatus::PENDING, new DateTimeImmutable('2026-04-04T08:00:00+00:00'), self::OTHER_ORGANIZATION_ID);
+    $this->saveJob(self::JOB_A, ImportKind::from('equipment'), ImportStatus::COMPLETED, new DateTimeImmutable('2026-04-01T08:00:00+00:00'));
+    $this->saveJob(self::JOB_B, ImportKind::from('facility'), ImportStatus::PENDING, new DateTimeImmutable('2026-04-02T08:00:00+00:00'));
+    $this->saveJob(self::JOB_C, ImportKind::from('equipment'), ImportStatus::PROCESSING, new DateTimeImmutable('2026-04-03T08:00:00+00:00'));
+    $this->saveJob(self::OTHER_JOB, ImportKind::from('equipment'), ImportStatus::PENDING, new DateTimeImmutable('2026-04-04T08:00:00+00:00'), self::OTHER_ORGANIZATION_ID);
 
     self::assertSame(3, $this->repository->countByOrganization(self::ORGANIZATION_ID, null));
-    self::assertSame(2, $this->repository->countByOrganization(self::ORGANIZATION_ID, ImportKind::EQUIPMENT));
-    self::assertSame(1, $this->repository->countByOrganization(self::ORGANIZATION_ID, ImportKind::FACILITY));
+    self::assertSame(2, $this->repository->countByOrganization(self::ORGANIZATION_ID, ImportKind::from('equipment')));
+    self::assertSame(1, $this->repository->countByOrganization(self::ORGANIZATION_ID, ImportKind::from('facility')));
     // Scoped to the other organization: one equipment job, zero facility jobs.
     self::assertSame(1, $this->repository->countByOrganization(self::OTHER_ORGANIZATION_ID, null));
-    self::assertSame(0, $this->repository->countByOrganization(self::OTHER_ORGANIZATION_ID, ImportKind::FACILITY));
+    self::assertSame(0, $this->repository->countByOrganization(self::OTHER_ORGANIZATION_ID, ImportKind::from('facility')));
   }
 
   /**

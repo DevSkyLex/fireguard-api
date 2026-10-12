@@ -6,6 +6,7 @@ namespace Otp\Presentation\Api\Processor\Challenge;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use DateTimeImmutable;
 use Otp\Application\Exception\{OtpNotFoundException, ResendNotAllowedException};
 use Otp\Application\UseCase\Command\Challenge\ResendChallenge\{ResendChallengeCommand, ResendChallengeResult};
@@ -70,14 +71,14 @@ final readonly class ResendChallengeProcessor implements ProcessorInterface
     }
 
     $user = $this->security->getUser();
-    if (null === $user) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new NotFoundHttpException('User must be authenticated.');
     }
 
     try {
       $command = new ResendChallengeCommand(
         challengeToken: $token,
-        userId: $user->getUserIdentifier(),
+        userId: $user->getId(),
       );
 
       /** @var ResendChallengeResult $result */

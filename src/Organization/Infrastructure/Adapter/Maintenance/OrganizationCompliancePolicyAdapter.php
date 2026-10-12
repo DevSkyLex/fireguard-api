@@ -7,6 +7,7 @@ namespace Organization\Infrastructure\Adapter\Maintenance;
 use Doctrine\DBAL\{ArrayParameterType, Connection};
 use Maintenance\Application\Contract\Compliance\MaintenanceCompliancePolicy;
 use Maintenance\Application\Port\Outbound\Compliance\MaintenanceCompliancePolicyPort;
+use Organization\Application\Port\Inbound\OrganizationSettingsPolicyCatalogPort;
 use Organization\Application\Port\Outbound\Internal\OrganizationRepositoryPort;
 use Organization\Domain\Catalog\OrganizationComplianceDefaults;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationSettings};
@@ -44,6 +45,7 @@ final readonly class OrganizationCompliancePolicyAdapter implements MaintenanceC
    */
   public function __construct(
     private OrganizationRepositoryPort $organizationRepository,
+    private OrganizationSettingsPolicyCatalogPort $settingsPolicies,
     private ?Connection $connection = null,
   ) {
   }
@@ -104,7 +106,7 @@ final readonly class OrganizationCompliancePolicyAdapter implements MaintenanceC
     foreach ($rows as $row) {
       /** @var array<string, mixed> $data */
       $data = json_decode($row['settings'], true, flags: JSON_THROW_ON_ERROR);
-      $settings = OrganizationSettings::fromArray($data)->compliance;
+      $settings = OrganizationSettings::fromArray($data, $this->settingsPolicies->allDefaults())->compliance;
       $policies[(string) $row['id']] = new MaintenanceCompliancePolicy($settings->effectiveInspectionPeriodicities(), $settings->reminderWindowDays);
     }
 

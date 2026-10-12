@@ -32,6 +32,7 @@ final readonly class AddAttachmentCommand implements CommandMessage
    * @param int $size file size in bytes
    * @param ?string $label optional user-facing attachment label
    * @param ?string $attachmentId stable identifier supplied when retrying an upload, when available
+   * @param bool $acknowledgementOnly rechecks a native identity under the owning transaction and forbids creation
    *
    * @return void
    */
@@ -46,6 +47,7 @@ final readonly class AddAttachmentCommand implements CommandMessage
     public ?string $attachmentId = null,
     public ?string $userId = null,
     public ?string $interventionId = null,
+    public bool $acknowledgementOnly = false,
   ) {
   }
   // #endregion

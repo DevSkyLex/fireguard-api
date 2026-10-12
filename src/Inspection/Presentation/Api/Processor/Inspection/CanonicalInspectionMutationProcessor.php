@@ -20,6 +20,7 @@ use Intervention\Application\Port\Inbound\InterventionResourcesPort;
 use LogicException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
+use Shared\Application\Port\Outbound\Idempotency\HttpIdempotencyExecutionPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
@@ -97,6 +98,7 @@ final readonly class CanonicalInspectionMutationProcessor implements ProcessorIn
    * @param InterventionResourcesPort $interventionResourceManager the intervention resource manager value
    * @param RevisionGuard $revisionGuard the revision guard value
    * @param MergePatchFields $mergePatchFields the merge patch fields value
+   * @param ?HttpIdempotencyExecutionPort $idempotency currently authorized completed replay state
    */
   public function __construct(
     private CommandBusPort $commandBus,
@@ -108,6 +110,7 @@ final readonly class CanonicalInspectionMutationProcessor implements ProcessorIn
     private InterventionResourcesPort $interventionResourceManager,
     private RevisionGuard $revisionGuard,
     private MergePatchFields $mergePatchFields,
+    private ?HttpIdempotencyExecutionPort $idempotency = null,
   ) {
   }
   // #endregion
@@ -215,11 +218,15 @@ final readonly class CanonicalInspectionMutationProcessor implements ProcessorIn
     if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
+    if ($this->idempotency?->isReplay()) {
+      // The boundary has freshly checked the original scope and grants before restoring this precondition view.
+      return;
+    }
 
     try {
       $permission = 'draft' !== $view->recordStatus || null === $view->interventionId
         ? 'organization.inspection.write'
-        : $this->interventionResourceManager->mutationPermission($view->interventionId, $user->getId());
+        : $this->interventionResourceManager->mutationPermission($view->interventionId, $user->getId(), $view->organizationId, forUpdate: false);
     } catch (InterventionNotFoundException $exception) {
       throw new NotFoundHttpException($exception->getMessage(), $exception);
     } catch (InterventionConflictException $exception) {

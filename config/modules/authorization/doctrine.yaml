@@ -1,0 +1,11 @@
+doctrine:
+  orm:
+    entity_managers:
+      auth:
+        mappings:
+          Authorization:
+            is_bundle: false
+            type: attribute
+            dir: '%kernel.project_dir%/src/Authorization/Infrastructure/Persistence/Doctrine/Record'
+            prefix: 'Authorization\Infrastructure\Persistence\Doctrine\Record'
+            alias: Authorization

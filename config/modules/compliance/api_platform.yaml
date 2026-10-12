@@ -1,0 +1,8 @@
+api_platform:
+  mapping:
+    paths:
+      - '%kernel.project_dir%/src/Compliance/Presentation/Api/Resource'
+  exception_to_status:
+    Compliance\Domain\Exception\ComplianceAccessDeniedException: 403
+    Compliance\Domain\Exception\ComplianceExportNotEntitledException: 403
+    Compliance\Domain\Exception\ComplianceNotFoundException: 404

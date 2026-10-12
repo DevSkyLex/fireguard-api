@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Auth\Application\Contract\Federation;
 
+use DateTimeImmutable;
+
 /**
  * Contract FederatedConnections.
  *
@@ -23,6 +25,7 @@ final readonly class FederatedConnections
     public bool $passwordConfigured,
     public array $connections,
     public ?string $lastSignInMethod,
+    public ?DateTimeImmutable $browserProofExpiresAt = null,
   ) {
   }
 }

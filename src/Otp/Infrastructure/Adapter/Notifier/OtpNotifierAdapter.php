@@ -13,6 +13,7 @@ use Otp\Domain\ValueObject\{
 use Otp\Infrastructure\Exception\OtpEmailDeliveryException;
 use Otp\Infrastructure\Notification\OtpNotification;
 use Shared\Application\Contract\Notification\EmailRequestDetails;
+use Shared\Application\Port\Outbound\Idempotency\HttpIdempotencyExecutionPort;
 use Shared\Application\Port\Outbound\RequestOriginPort;
 use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\Mime\Email;
@@ -53,6 +54,7 @@ final readonly class OtpNotifierAdapter implements OtpNotifierPort
    * @param Environment $twig the Twig renderer
    * @param string $senderEmail the sender email address
    * @param ?RequestOriginPort $originResolver transient request context for direct callers
+   * @param ?HttpIdempotencyExecutionPort $idempotency current provider-effect fence
    */
   public function __construct(
     private readonly NotifierInterface $notifier,
@@ -60,6 +62,7 @@ final readonly class OtpNotifierAdapter implements OtpNotifierPort
     private readonly Environment $twig,
     private readonly string $senderEmail = 'noreply@fireguard.local',
     private readonly ?RequestOriginPort $originResolver = null,
+    private ?HttpIdempotencyExecutionPort $idempotency = null,
   ) {
   }
   // #endregion
@@ -116,6 +119,7 @@ final readonly class OtpNotifierAdapter implements OtpNotifierPort
         ->subject($subject)
         ->html($this->renderEmailHtml($otp, $code, $subject, $details));
 
+      $this->idempotency?->externalEffectStarted('otp.email.delivery');
       $this->mailer->send(message: $email);
     } catch (Throwable $exception) {
       if (null !== $details?->location) {
@@ -143,6 +147,7 @@ final readonly class OtpNotifierAdapter implements OtpNotifierPort
     $notification = new OtpNotification(otp: $otp);
     $recipient = new Recipient(phone: $otp->recipient());
 
+    $this->idempotency?->externalEffectStarted('otp.sms.delivery');
     $this->notifier->send(
       notification: $notification,
       recipient: $recipient,

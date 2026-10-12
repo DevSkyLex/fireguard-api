@@ -38,6 +38,8 @@ use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadReques
 #[CoversClass(ExportEquipmentLabelsController::class)]
 final class ExportEquipmentLabelsControllerTest extends TestCase
 {
+  use \Tests\Support\Export\ExportArtifactCommandBusTrait;
+
   private const string USER_ID = '550e8400-e29b-41d4-a716-446655570001';
 
   private const string ORGANIZATION_ID = '550e8400-e29b-41d4-a716-446655570002';
@@ -127,7 +129,7 @@ final class ExportEquipmentLabelsControllerTest extends TestCase
     $queryBus->expects(self::never())->method('ask');
 
     $controller = new ExportEquipmentLabelsController(
-      queryBus: $queryBus,
+      commands: $this->equipmentExportCommands($queryBus),
       security: $security,
     );
 
@@ -259,7 +261,7 @@ final class ExportEquipmentLabelsControllerTest extends TestCase
     $queries = $this->createStub(QueryBusPort::class);
     $queries->method('ask')->willReturnCallback(static fn (\Equipment\Application\UseCase\Query\RenderEquipmentLabels\RenderEquipmentLabelsQuery $query): object => $handler($query));
 
-    return new ExportEquipmentLabelsController($queries, $security);
+    return new ExportEquipmentLabelsController($this->equipmentExportCommands($queries), $security);
   }
 
   private function createRow(): EquipmentExportRow

@@ -6,13 +6,16 @@ namespace Tests\Support\Database;
 
 use InvalidArgumentException;
 use PDO;
+use PDOException;
 
 use function is_array;
 use function ltrim;
 use function parse_url;
 use function preg_match;
 use function sprintf;
+use function str_contains;
 use function urldecode;
+use function usleep;
 
 /**
  * Class RootCommitDatabaseCleanup
@@ -50,27 +53,64 @@ final readonly class RootCommitDatabaseCleanup
    * Method drop
    *
    * Drops the checked disposable clone after the test kernel has shut down.
+   * Retries only a transient Windows socket collision before the connection has opened.
    *
    * @access public
    *
    * @param string $url the dedicated clone URL
+   * @param (callable(): PDO)|null $openMaintenanceConnection the optional test connection factory
+   * @param (callable(int): void)|null $pause the optional test pause callback, receiving microseconds
    *
    * @return void
    */
-  public static function drop(string $url): void
+  public static function drop(string $url, ?callable $openMaintenanceConnection = null, ?callable $pause = null): void
   {
     $name = self::ownedDatabaseName($url);
     $parts = parse_url($url);
     if (!is_array($parts) || !isset($parts['host'])) {
       throw new InvalidArgumentException('A test clone requires a PostgreSQL host.');
     }
-    $maintenance = new PDO(
+    $openMaintenanceConnection ??= static fn (): PDO => new PDO(
       sprintf('pgsql:host=%s;port=%d;dbname=postgres', $parts['host'], (int) ($parts['port'] ?? 5432)),
       isset($parts['user']) ? urldecode($parts['user']) : null,
       isset($parts['pass']) ? urldecode($parts['pass']) : null,
       [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION],
     );
+    $pause ??= static function (int $microseconds): void {
+      usleep($microseconds);
+    };
+    $maintenance = null;
+    for ($attempt = 1; null === $maintenance; ++$attempt) {
+      try {
+        $maintenance = $openMaintenanceConnection();
+      } catch (PDOException $error) {
+        if (3 <= $attempt || !self::isTransientWindowsConnectionFailure($error)) {
+          throw $error;
+        }
+        $pause(100_000);
+      }
+    }
     $maintenance->exec(sprintf('DROP DATABASE IF EXISTS "%s" WITH (FORCE)', $name));
+  }
+
+  /**
+   * Method isTransientWindowsConnectionFailure
+   *
+   * Identifies only the observed Windows socket collision while opening the maintenance connection.
+   *
+   * @access private
+   *
+   * @param PDOException $error the failed connection attempt
+   *
+   * @return bool whether a bounded retry may open the connection
+   */
+  private static function isTransientWindowsConnectionFailure(PDOException $error): bool
+  {
+    $isConnectionFailure = '08006' === $error->getCode()
+      || '08006' === ($error->errorInfo[0] ?? null)
+      || str_contains($error->getMessage(), 'SQLSTATE[08006]');
+
+    return $isConnectionFailure && str_contains($error->getMessage(), '(0x00002740/10048)');
   }
   // #endregion
 }

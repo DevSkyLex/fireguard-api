@@ -434,6 +434,13 @@ entries; neither is a separate inbox source yet.
 
 ## Configuration
 
+Module selection loads [the service entry point](../../config/modules/notification.yaml)
+together with its [owner configuration fragments](../../config/modules/notification/).
+Those fragments contribute owned mappings, API/error metadata and configured
+framework/seed registrations. Shared package configuration supplies connections and
+manager definitions; this module's persistence remains explicitly wired to `main`.
+See the [composition standard](../../ARCHITECTURE.md#service-wiring).
+
 - Service wiring: `config/modules/notification.yaml`
 - Doctrine mapping (main entity manager): `config/packages/doctrine.yaml`
 - Mercure bundle config: `config/packages/mercure.yaml`
@@ -444,6 +451,16 @@ entries; neither is a separate inbox source yet.
 - Email delivery relies on shared mailer configuration (`MAILER_DSN`, sender config in Shared mail adapter).
 - `app:notification:send` treats its `body` argument as text by default. Operators sending trusted
   HTML must pass `--body-is-html`; the flag only changes email rendering, not the stored body.
+
+### HTTP idempotency
+
+Notification declares mark-read, mark-all-read and preference-update as main-owned HTTP
+mutations with the configured mandatory `Idempotency-Key` policy. Item replay reads fresh
+recipient ownership and checks the signed original notification organization identity.
+Recipient-only authority is preserved; an organization field does not create an additional
+membership requirement. Removed notifications require signed original recipient and
+resource facts. Current caller status, tenant and security revision are checked before
+result decoding. Preference results explicitly publish their nested immutable schema.
 
 ## Testing
 

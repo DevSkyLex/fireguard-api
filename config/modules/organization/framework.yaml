@@ -1,0 +1,5 @@
+framework:
+    messenger:
+        routing:
+            'Organization\Application\UseCase\Command\Sweep\SendWeeklyDigests\SendWeeklyDigestsCommand': async
+            'Organization\Application\UseCase\Command\Organization\DeliverOrganizationInvitation\DeliverOrganizationInvitationCommand': main_outbox

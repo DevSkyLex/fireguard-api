@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace Auth\Infrastructure\Persistence\Doctrine\Repository;
 
-use Auth\Application\Contract\Federation\{FederatedConnection, FederatedProvider};
+use Auth\Application\Contract\Federation\{FederatedConnection, ProviderId};
 use Auth\Application\Port\Outbound\Federation\FederatedIdentityRepositoryPort;
+use Auth\Domain\Exception\Federation\FederatedAuthException;
 use Auth\Infrastructure\Persistence\Doctrine\Record\FederatedIdentityRecord;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
@@ -44,18 +45,38 @@ final readonly class FederatedIdentityRepository implements FederatedIdentityRep
 
   // #region Methods
   /**
+   * Method hasIssuerConflict
+   *
+   * Generic provider identifiers remain pinned to the issuer recorded on their identities.
+   *
+   * @access public
+   *
+   * @param ProviderId $provider stable provider namespace
+   * @param string $issuer verified issuer
+   *
+   * @return bool whether that namespace has a conflicting issuer
+   */
+  public function hasIssuerConflict(ProviderId $provider, string $issuer): bool
+  {
+    return false !== $this->entityManager->getConnection()->fetchOne(
+      'SELECT id FROM federated_identities WHERE provider = :provider AND (issuer IS NULL OR issuer <> :issuer) LIMIT 1',
+      ['provider' => $provider->value, 'issuer' => $issuer],
+    );
+  }
+
+  /**
    * Method findBySubject
    *
    * Looks up the external identity by provider-issued subject and maps a match to its application contract.
    *
    * @access public
    *
-   * @param FederatedProvider $provider the identity provider
+   * @param ProviderId $provider the identity provider
    * @param string $subject the provider-issued subject identifier
    *
    * @return ?FederatedConnection the matching connection, or null
    */
-  public function findBySubject(FederatedProvider $provider, string $subject): ?FederatedConnection
+  public function findBySubject(ProviderId $provider, string $subject): ?FederatedConnection
   {
     $record = $this->entityManager->getRepository(FederatedIdentityRecord::class)->findOneBy([
       'provider' => $provider->value,
@@ -73,11 +94,11 @@ final readonly class FederatedIdentityRepository implements FederatedIdentityRep
    * @access public
    *
    * @param string $userId the local user identifier
-   * @param FederatedProvider $provider the identity provider
+   * @param ProviderId $provider the identity provider
    *
    * @return ?FederatedConnection the matching connection, or null
    */
-  public function findForUserProvider(string $userId, FederatedProvider $provider): ?FederatedConnection
+  public function findForUserProvider(string $userId, ProviderId $provider): ?FederatedConnection
   {
     $record = $this->entityManager->getRepository(FederatedIdentityRecord::class)->findOneBy([
       'userId' => $userId,
@@ -121,20 +142,32 @@ final readonly class FederatedIdentityRepository implements FederatedIdentityRep
    */
   public function save(FederatedConnection $connection): void
   {
-    $record = $this->entityManager->find(FederatedIdentityRecord::class, $connection->id);
-    if (!$record instanceof FederatedIdentityRecord) {
-      $record = new FederatedIdentityRecord();
-      $record->id = $connection->id;
-    }
+    $this->entityManager->wrapInTransaction(function () use ($connection): void {
+      if (null !== $connection->issuer) {
+        $this->entityManager->getConnection()->executeQuery(
+          'SELECT pg_advisory_xact_lock(hashtextextended(:provider, 0))',
+          ['provider' => 'federated-issuer:' . $connection->provider->value],
+        );
+        if ($this->hasIssuerConflict($connection->provider, $connection->issuer)) {
+          throw new FederatedAuthException('issuer_mismatch', 'This sign-in provider configuration has changed.');
+        }
+      }
+      $record = $this->entityManager->find(FederatedIdentityRecord::class, $connection->id);
+      if (!$record instanceof FederatedIdentityRecord) {
+        $record = new FederatedIdentityRecord();
+        $record->id = $connection->id;
+      }
 
-    $record->userId = $connection->userId;
-    $record->provider = $connection->provider->value;
-    $record->subject = $connection->subject;
-    $record->email = $connection->email;
-    $record->connectedAt = $connection->connectedAt;
-    $record->lastUsedAt = $connection->lastUsedAt;
-    $this->entityManager->persist($record);
-    $this->entityManager->flush();
+      $record->userId = $connection->userId;
+      $record->provider = $connection->provider->value;
+      $record->subject = $connection->subject;
+      $record->issuer = $connection->issuer;
+      $record->email = $connection->email;
+      $record->connectedAt = $connection->connectedAt;
+      $record->lastUsedAt = $connection->lastUsedAt;
+      $this->entityManager->persist($record);
+      $this->entityManager->flush();
+    });
   }
 
   /**
@@ -164,13 +197,13 @@ final readonly class FederatedIdentityRepository implements FederatedIdentityRep
    *
    * @access public
    *
-   * @param FederatedProvider $provider the provider connection to remove
+   * @param ProviderId $provider the provider connection to remove
    * @param string $userId the local user identifier
    * @param bool $passwordConfigured whether password sign-in remains available
    *
    * @return bool whether removal was permitted and completed
    */
-  public function removePreservingAccess(FederatedProvider $provider, string $userId, bool $passwordConfigured): bool
+  public function removePreservingAccess(ProviderId $provider, string $userId, bool $passwordConfigured): bool
   {
     return $this->entityManager->wrapInTransaction(function () use ($provider, $userId, $passwordConfigured): bool {
       /** @var list<FederatedIdentityRecord> $records */
@@ -221,11 +254,12 @@ final readonly class FederatedIdentityRepository implements FederatedIdentityRep
     return new FederatedConnection(
       id: $record->id,
       userId: $record->userId,
-      provider: FederatedProvider::from($record->provider),
+      provider: ProviderId::from($record->provider),
       subject: $record->subject,
       email: $record->email,
       connectedAt: $record->connectedAt,
       lastUsedAt: $record->lastUsedAt,
+      issuer: $record->issuer,
     );
   }
   // #endregion

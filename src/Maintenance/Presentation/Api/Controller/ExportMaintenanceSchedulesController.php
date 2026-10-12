@@ -5,10 +5,8 @@ declare(strict_types=1);
 namespace Maintenance\Presentation\Api\Controller;
 
 use Auth\Application\Contract\User\AuthenticatedUser;
-use DateTimeImmutable;
-use Maintenance\Application\UseCase\Command\Export\PrepareMaintenanceScheduleExport\PrepareMaintenanceScheduleExportCommand;
-use Maintenance\Application\UseCase\Query\ExportMaintenanceSchedules\ExportMaintenanceSchedulesResult;
-use Maintenance\Presentation\Api\Service\{MaintenanceScheduleCsvWriter, MaintenanceScheduleExportCriteriaFactory};
+use Maintenance\Application\UseCase\Command\Export\PrepareMaintenanceScheduleExport\{PrepareMaintenanceScheduleExportCommand, PrepareMaintenanceScheduleExportResult};
+use Maintenance\Presentation\Api\Service\MaintenanceScheduleExportCriteriaFactory;
 use Shared\Application\Contract\Http\ResourceIriParser;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -16,8 +14,6 @@ use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, StreamedResponse};
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
 
-use function fclose;
-use function fopen;
 use function is_string;
 use function sprintf;
 
@@ -53,13 +49,11 @@ final class ExportMaintenanceSchedulesController extends AbstractController
    * @param CommandBusPort $commandBus the query bus
    * @param Security $security the security service
    * @param MaintenanceScheduleExportCriteriaFactory $criteriaFactory the request-to-filters factory
-   * @param MaintenanceScheduleCsvWriter $csvWriter the CSV row writer
    */
   public function __construct(
     private readonly CommandBusPort $commandBus,
     private readonly Security $security,
     private readonly MaintenanceScheduleExportCriteriaFactory $criteriaFactory,
-    private readonly MaintenanceScheduleCsvWriter $csvWriter,
   ) {
   }
   // #endregion
@@ -89,7 +83,7 @@ final class ExportMaintenanceSchedulesController extends AbstractController
 
     $filters = $this->criteriaFactory->fromRequest($request);
 
-    /** @var ExportMaintenanceSchedulesResult $result */
+    /** @var PrepareMaintenanceScheduleExportResult $result */
     $result = $this->commandBus->dispatch(new PrepareMaintenanceScheduleExportCommand(
       userId: $user->getId(),
       organizationId: $organizationId,
@@ -99,20 +93,12 @@ final class ExportMaintenanceSchedulesController extends AbstractController
       dueBefore: $filters['dueBefore'],
     ));
 
-    $fileName = sprintf('maintenance-schedules-export-%s.csv', new DateTimeImmutable()->format('Ymd-His'));
-
-    $response = new StreamedResponse(function () use ($result): void {
-      $handle = fopen('php://output', 'wb');
-      if (false === $handle) {
-        return;
-      }
-
-      $this->csvWriter->write($result->rows, $handle);
-      fclose($handle);
+    $response = new StreamedResponse(static function () use ($result): void {
+      echo $result->contents();
     });
 
     $response->headers->set('Content-Type', 'text/csv; charset=utf-8');
-    $response->headers->set('Content-Disposition', sprintf('attachment; filename="%s"', $fileName));
+    $response->headers->set('Content-Disposition', sprintf('attachment; filename="%s"', $result->fileName));
     $response->headers->set('X-Accel-Buffering', 'no');
 
     return $response;

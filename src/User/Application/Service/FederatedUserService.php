@@ -11,6 +11,7 @@ use Shared\Domain\ValueObject\Email;
 use User\Application\Contract\Federation\FederatedUser;
 use User\Application\Port\Inbound\FederatedUserPort;
 use User\Application\Port\Outbound\Internal\UserRepositoryPort;
+use User\Application\Port\Outbound\PasswordPolicyPort;
 use User\Domain\Model\User\User;
 use User\Domain\ValueObject\{HashedPassword, UserId, UserProfile, Username};
 
@@ -63,6 +64,7 @@ final readonly class FederatedUserService implements FederatedUserPort
    * @param HashingPort $hashing hashes the initial local password
    * @param EventBusPort $eventBus publishes domain events after provisioning is persisted
    * @param EventIdProvider $eventIdProvider supplies identities for events produced by the new aggregate
+   * @param PasswordPolicyPort $passwordPolicy authoritative local credential requirements
    *
    * @return void
    */
@@ -72,6 +74,7 @@ final readonly class FederatedUserService implements FederatedUserPort
     private HashingPort $hashing,
     private EventBusPort $eventBus,
     private EventIdProvider $eventIdProvider,
+    private PasswordPolicyPort $passwordPolicy,
   ) {
   }
   // #endregion
@@ -204,6 +207,8 @@ final readonly class FederatedUserService implements FederatedUserPort
    */
   public function setInitialPassword(string $userId, string $plainPassword): bool
   {
+    $this->passwordPolicy->assertAcceptable($plainPassword);
+
     $user = $this->users->findById(new UserId($userId));
     if (null === $user || $user->hasPassword()) {
       return false;

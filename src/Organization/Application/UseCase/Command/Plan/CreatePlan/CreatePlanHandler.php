@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Organization\Application\UseCase\Command\Plan\CreatePlan;
 
+use Organization\Application\Port\Inbound\OrganizationQuotaCatalogPort;
 use Organization\Application\Port\Outbound\Internal\PlanRepositoryPort;
 use Organization\Domain\Exception\PlanKeyAlreadyExistsException;
 use Organization\Domain\Model\Plan\{Plan, PlanCreationOptions};
@@ -37,6 +38,7 @@ final readonly class CreatePlanHandler implements CommandHandler
     private PlanRepositoryPort $planRepository,
     private UuidGeneratorPort $uuidFactory,
     private TransactionManagerPort $transactionManager,
+    private OrganizationQuotaCatalogPort $quotaCatalog,
   ) {
   }
   // #endregion
@@ -68,7 +70,7 @@ final readonly class CreatePlanHandler implements CommandHandler
       id: $planId,
       key: $key,
       name: $command->name,
-      limits: $command->limits,
+      limits: $this->quotaCatalog->normalizeLimits($command->limits),
       options: new PlanCreationOptions(
         description: $command->description,
         isActive: $command->isActive,

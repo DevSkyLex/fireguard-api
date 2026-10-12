@@ -12,6 +12,7 @@ use Equipment\Domain\ValueObject\{AttachmentId, EquipmentId, EquipmentOrganizati
 use Intervention\Application\Port\Inbound\InterventionResourcesPort;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\{FileCleanupPort, RootTransactionManagerPort};
+use Shared\Application\Port\Outbound\Idempotency\HttpIdempotencyExecutionPort;
 
 /**
  * Commits attachment removal and durable byte cleanup before delivery.
@@ -36,6 +37,7 @@ final readonly class DeleteAttachmentHandler implements CommandHandler
     private EquipmentMediaAccess $access,
     private InterventionResourcesPort $interventions,
     private FileCleanupPort $cleanup,
+    private ?HttpIdempotencyExecutionPort $idempotency = null,
   ) {
   }
   // #endregion
@@ -71,7 +73,10 @@ final readonly class DeleteAttachmentHandler implements CommandHandler
       $this->cleanup->request($attachment->storagePath());
       $this->interventions->touchDraftIntervention($interventionId);
 
-      return new DeleteAttachmentResult((string) $attachmentId, (string) $equipmentId);
+      $result = new DeleteAttachmentResult((string) $attachmentId, (string) $equipmentId);
+      $this->idempotency?->captureResult($result);
+
+      return $result;
     });
   }
   // #endregion

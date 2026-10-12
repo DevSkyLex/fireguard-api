@@ -95,7 +95,7 @@ final class DeliverOrganizationInvitationHandlerTest extends TestCase
       $invitations,
       $organizations,
       $this->createStub(UserDirectoryPort::class),
-      new OrganizationInvitationNotifier($port, 'https://app.example.test', new OrganizationInvitationTokenHasher(), $this->createStub(TranslationPort::class)),
+      new OrganizationInvitationNotifier($port, 'https://app.example.test', new OrganizationInvitationTokenHasher(), $this->createStub(TranslationPort::class), \Tests\Support\Shared\ProductConfigFixture::create()),
       $consumer,
     );
   }

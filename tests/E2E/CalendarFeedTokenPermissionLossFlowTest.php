@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Tests\E2E;
 
+use DAMA\DoctrineTestBundle\PHPUnit\SkipDatabaseRollback;
 use PHPUnit\Framework\Attributes\{DataProvider, Test};
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\HttpFoundation\Response;
+use Tests\Support\Database\RootCommitDatabaseIsolationTrait;
 
 use function basename;
 use function is_string;
@@ -34,8 +36,11 @@ use function uniqid;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
+#[SkipDatabaseRollback]
 final class CalendarFeedTokenPermissionLossFlowTest extends OAuth2WebTestCase
 {
+  use RootCommitDatabaseIsolationTrait;
+
   private const string LD_JSON = 'application/ld+json';
 
   public function testFeedAnswersTheSameUniformNotFoundOnceTheMemberLosesReadPermission(): void

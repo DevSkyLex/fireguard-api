@@ -106,7 +106,7 @@ final readonly class MfaVerifyHandler implements CommandHandler
     $grantType ??= SignInGrantType::PASSWORD;
 
     // 2. Verify OTP via port
-    $verificationResult = $this->challengeVerifier->verify($challengeToken, $command->code);
+    $verificationResult = $this->challengeVerifier->verify($challengeToken, $command->code, $userId, $command->method);
 
     if (!$verificationResult->success) {
       return new MfaVerifyResult(

@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace App;
 
+use App\DependencyInjection\ContributionManifestConfigurationPass;
 use Symfony\Bundle\FrameworkBundle\Kernel\MicroKernelTrait;
+use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\HttpKernel\Kernel as BaseKernel;
+use User\Infrastructure\Symfony\DependencyInjection\PasswordPolicyConfigurationPass;
 
 use function is_string;
 
@@ -20,7 +23,6 @@ class Kernel extends BaseKernel
 {
   use MicroKernelTrait;
 
-  // #region Methods
   /**
    * Method getCacheDir
    *
@@ -57,6 +59,25 @@ class Kernel extends BaseKernel
     }
 
     return parent::getLogDir();
+  }
+
+  // #region Methods
+  /**
+   * Method build
+   *
+   * Validates selected owner configuration before lazy services can defer invalid settings.
+   *
+   * @access protected
+   *
+   * @param ContainerBuilder $container the selected application composition
+   *
+   * @return void
+   */
+  protected function build(ContainerBuilder $container): void
+  {
+    parent::build($container);
+    $container->addCompilerPass(new PasswordPolicyConfigurationPass());
+    $container->addCompilerPass(new ContributionManifestConfigurationPass());
   }
   // #endregion
 }

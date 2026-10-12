@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Auth\Application\UseCase\Command\Federation\StartFederation;
 
+use DateTimeImmutable;
 use Shared\Application\Message\ResultMessage;
 
 /**
@@ -16,7 +17,7 @@ use Shared\Application\Message\ResultMessage;
  */
 final readonly class StartFederationResult implements ResultMessage
 {
-  public function __construct(public string $authorizationUrl)
+  public function __construct(public string $authorizationUrl, public ?DateTimeImmutable $browserBindingExpiresAt = null)
   {
   }
 }

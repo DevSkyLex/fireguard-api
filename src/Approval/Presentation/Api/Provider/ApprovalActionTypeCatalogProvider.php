@@ -6,7 +6,8 @@ namespace Approval\Presentation\Api\Provider;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
-use Approval\Application\Contract\Action\ApprovalActionTypes;
+use Approval\Application\Contract\Action\ApprovalActionDescriptor;
+use Approval\Application\Port\Outbound\ApprovalActionCatalogPort;
 use Approval\Presentation\Api\Dto\Output\ApprovalActionTypeOutput;
 
 use function array_map;
@@ -15,8 +16,7 @@ use function array_map;
  * Provider ApprovalActionTypeCatalogProvider.
  *
  * Static reference catalog (`GET /approvals/action-types`) for the settings
- * UI. Kept thin: it reads directly from `ApprovalActionTypes`, a static
- * registry, per ARCHITECTURE.md's reference-catalog guideline.
+ * UI. Kept thin: it reads directly from the installed contributor catalog, per ARCHITECTURE.md's reference-catalog guideline.
  *
  * @category Provider
  * @version 1.0.0
@@ -27,6 +27,19 @@ use function array_map;
  */
 final readonly class ApprovalActionTypeCatalogProvider implements ProviderInterface
 {
+  // #region Constructor
+  /**
+   * Constructor
+   *
+   * @access public
+   *
+   * @param ApprovalActionCatalogPort $catalog the installed action metadata
+   */
+  public function __construct(private ApprovalActionCatalogPort $catalog)
+  {
+  }
+  // #endregion
+
   // #region Methods
   /**
    * Method provide.
@@ -41,7 +54,7 @@ final readonly class ApprovalActionTypeCatalogProvider implements ProviderInterf
    */
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): array
   {
-    return array_map(self::toOutput(...), ApprovalActionTypes::all());
+    return array_map(self::toOutput(...), $this->catalog->descriptors());
   }
 
   /**
@@ -51,15 +64,15 @@ final readonly class ApprovalActionTypeCatalogProvider implements ProviderInterf
    *
    * @since 1.0.0
    *
-   * @param string $value the action type value
+   * @param ApprovalActionDescriptor $descriptor the action metadata
    *
    * @return ApprovalActionTypeOutput the mapped output
    */
-  private static function toOutput(string $value): ApprovalActionTypeOutput
+  private static function toOutput(ApprovalActionDescriptor $descriptor): ApprovalActionTypeOutput
   {
     $output = new ApprovalActionTypeOutput();
-    $output->value = $value;
-    $output->label = ApprovalActionTypes::label($value);
+    $output->value = $descriptor->value;
+    $output->label = $descriptor->label;
 
     return $output;
   }

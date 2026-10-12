@@ -6,6 +6,7 @@ namespace Shared\Infrastructure\Messaging\Outbox;
 
 use Doctrine\DBAL\Connection;
 use Shared\Application\Port\Outbound\TransactionManagerPort;
+use Shared\Infrastructure\Idempotency\HttpIdempotencyExecutionContext;
 use Shared\Infrastructure\Persistence\DatabaseFailureTranslator;
 use Throwable;
 
@@ -21,11 +22,16 @@ final readonly class DbalTransactionManagerAdapter implements TransactionManager
    * @access public
    *
    * @param Connection $connection the connection
+   * @param HttpIdempotencyExecutionContext|null $idempotency the authorized HTTP transaction hooks
+   * @param string $database the explicitly declared owning database for those hooks
    *
    * @return void
    */
-  public function __construct(private Connection $connection)
-  {
+  public function __construct(
+    private Connection $connection,
+    private ?HttpIdempotencyExecutionContext $idempotency = null,
+    private string $database = '',
+  ) {
   }
 
   // #endregion
@@ -43,6 +49,10 @@ final readonly class DbalTransactionManagerAdapter implements TransactionManager
    */
   public function transactional(callable $operation): mixed
   {
+    if (($this->idempotency?->activeFor($this->database) ?? false) && !$this->connection->isTransactionActive()) {
+      return new RootTransactionManagerAdapter($this->connection, idempotency: $this->idempotency, database: $this->database)->transactional($operation);
+    }
+
     try {
       return $this->connection->transactional(static fn () => $operation());
     } catch (Throwable $failure) {

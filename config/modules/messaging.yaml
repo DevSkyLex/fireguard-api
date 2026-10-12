@@ -1,3 +1,7 @@
+imports:
+  - { resource: 'messaging/doctrine.yaml' }
+  - { resource: 'messaging/api_platform.yaml' }
+
 services:
   _defaults:
     autowire: true
@@ -296,3 +300,35 @@ services:
 
   Messaging\Application\UseCase\Query\Subscription\GetMessagingSubscription\GetMessagingSubscriptionHandler:
     tags: ['messenger.message_handler']
+
+  Messaging\Infrastructure\Adapter\Event\IntegrationEventConverterAdapter: ~
+
+  Messaging\Application\Port\Inbound\MessagingSubjectCatalogPort: '@Messaging\Application\Service\MessagingSubjectResolverRegistry'
+
+  Messaging\Infrastructure\Adapter\Schema\SchemaContributionAdapter:
+    tags: [shared.schema_contribution]
+
+  Messaging\Infrastructure\Adapter\Audit\AuditRecordEventAdapter: ~
+
+  Messaging\Infrastructure\Adapter\OrganizationCatalog\MessagingSystemRoleContributionAdapter:
+    tags: [organization.system_role_contribution]
+
+  Messaging\Infrastructure\Adapter\Idempotency\MessagingHttpIdempotencyOperationContributionAdapter:
+    tags: [http.idempotency_operation]
+
+  Messaging\Infrastructure\Adapter\Idempotency\MessagingHttpIdempotencyReplayAuthorizationAdapter:
+    arguments:
+      $subjects: !tagged_iterator messaging.subject_resolver
+      $connection: '@doctrine.dbal.main_connection'
+    tags: [http.idempotency_replay_authorization]
+
+  Messaging\Infrastructure\Adapter\Idempotency\MessagingHttpIdempotencyResponseProjectionAdapter:
+    tags: [shared.http_idempotency_response_projection]
+
+when@dev:
+  imports:
+    - { resource: 'messaging/seeds.yaml' }
+
+when@test:
+  imports:
+    - { resource: 'messaging/seeds.yaml' }

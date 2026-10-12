@@ -73,20 +73,20 @@ final class ResolveCalendarFeedTokenHandlerTest extends TestCase
   }
 
   #[Test]
-  public function itRecordsUsageWhenTheLastRecordIsOlderThanAnHour(): void
+  public function itResolvesAnOlderUsageWithoutWritingFromTheQuery(): void
   {
     $token = $this->activeToken(lastUsedAt: new DateTimeImmutable('-2 hours'));
 
     $repository = $this->createMock(CalendarFeedTokenRepositoryPort::class);
     $repository->method('findActiveByTokenHash')->willReturn($token);
-    $repository->expects(self::once())->method('save')->with($token);
+    $repository->expects(self::never())->method('save');
 
     $handler = $this->handler($repository);
 
     $handler->__invoke(new ResolveCalendarFeedTokenQuery(self::SECRET));
 
     self::assertNotNull($token->lastUsedAt());
-    self::assertGreaterThan(new DateTimeImmutable('-1 minute'), $token->lastUsedAt());
+    self::assertLessThan(new DateTimeImmutable('-1 hour'), $token->lastUsedAt());
   }
 
   #[Test]

@@ -16,6 +16,7 @@ use Shared\Domain\ValueObject\Email;
 use User\Application\Contract\User\UserView;
 use User\Application\Port\Inbound\{UserCredentialsPort, UserDirectoryPort, UserRegistrationPort};
 use User\Application\Port\Outbound\Internal\UserRepositoryPort;
+use User\Application\Port\Outbound\PasswordPolicyPort;
 use User\Application\Service\{UserCredentialsService, UserDirectoryService, UserRegistrationService};
 use User\Application\UseCase\Command\User\CreateUser\{CreateUserCommand, CreateUserHandler, CreateUserResult};
 use User\Domain\ValueObject\Username;
@@ -44,10 +45,10 @@ trait IdentityBoundaryFactories
         return $this->users->existsByUsername(new Username($username));
       }
 
-      public function register(string $username, string $email, string $password, string $firstName, string $lastName): string
+      public function register(string $username, string $email, string $password, string $firstName, string $lastName, bool $requireEmailVerification = true): string
       {
         /** @var CreateUserResult $result */
-        $result = $this->bus->dispatch(new CreateUserCommand($username, $email, $password, $firstName, $lastName));
+        $result = $this->bus->dispatch(new CreateUserCommand($username, $email, $password, $firstName, $lastName, requireEmailVerification: $requireEmailVerification));
         \PHPUnit\Framework\Assert::assertInstanceOf(CreateUserResult::class, $result);
 
         return $result->userId;
@@ -62,9 +63,13 @@ trait IdentityBoundaryFactories
 
   private function challengeCapability(OtpRepositoryPort $repository): OtpChallengePort
   {
+    if ($repository instanceof \PHPUnit\Framework\MockObject\Stub) {
+      $repository->method('findForVerification')->willReturnCallback(static fn (\Otp\Domain\ValueObject\ChallengeToken $token): ?\Otp\Domain\Model\Otp => $repository->findByChallengeToken($token));
+    }
+
     return new OtpChallengeService(
       new GenerateOtpHandler($repository, $this->createStub(OtpNotifierPort::class), $this->createStub(UuidGeneratorPort::class)),
-      new VerifyOtpHandler($repository, $this->createStub(TotpEnrollmentRepositoryPort::class), $this->createStub(TotpServicePort::class)),
+      new VerifyOtpHandler($repository, $this->createStub(TotpEnrollmentRepositoryPort::class), $this->createStub(TotpServicePort::class), new \App\Tests\Support\Shared\ImmediateTransactionManager()),
     );
   }
 
@@ -75,7 +80,7 @@ trait IdentityBoundaryFactories
 
   private function credentialCapability(UserRepositoryPort $repository): UserCredentialsPort
   {
-    return new UserCredentialsService($repository, $this->directoryCapability($repository));
+    return new UserCredentialsService($repository, $this->directoryCapability($repository), $this->createStub(PasswordPolicyPort::class));
   }
 
   private function registrationCapability(UserRepositoryPort $repository, ?EventBusPort $events = null): UserRegistrationPort
@@ -86,7 +91,7 @@ trait IdentityBoundaryFactories
     return new UserRegistrationService(
       $repository,
       $this->directoryCapability($repository),
-      new CreateUserHandler($repository, $this->createStub(UuidGeneratorPort::class), $this->createStub(HashingPort::class), $events, $ids),
+      new CreateUserHandler($repository, $this->createStub(UuidGeneratorPort::class), $this->createStub(HashingPort::class), $events, $ids, $this->createStub(PasswordPolicyPort::class)),
       $ids,
       $events,
     );

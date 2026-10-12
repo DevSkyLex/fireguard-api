@@ -84,7 +84,11 @@ final class User
     private Locale $locale = Locale::SYSTEM,
     private ?string $lastSignInMethod = null,
     private ?DateTimeImmutable $emailOwnershipVerifiedAt = null,
+    private int $securityRevision = 1,
   ) {
+    if ($securityRevision < 1) {
+      throw new InvalidArgumentException('User security revision must be positive.');
+    }
   }
   // #endregion
 
@@ -123,6 +127,7 @@ final class User
       locale: $activity->locale,
       lastSignInMethod: $activity->lastSignInMethod,
       emailOwnershipVerifiedAt: $security->emailOwnershipVerifiedAt,
+      securityRevision: $security->securityRevision,
     );
   }
 
@@ -243,6 +248,7 @@ final class User
     }
 
     $this->emailVerified = true;
+    ++$this->securityRevision;
     if (UserStatus::PENDING_VERIFICATION === $this->status) {
       $this->status = UserStatus::ACTIVE;
     }
@@ -291,8 +297,29 @@ final class User
    */
   public function activate(): void
   {
-    $this->status = $this->emailVerified ? UserStatus::ACTIVE : UserStatus::PENDING_VERIFICATION;
+    $status = $this->emailVerified ? UserStatus::ACTIVE : UserStatus::PENDING_VERIFICATION;
+    if ($this->status !== $status) {
+      ++$this->securityRevision;
+    }
+    $this->status = $status;
     $this->failedLoginAttempts = 0;
+  }
+
+  /**
+   * Method activateWithoutEmailVerification
+   *
+   * Enables an account when project registration policy waives verification, without recording mailbox proof.
+   *
+   * @access public
+   *
+   * @return void
+   */
+  public function activateWithoutEmailVerification(): void
+  {
+    if (UserStatus::PENDING_VERIFICATION === $this->status) {
+      $this->status = UserStatus::ACTIVE;
+      ++$this->securityRevision;
+    }
   }
 
   /**
@@ -312,6 +339,7 @@ final class User
     }
 
     $this->status = UserStatus::INACTIVE;
+    ++$this->securityRevision;
 
     $this->recordEvent(new UserDeactivatedEvent(
       eventId: $eventIdProvider->nextEventId(),
@@ -334,9 +362,9 @@ final class User
    * @throws InvalidUserException if the user cannot login
    * @throws InvalidPasswordException if the password is incorrect
    */
-  public function authenticate(string $plainPassword): bool
+  public function authenticate(string $plainPassword, bool $requireEmailVerification = true): bool
   {
-    if (!$this->canLogin()) {
+    if (!$this->canLogin() && ($requireEmailVerification || UserStatus::PENDING_VERIFICATION !== $this->status)) {
       throw InvalidUserException::cannotLogin(
         reason: $this->status->label(),
       );
@@ -346,6 +374,10 @@ final class User
       $this->recordFailedLogin();
 
       throw InvalidPasswordException::incorrect();
+    }
+
+    if (!$requireEmailVerification) {
+      $this->activateWithoutEmailVerification();
     }
 
     $this->recordSuccessfulLogin();
@@ -378,7 +410,7 @@ final class User
    */
   public function recordSignInMethod(string $method): void
   {
-    if (!in_array($method, ['password', 'google', 'microsoft'], true)) {
+    if (!in_array($method, ['password', 'google', 'microsoft', 'oidc'], true)) {
       throw new InvalidArgumentException('Unsupported sign-in method.');
     }
 
@@ -409,8 +441,9 @@ final class User
   {
     ++$this->failedLoginAttempts;
 
-    if ($this->failedLoginAttempts >= self::MAX_FAILED_LOGIN_ATTEMPTS) {
+    if ($this->failedLoginAttempts >= self::MAX_FAILED_LOGIN_ATTEMPTS && UserStatus::LOCKED !== $this->status) {
       $this->status = UserStatus::LOCKED;
+      ++$this->securityRevision;
     }
   }
 
@@ -483,6 +516,7 @@ final class User
 
     $previousEmail = $this->email;
     $this->email = $newEmail;
+    ++$this->securityRevision;
     $this->emailVerified = true;
     $this->emailOwnershipVerifiedAt = new DateTimeImmutable();
 
@@ -508,7 +542,25 @@ final class User
    */
   public function changePassword(HashedPassword $newPassword): void
   {
+    if ($this->password?->value === $newPassword->value) {
+      return;
+    }
     $this->password = $newPassword;
+    ++$this->securityRevision;
+  }
+
+  /**
+   * Method securityRevision
+   *
+   * Identifies the security state to which a sensitive receipt is bound. Successful login/profile activity does not advance it.
+   *
+   * @access public
+   *
+   * @return int current security revision
+   */
+  public function securityRevision(): int
+  {
+    return $this->securityRevision;
   }
 
   /**

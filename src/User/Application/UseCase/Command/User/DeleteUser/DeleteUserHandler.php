@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace User\Application\UseCase\Command\User\DeleteUser;
 
+use Shared\Application\Port\Outbound\EventDispatcherPort;
+use User\Application\Contract\Event\UserReceiptPurgeRequestedEvent;
 use User\Application\Port\Outbound\Internal\UserRepositoryPort;
 use User\Application\Port\Outbound\UserDataPurgePort;
 use User\Domain\Exception\UserNotFoundException;
@@ -34,6 +36,7 @@ final readonly class DeleteUserHandler implements \Shared\Application\Message\Co
   public function __construct(
     private readonly UserRepositoryPort $userRepository,
     private readonly UserDataPurgePort $dataPurge,
+    private readonly ?EventDispatcherPort $events = null,
   ) {
   }
   // #endregion
@@ -65,6 +68,7 @@ final readonly class DeleteUserHandler implements \Shared\Application\Message\Co
 
       $this->dataPurge->purgeForUser($user->id()->value);
       $this->userRepository->delete(user: $user);
+      $this->events?->dispatch(new UserReceiptPurgeRequestedEvent($user->id()->value));
 
       return new DeleteUserResult(userId: $user->id()->value);
     });

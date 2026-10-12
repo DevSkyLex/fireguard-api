@@ -21,8 +21,10 @@ use RuntimeException;
 use Session\Infrastructure\Adapter\Lifecycle\SessionDataLifecycleAdapter;
 use Shared\Application\Contract\Storage\{FileCleanupRequested, FileStorageException};
 use Shared\Application\Contract\Transaction\{CommitOutcomeUnknownException, TransactionAlreadyActiveException};
+use Shared\Application\Message\ResultMessage;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Shared\Application\Port\Outbound\{CurrentActorPort, DurableEventContextPort, FileCleanupPort, FileStoragePort, IdempotentConsumerPort, LoggerPort, UuidGeneratorPort};
+use Shared\Application\Port\Outbound\Idempotency\HttpIdempotencyExecutionPort;
 use Shared\Infrastructure\EventSubscriber\FileCleanupSubscriber;
 use Shared\Infrastructure\Image\ImageInputValidationAdapter;
 use Shared\Infrastructure\Messaging\Outbox\{DoctrineIdempotentConsumerAdapter, OutboxEvent, RootTransactionManagerAdapter, TransactionalEventDispatcher, TransactionalFileCleanupAdapter};
@@ -35,7 +37,7 @@ use Throwable;
 use TrustedDevice\Infrastructure\Adapter\Lifecycle\TrustedDeviceDataLifecycleAdapter;
 use User\Application\Contract\User\{AvatarPaths, AvatarVariants};
 use User\Application\Port\Outbound\Internal\UserRepositoryPort;
-use User\Application\UseCase\Command\Avatar\UploadUserAvatar\{UploadUserAvatarCommand, UploadUserAvatarHandler};
+use User\Application\UseCase\Command\Avatar\UploadUserAvatar\{UploadUserAvatarCommand, UploadUserAvatarHandler, UploadUserAvatarResult};
 use User\Application\UseCase\Command\User\DeleteUser\{DeleteUserCommand, DeleteUserHandler};
 use User\Application\UseCase\Query\Avatar\GetUserAvatar\GetUserAvatarHandler;
 use User\Domain\Model\User\User;
@@ -166,6 +168,37 @@ final class UserAvatarAtomicityTest extends KernelTestCase
     $url = $this->observer->fetchOne('SELECT avatar_url FROM users WHERE id = ?', [self::USER]);
     self::assertIsString($url);
     self::assertStringEndsWith('?v=1', $url);
+    self::assertSame(0, $this->receiver->getMessageCount());
+    self::assertCount(4, $this->blobs);
+    foreach (AvatarPaths::variants(self::USER, self::A) as $path) {
+      self::assertArrayNotHasKey($path, $this->blobs);
+    }
+  }
+
+  #[Test]
+  public function resultCaptureFailureRollsBackProfilePointerOutboxAndAttemptBytes(): void
+  {
+    $failure = new RuntimeException('snapshot encoding failed');
+    $execution = $this->createMock(HttpIdempotencyExecutionPort::class);
+    $execution->expects(self::once())->method('captureResult')->willReturnCallback(function (ResultMessage $result) use ($failure): never {
+      self::assertTrue($this->writer->isTransactionActive());
+      self::assertInstanceOf(UploadUserAvatarResult::class, $result);
+      self::assertSame(self::USER, $result->userId);
+      self::assertSame(self::A, $this->writer->fetchOne('SELECT avatar_storage_key FROM users WHERE id = ?', [self::USER]));
+      self::assertNull($this->observer->fetchOne('SELECT avatar_storage_key FROM users WHERE id = ?', [self::USER]));
+      self::assertSame(4, $this->sender->getMessageCount());
+      self::assertSame(0, $this->receiver->getMessageCount());
+
+      throw $failure;
+    });
+
+    try {
+      $this->upload(self::A, idempotency: $execution)($this->command());
+      self::fail('A failed result snapshot must reject the final avatar commit.');
+    } catch (Throwable $actual) {
+      self::assertSame($failure, $actual);
+    }
+    self::assertNull($this->observer->fetchOne('SELECT avatar_storage_key FROM users WHERE id = ?', [self::USER]));
     self::assertSame(0, $this->receiver->getMessageCount());
     self::assertCount(4, $this->blobs);
     foreach (AvatarPaths::variants(self::USER, self::A) as $path) {
@@ -339,13 +372,13 @@ final class UserAvatarAtomicityTest extends KernelTestCase
     return new GetUserAvatarProvider($bus)->provide(new Get(), ['id' => self::USER, 'size' => 80]);
   }
 
-  private function upload(string $generation, ?EntityManagerInterface $manager = null, ?FileCleanupPort $cleanup = null): UploadUserAvatarHandler
+  private function upload(string $generation, ?EntityManagerInterface $manager = null, ?FileCleanupPort $cleanup = null, ?HttpIdempotencyExecutionPort $idempotency = null): UploadUserAvatarHandler
   {
     $manager ??= $this->manager;
     $ids = $this->createStub(UuidGeneratorPort::class);
     $ids->method('generate')->willReturn($generation);
 
-    return new UploadUserAvatarHandler(new UserRepository($manager, new UserMapper()), new AvatarResizer($this->storage, new ImageInputValidationAdapter()), $this->avatars($manager), new RootTransactionManagerAdapter($manager->getConnection(), $manager), $cleanup ?? $this->cleanup($manager->getConnection()), $ids, $this->createStub(LoggerPort::class));
+    return new UploadUserAvatarHandler(new UserRepository($manager, new UserMapper()), new AvatarResizer($this->storage, new ImageInputValidationAdapter()), $this->avatars($manager), new RootTransactionManagerAdapter($manager->getConnection(), $manager), $cleanup ?? $this->cleanup($manager->getConnection()), $ids, $this->createStub(LoggerPort::class), $idempotency);
   }
 
   private function command(): UploadUserAvatarCommand

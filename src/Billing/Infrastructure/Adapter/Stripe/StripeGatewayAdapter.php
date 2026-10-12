@@ -99,6 +99,7 @@ final readonly class StripeGatewayAdapter implements StripeGatewayPort
     string $planKey,
     string $successUrl,
     string $cancelUrl,
+    ?string $idempotencyKey = null,
   ): string {
     $metadata = ['organization_id' => $organizationId, 'plan_key' => $planKey];
 
@@ -110,7 +111,7 @@ final readonly class StripeGatewayAdapter implements StripeGatewayPort
       'cancel_url' => $cancelUrl,
       'metadata' => $metadata,
       'subscription_data' => ['metadata' => $metadata],
-    ]);
+    ], null === $idempotencyKey ? [] : ['idempotency_key' => $idempotencyKey]);
 
     return (string) $session->url;
   }
@@ -118,12 +119,12 @@ final readonly class StripeGatewayAdapter implements StripeGatewayPort
   /**
    * {@inheritDoc}
    */
-  public function createBillingPortalSession(string $customerId, string $returnUrl): string
+  public function createBillingPortalSession(string $customerId, string $returnUrl, ?string $idempotencyKey = null): string
   {
     $session = $this->stripe->billingPortal->sessions->create([
       'customer' => $customerId,
       'return_url' => $returnUrl,
-    ]);
+    ], null === $idempotencyKey ? [] : ['idempotency_key' => $idempotencyKey]);
 
     return (string) $session->url;
   }
@@ -252,17 +253,17 @@ final readonly class StripeGatewayAdapter implements StripeGatewayPort
   /**
    * {@inheritDoc}
    */
-  public function scheduleCancellation(string $subscriptionId): void
+  public function scheduleCancellation(string $subscriptionId, ?string $idempotencyKey = null): void
   {
-    $this->stripe->subscriptions->update($subscriptionId, ['cancel_at_period_end' => true]);
+    $this->stripe->subscriptions->update($subscriptionId, ['cancel_at_period_end' => true], null === $idempotencyKey ? [] : ['idempotency_key' => $idempotencyKey]);
   }
 
   /**
    * {@inheritDoc}
    */
-  public function resumeCancellation(string $subscriptionId): void
+  public function resumeCancellation(string $subscriptionId, ?string $idempotencyKey = null): void
   {
-    $this->stripe->subscriptions->update($subscriptionId, ['cancel_at_period_end' => false]);
+    $this->stripe->subscriptions->update($subscriptionId, ['cancel_at_period_end' => false], null === $idempotencyKey ? [] : ['idempotency_key' => $idempotencyKey]);
   }
 
   /**

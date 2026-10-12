@@ -1,0 +1,9 @@
+api_platform:
+  mapping:
+    paths:
+      - '%kernel.project_dir%/src/Audit/Presentation/Api/Resource'
+  exception_to_status:
+    Audit\Application\Contract\AuditExportAccessDeniedException: 403
+    Audit\Domain\Exception\AuditEventNotFoundException: 404
+    Audit\Application\Contract\AuditExportSizeLimitException: 422
+    Audit\Application\Contract\AuditExportTooLargeException: 422

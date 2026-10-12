@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Organization\Infrastructure\Adapter\Read;
 
 use Doctrine\DBAL\Connection;
+use Organization\Application\Port\Inbound\OrganizationSystemRoleCatalogPort;
 use Organization\Application\Port\Outbound\OrganizationMemberPermissionReadPort;
-use Organization\Domain\Catalog\OrganizationSystemRoleCatalog;
 
 use function array_unique;
 use function array_values;
@@ -32,7 +32,7 @@ final readonly class OrganizationMemberPermissionReadAdapter implements Organiza
    *
    * @param Connection $connection the main database connection
    */
-  public function __construct(private Connection $connection)
+  public function __construct(private Connection $connection, private OrganizationSystemRoleCatalogPort $systemRoles)
   {
   }
   // #endregion
@@ -59,7 +59,7 @@ final readonly class OrganizationMemberPermissionReadAdapter implements Organiza
       }
       /** @var list<string> $stored */
       $stored = null === $row['permissions'] ? [] : json_decode($row['permissions'], true, flags: JSON_THROW_ON_ERROR);
-      $grants = OrganizationSystemRoleCatalog::mergePermissions(
+      $grants = $this->systemRoles->mergePermissions(
         roleName: $row['name'],
         permissions: $stored,
         isSystem: true === $row['is_system'] || 't' === $row['is_system'] || 1 === $row['is_system'],

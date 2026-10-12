@@ -1,0 +1,16 @@
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: false
+
+  Calendar\Infrastructure\DataFixtures\CalendarFixtures: ~
+
+  app.seed.calendar:
+    class: Shared\Infrastructure\DataFixtures\SeedFixtureAdapter
+    arguments:
+      $fixture: '@Calendar\Infrastructure\DataFixtures\CalendarFixtures'
+      $manager: '@doctrine.orm.main_entity_manager'
+      $seedKey: 'calendar'
+      $prerequisites: ['organization', 'facility']
+    tags:
+      - { name: 'app.seed_fixture.main' }

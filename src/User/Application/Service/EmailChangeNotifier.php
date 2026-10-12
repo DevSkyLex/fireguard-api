@@ -8,8 +8,9 @@ use DateTimeImmutable;
 use Notification\Application\Contract\Notification\{NotificationChannel, NotificationType, SendNotificationRequest, SentNotification};
 use Notification\Application\Port\Inbound\NotificationPort;
 use Shared\Application\Contract\Notification\EmailRequestDetails;
-use Shared\Application\Port\Outbound\TranslationPort;
+use Shared\Application\Port\Outbound\{ProductConfigPort, TranslationPort};
 
+use function htmlspecialchars;
 use function in_array;
 use function rtrim;
 use function sprintf;
@@ -47,11 +48,13 @@ final readonly class EmailChangeNotifier
    * @param NotificationPort $notificationPort the notification module port
    * @param string $frontendUrl the public frontend base URL for the confirm link
    * @param TranslationPort $translator the translator for the localized subject and body
+   * @param ProductConfigPort $product the deployment-owned public product name
    */
   public function __construct(
     private NotificationPort $notificationPort,
     private string $frontendUrl,
     private TranslationPort $translator,
+    private ProductConfigPort $product,
   ) {
   }
   // #endregion
@@ -234,7 +237,7 @@ final readonly class EmailChangeNotifier
       subject: $subject,
       body: sprintf(
         '<p>%s</p>',
-        $this->translator->translate($bodyKey, [], 'emails', $locale),
+        $this->translator->translate($bodyKey, ['%product%' => htmlspecialchars($this->product->identity()->publicName)], 'emails', $locale),
       ),
       channels: [NotificationChannel::EMAIL],
       deliveryPayload: [

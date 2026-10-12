@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Maintenance\Infrastructure\Adapter\Calendar;
 
 use Calendar\Application\Contract\Feed\CalendarFeedItem;
-use Calendar\Application\Port\Outbound\Feed\MaintenanceCalendarFeedPort;
+use Calendar\Application\Port\Outbound\Feed\CalendarFeedSourcePort;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Maintenance\Infrastructure\Persistence\Doctrine\Record\MaintenanceScheduleRecord;
@@ -38,7 +38,7 @@ use function max;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class MaintenanceCalendarFeedAdapter implements MaintenanceCalendarFeedPort
+final readonly class MaintenanceCalendarFeedAdapter implements CalendarFeedSourcePort
 {
   // #region Constants
   /**
@@ -84,6 +84,18 @@ final readonly class MaintenanceCalendarFeedAdapter implements MaintenanceCalend
   // #endregion
 
   // #region Methods
+  /**
+   * Method sourceKey
+   *
+   * @access public
+   *
+   * @return string the maintenance contributor's stable source key
+   */
+  public function sourceKey(): string
+  {
+    return self::SOURCE_KEY;
+  }
+
   /**
    * Method findBetween.
    *

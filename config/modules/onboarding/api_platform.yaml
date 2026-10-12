@@ -1,0 +1,8 @@
+api_platform:
+  mapping:
+    paths:
+      - '%kernel.project_dir%/src/Onboarding/Presentation/Api/Resource'
+  exception_to_status:
+    Onboarding\Domain\Exception\OnboardingStepNotExecutableException: 400
+    Onboarding\Application\Contract\Setup\OrganizationSetupConflict: 409
+    Onboarding\Domain\Exception\UnsupportedOnboardingStepException: 400

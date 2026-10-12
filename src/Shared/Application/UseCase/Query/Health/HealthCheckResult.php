@@ -49,7 +49,7 @@ final readonly class HealthCheckResult implements ResultMessage
     public string $status,
     public bool $database,
     public bool $cache,
-    public string $version = '1.0.0',
+    public string $version,
     public string $timestamp = '',
   ) {
   }
@@ -63,14 +63,17 @@ final readonly class HealthCheckResult implements ResultMessage
    *
    * @since 1.0.0
    *
+   * @param string $version the configured application version
+   *
    * @return self Healthy result
    */
-  public static function healthy(): self
+  public static function healthy(string $version): self
   {
     return new self(
       status: self::STATUS_HEALTHY,
       database: true,
       cache: true,
+      version: $version,
       timestamp: date('c'),
     );
   }
@@ -84,15 +87,17 @@ final readonly class HealthCheckResult implements ResultMessage
    *
    * @param bool $database Database status
    * @param bool $cache Cache status
+   * @param string $version the configured application version
    *
    * @return self Degraded result
    */
-  public static function degraded(bool $database, bool $cache): self
+  public static function degraded(bool $database, bool $cache, string $version): self
   {
     return new self(
       status: self::STATUS_DEGRADED,
       database: $database,
       cache: $cache,
+      version: $version,
       timestamp: date('c'),
     );
   }
@@ -106,15 +111,17 @@ final readonly class HealthCheckResult implements ResultMessage
    *
    * @param bool $database Database status
    * @param bool $cache Cache status
+   * @param string $version the configured application version
    *
    * @return self Unhealthy result
    */
-  public static function unhealthy(bool $database, bool $cache): self
+  public static function unhealthy(bool $database, bool $cache, string $version): self
   {
     return new self(
       status: self::STATUS_UNHEALTHY,
       database: $database,
       cache: $cache,
+      version: $version,
       timestamp: date('c'),
     );
   }

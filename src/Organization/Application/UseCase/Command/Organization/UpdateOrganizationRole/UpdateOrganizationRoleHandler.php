@@ -7,6 +7,7 @@ namespace Organization\Application\UseCase\Command\Organization\UpdateOrganizati
 use Organization\Application\Contract\Event\Role\OrganizationRoleUpdatedEvent;
 use Organization\Application\Contract\Exception\OrganizationNotFoundException;
 use Organization\Application\Port\Inbound\Internal\{OrganizationJoinAccessPort, OrganizationLastAdminGuardPort};
+use Organization\Application\Port\Inbound\OrganizationPermissionCatalogPort;
 use Organization\Application\Port\Outbound\Internal\{OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
 use Organization\Domain\Exception\{OrganizationRoleNameAlreadyExistsException, OrganizationSystemRoleImmutableException};
 use Organization\Domain\Exception\OrganizationRoleNotFoundException;
@@ -49,6 +50,7 @@ final readonly class UpdateOrganizationRoleHandler implements CommandHandler
     private OrganizationRepositoryPort $organizationRepository,
     private OrganizationRoleRepositoryPort $roleRepository,
     private EventDispatcherPort $eventDispatcher,
+    private OrganizationPermissionCatalogPort $permissionCatalog,
     private OrganizationLastAdminGuardPort $lastAdminGuard,
     private TransactionManagerPort $transactionManager,
     private ?OrganizationJoinAccessPort $joinAccess = null,
@@ -82,6 +84,7 @@ final readonly class UpdateOrganizationRoleHandler implements CommandHandler
      * @var list<string> $permissions
      */
     $permissions = array_values(array_unique($command->permissions));
+    $this->permissionCatalog->assertKnown($permissions);
 
     if (0 === count($permissions)) {
       throw InvalidValueException::because('At least one permission is required.');

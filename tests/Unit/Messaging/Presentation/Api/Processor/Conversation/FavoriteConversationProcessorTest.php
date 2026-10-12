@@ -45,7 +45,7 @@ final class FavoriteConversationProcessorTest extends TestCase
         && self::CONVERSATION_ID === $command->conversationId))
       ->willReturn(new FavoriteConversationResult($this->view()));
 
-    $processor = new FavoriteConversationProcessor($commandBus, new ConversationOutputFactory(), $this->securityWithUser());
+    $processor = new FavoriteConversationProcessor($commandBus, new ConversationOutputFactory(\Tests\Support\Messaging\MessagingSubjectCatalog::create()), $this->securityWithUser());
 
     $output = $processor->process(null, new Post(), ['id' => self::CONVERSATION_ID]);
 
@@ -56,7 +56,7 @@ final class FavoriteConversationProcessorTest extends TestCase
   #[Test]
   public function testProcessThrowsWhenIdIsMissing(): void
   {
-    $processor = new FavoriteConversationProcessor($this->createStub(CommandBusPort::class), new ConversationOutputFactory(), $this->securityWithUser());
+    $processor = new FavoriteConversationProcessor($this->createStub(CommandBusPort::class), new ConversationOutputFactory(\Tests\Support\Messaging\MessagingSubjectCatalog::create()), $this->securityWithUser());
 
     $this->expectException(BadRequestHttpException::class);
 
@@ -69,7 +69,7 @@ final class FavoriteConversationProcessorTest extends TestCase
     $commandBus = $this->createStub(CommandBusPort::class);
     $commandBus->method('dispatch')->willThrowException(MessagingNotFoundException::conversation(self::CONVERSATION_ID));
 
-    $processor = new FavoriteConversationProcessor($commandBus, new ConversationOutputFactory(), $this->securityWithUser());
+    $processor = new FavoriteConversationProcessor($commandBus, new ConversationOutputFactory(\Tests\Support\Messaging\MessagingSubjectCatalog::create()), $this->securityWithUser());
 
     $this->expectException(NotFoundHttpException::class);
 
@@ -82,7 +82,7 @@ final class FavoriteConversationProcessorTest extends TestCase
     $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn(null);
 
-    $processor = new FavoriteConversationProcessor($this->createStub(CommandBusPort::class), new ConversationOutputFactory(), $security);
+    $processor = new FavoriteConversationProcessor($this->createStub(CommandBusPort::class), new ConversationOutputFactory(\Tests\Support\Messaging\MessagingSubjectCatalog::create()), $security);
 
     $this->expectException(AccessDeniedHttpException::class);
 

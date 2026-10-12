@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Maintenance\Presentation\Api\Service;
 
-use Maintenance\Application\Contract\Export\MaintenanceScheduleExportRow;
+use Maintenance\Application\Contract\Export\{MaintenanceScheduleCsvSchema, MaintenanceScheduleExportRow};
 
 use function fputcsv;
 
@@ -33,19 +33,7 @@ final class MaintenanceScheduleCsvWriter
    *
    * @var list<string>
    */
-  public const array HEADER = [
-    'id',
-    'equipment_id',
-    'equipment_type',
-    'equipment_serial',
-    'facility',
-    'periodicity_override',
-    'last_inspection_closed_at',
-    'next_due_at',
-    'due_status',
-    'created_at',
-    'updated_at',
-  ];
+  public const array HEADER = MaintenanceScheduleCsvSchema::HEADER;
   // #endregion
 
   // #region Methods
@@ -87,19 +75,7 @@ final class MaintenanceScheduleCsvWriter
    */
   private function toRow(MaintenanceScheduleExportRow $row): array
   {
-    return [
-      $row->id,
-      $row->equipmentId,
-      $row->equipmentType,
-      $row->equipmentSerial ?? '',
-      $row->facilityName ?? $row->facilityId ?? '',
-      $row->intervalOverride ?? '',
-      $row->lastInspectionClosedAt ?? '',
-      $row->nextDueAt ?? '',
-      $row->dueStatus,
-      $row->createdAt,
-      $row->updatedAt,
-    ];
+    return MaintenanceScheduleCsvSchema::cells($row);
   }
   // #endregion
 }

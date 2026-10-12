@@ -6,17 +6,22 @@ namespace Tests\Functional\Api;
 
 use App\Tests\E2E\OAuth2WebTestCase;
 use Auth\Application\Port\Outbound\TokenRevocationPort;
+use DAMA\DoctrineTestBundle\PHPUnit\SkipDatabaseRollback;
 use Doctrine\ORM\EntityManagerInterface;
 use OAuth\Application\Port\Outbound\Token\JwtParserPort;
 use OAuth\Application\UseCase\Command\Consent\GrantConsent\GrantConsentCommand;
 use OAuth\Infrastructure\Persistence\Doctrine\Record\ClientRecord;
 use Shared\Application\Port\Inbound\CommandBusPort;
+use Shared\Infrastructure\Messaging\Outbox\{DeliverOutboxEventHandler, OutboxEvent};
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
+use Symfony\Component\Messenger\Transport\Receiver\ReceiverInterface;
+use Tests\Support\Database\RootCommitDatabaseIsolationTrait;
 
 use function base64_encode;
 use function explode;
 use function hash;
 use function http_build_query;
+use function is_string;
 use function json_encode;
 use function parse_str;
 use function parse_url;
@@ -34,8 +39,11 @@ use const PHP_URL_QUERY;
  *
  * @category Functional Test
  */
+#[SkipDatabaseRollback]
 final class OAuthDelegationSecurityApiTest extends OAuth2WebTestCase
 {
+  use RootCommitDatabaseIsolationTrait;
+
   // #region Methods
   public function testRealGrantScopesIntersectWithRbacAndPreserveInteractiveSessions(): void
   {
@@ -83,6 +91,7 @@ final class OAuthDelegationSecurityApiTest extends OAuth2WebTestCase
     $tokenId = $parser->parse($tokens['access_token'])['jti'] ?? null;
     self::assertIsString($tokenId);
     self::assertSame(80, strlen($tokenId));
+    $this->deliverAuthOutbox();
     $row = $this->authManager()->getConnection()->fetchAssociative(
       "SELECT subject_id, metadata FROM audit_events WHERE action = 'oauth.token_issued' AND subject_id = ?",
       [$tokenId],
@@ -192,6 +201,7 @@ final class OAuthDelegationSecurityApiTest extends OAuth2WebTestCase
     self::assertIsString($refreshed['access_token'] ?? null);
     $tokenId = $parser->parse($refreshed['access_token'])['jti'] ?? null;
     self::assertIsString($tokenId);
+    $this->deliverAuthOutbox();
     $metadata = $this->authManager()->getConnection()->fetchOne("SELECT metadata FROM audit_events WHERE action = 'oauth.token_issued' AND subject_id = ?", [$tokenId]);
     self::assertIsString($metadata);
     self::assertSame(['OPENID'], $this->decodeJsonResponse($metadata)['scopes'] ?? null);
@@ -209,13 +219,66 @@ final class OAuthDelegationSecurityApiTest extends OAuth2WebTestCase
     self::assertFalse($this->authManager()->getConnection()->fetchOne('SELECT user_identifier FROM auth_codes WHERE user_identifier = ?', [$actor['userId']]));
     $code = $this->consentAuthorizationCode($client, $actor['token'], 'OPENID');
     $this->exchange($client, ['grant_type' => 'authorization_code', 'code' => $code, 'redirect_uri' => 'https://localhost:8080/callback', 'code_verifier' => str_repeat('a', 64)]);
-    self::assertSame(200, $client->getResponse()->getStatusCode());
+    $failure = $this->decodeJsonResponse($client->getResponse()->getContent() ?: '{}');
+    $description = $failure['error_description'] ?? $failure['detail'] ?? null;
+    self::assertSame(200, $client->getResponse()->getStatusCode(), is_string($description) ? $description : '');
     $tokens = $this->decodeJsonResponse($client->getResponse()->getContent() ?: '{}');
     self::assertIsString($tokens['access_token'] ?? null);
     $this->request($client, 'GET', '/api/oauth2/userinfo', $tokens['access_token']);
     self::assertSame(200, $client->getResponse()->getStatusCode());
     $this->request($client, 'GET', '/api/me', $tokens['access_token']);
     self::assertSame(403, $client->getResponse()->getStatusCode());
+  }
+
+  public function testExactConsentRetryRetainsOneCodeAndOneConsentMutation(): void
+  {
+    $client = static::createClientWithFixtures();
+    $actor = $this->authenticateFreshUser($client);
+    $parameters = [
+      'response_type' => 'code', 'client_id' => self::DEV_CLIENT_ID,
+      'redirect_uri' => 'https://localhost:8080/callback', 'scope' => 'OPENID READ',
+      'code_challenge' => $this->base64Url(hash('sha256', str_repeat('a', 64), true)), 'code_challenge_method' => 'S256',
+      'approved' => true,
+    ];
+    $server = ['CONTENT_TYPE' => 'application/json', 'HTTP_ACCEPT' => '*/*', 'HTTP_AUTHORIZATION' => 'Bearer ' . $actor['token'], 'HTTP_IDEMPOTENCY_KEY' => 'original-consent'];
+    $client->request('POST', '/api/oauth2/consent/grant', server: $server, content: (string) json_encode($parameters));
+    self::assertSame(302, $client->getResponse()->getStatusCode());
+    $location = $client->getResponse()->headers->get('Location');
+    self::assertNotNull($location);
+    $client->request('POST', '/api/oauth2/consent/grant', server: $server, content: (string) json_encode($parameters));
+    self::assertSame(302, $client->getResponse()->getStatusCode());
+    self::assertSame($location, $client->getResponse()->headers->get('Location'));
+    $connection = $this->authManager()->getConnection();
+    self::assertSame(1, $connection->fetchOne('SELECT COUNT(*) FROM auth_codes WHERE user_identifier = ?', [$actor['userId']]));
+    self::assertSame(1, $connection->fetchOne('SELECT COUNT(*) FROM consents WHERE user_id = ? AND client_id = ?', [$actor['userId'], self::DEV_CLIENT_ID]));
+  }
+
+  public function testStandardFormCodeAndRefreshGrantsRetainPkceAndNativeReplay(): void
+  {
+    $client = static::createClientWithFixtures();
+    $actor = $this->authenticateFreshUser($client);
+    $code = $this->consentAuthorizationCode($client, $actor['token'], 'OPENID READ');
+    $server = ['CONTENT_TYPE' => 'application/x-www-form-urlencoded', 'HTTP_ACCEPT' => 'application/json'];
+    $grant = ['grant_type' => 'authorization_code', 'code' => $code, 'redirect_uri' => 'https://localhost:8080/callback', 'code_verifier' => str_repeat('a', 64), 'client_id' => self::DEV_CLIENT_ID, 'client_secret' => self::DEV_CLIENT_SECRET];
+    $client->request('POST', '/api/oauth2/token', server: $server, content: http_build_query($grant));
+    self::assertSame(200, $client->getResponse()->getStatusCode());
+    self::assertStringContainsString('application/json', $client->getResponse()->headers->get('Content-Type', ''));
+    $issued = $this->decodeJsonResponse($client->getResponse()->getContent() ?: '{}');
+    self::assertIsString($issued['access_token'] ?? null);
+    self::assertIsString($issued['refresh_token'] ?? null);
+    $client->request('POST', '/api/oauth2/token', server: $server, content: http_build_query($grant));
+    self::assertSame(200, $client->getResponse()->getStatusCode());
+    $replayed = $this->decodeJsonResponse($client->getResponse()->getContent() ?: '{}');
+    self::assertSame($issued['access_token'], $replayed['access_token'] ?? null);
+    self::assertSame($issued['refresh_token'], $replayed['refresh_token'] ?? null);
+    $client->request('POST', '/api/oauth2/token', server: $server, content: http_build_query(['grant_type' => 'refresh_token', 'refresh_token' => $issued['refresh_token'], 'scope' => 'OPENID READ', 'client_id' => self::DEV_CLIENT_ID, 'client_secret' => self::DEV_CLIENT_SECRET]));
+    self::assertSame(200, $client->getResponse()->getStatusCode());
+    $refreshed = $this->decodeJsonResponse($client->getResponse()->getContent() ?: '{}');
+    self::assertIsString($refreshed['access_token'] ?? null);
+    self::assertNotSame($issued['access_token'], $refreshed['access_token']);
+    self::assertSame('OPENID READ', $refreshed['scope'] ?? null);
+    $this->request($client, 'GET', '/api/me', $refreshed['access_token']);
+    self::assertSame(200, $client->getResponse()->getStatusCode());
   }
 
   private function consentAuthorizationCode(KernelBrowser $client, string $sessionToken, string $scope): string
@@ -245,9 +308,14 @@ final class OAuthDelegationSecurityApiTest extends OAuth2WebTestCase
    */
   private function grant(KernelBrowser $client, array $actor, string $scope): array
   {
+    $proofs = static::getContainer()->get(\OAuth\Application\Port\Inbound\ClientSecurityProofPort::class);
+    self::assertInstanceOf(\OAuth\Application\Port\Inbound\ClientSecurityProofPort::class, $proofs);
+    self::assertNotNull($proofs->verify(self::DEV_CLIENT_ID, self::DEV_CLIENT_SECRET, 'authorization_code'), 'Fresh baseline client credentials and grant must be accepted.');
     $code = $this->authorizationCode($client, $actor, $scope);
     $this->exchange($client, ['grant_type' => 'authorization_code', 'code' => $code, 'redirect_uri' => 'https://localhost:8080/callback', 'code_verifier' => str_repeat('a', 64)]);
-    self::assertSame(200, $client->getResponse()->getStatusCode());
+    $failure = $this->decodeJsonResponse($client->getResponse()->getContent() ?: '{}');
+    $description = $failure['error_description'] ?? $failure['detail'] ?? null;
+    self::assertSame(200, $client->getResponse()->getStatusCode(), is_string($description) ? $description : '');
     $tokens = $this->decodeJsonResponse($client->getResponse()->getContent() ?: '{}');
     self::assertIsString($tokens['access_token'] ?? null);
     self::assertIsString($tokens['refresh_token'] ?? null);
@@ -314,6 +382,28 @@ final class OAuthDelegationSecurityApiTest extends OAuth2WebTestCase
     self::assertInstanceOf(EntityManagerInterface::class, $manager);
 
     return $manager;
+  }
+
+  private function deliverAuthOutbox(): void
+  {
+    $receiver = static::getContainer()->get('messenger.transport.auth_outbox');
+    $delivery = static::getContainer()->get(DeliverOutboxEventHandler::class);
+    self::assertInstanceOf(ReceiverInterface::class, $receiver);
+    self::assertInstanceOf(DeliverOutboxEventHandler::class, $delivery);
+    for ($iteration = 0; $iteration < 100; ++$iteration) {
+      $received = false;
+      foreach ($receiver->get() as $envelope) {
+        $message = $envelope->getMessage();
+        self::assertInstanceOf(OutboxEvent::class, $message);
+        $delivery($message);
+        $receiver->ack($envelope);
+        $received = true;
+      }
+      if (!$received) {
+        return;
+      }
+    }
+    self::fail('The finite test outbox did not finish delivery.');
   }
 
   private function base64Url(string $value): string

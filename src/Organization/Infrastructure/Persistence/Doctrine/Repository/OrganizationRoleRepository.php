@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Organization\Infrastructure\Persistence\Doctrine\Repository;
 
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository};
+use Organization\Application\Port\Inbound\OrganizationSystemRoleCatalogPort;
 use Organization\Application\Port\Outbound\Internal\OrganizationRoleRepositoryPort;
 use Organization\Application\Service\OrganizationCacheInvalidator;
-use Organization\Domain\Catalog\OrganizationSystemRoleCatalog;
 use Organization\Domain\Model\OrganizationRole\OrganizationRole;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationRoleId, OrganizationRoleName};
 use Organization\Infrastructure\Persistence\Doctrine\Mapper\OrganizationRoleMapper;
@@ -47,6 +47,7 @@ final readonly class OrganizationRoleRepository implements OrganizationRoleRepos
    */
   public function __construct(
     private readonly EntityManagerInterface $entityManager,
+    private OrganizationSystemRoleCatalogPort $systemRoles,
     private readonly ?OrganizationCacheInvalidator $cacheInvalidator = null,
   ) {
     $this->repository = $entityManager->getRepository(OrganizationRoleRecord::class);
@@ -324,7 +325,7 @@ final readonly class OrganizationRoleRepository implements OrganizationRoleRepos
    */
   private function normalizeSystemRolePermissions(OrganizationRole $role): OrganizationRole
   {
-    $role->updatePermissions(OrganizationSystemRoleCatalog::mergePermissions(
+    $role->updatePermissions($this->systemRoles->mergePermissions(
       roleName: (string) $role->name(),
       permissions: $role->permissions(),
       isSystem: $role->isSystem(),

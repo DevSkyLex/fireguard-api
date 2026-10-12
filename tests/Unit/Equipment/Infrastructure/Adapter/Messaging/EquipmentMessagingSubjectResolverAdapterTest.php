@@ -8,7 +8,6 @@ use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Equipment\Infrastructure\Adapter\Messaging\EquipmentMessagingSubjectResolverAdapter;
 use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
-use Messaging\Application\Contract\Subject\MessagingSubjectType;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
@@ -28,12 +27,13 @@ final class EquipmentMessagingSubjectResolverAdapterTest extends TestCase
   private const string EQUIPMENT_ID = '550e8400-e29b-41d4-a716-446655440002';
 
   #[Test]
-  public function testSupportsOnlyEquipmentSubjectType(): void
+  public function testPublishesTheSubjectDescriptor(): void
   {
     $adapter = new EquipmentMessagingSubjectResolverAdapter($this->createStub(EntityManagerInterface::class));
 
-    self::assertTrue($adapter->supports(MessagingSubjectType::EQUIPMENT));
-    self::assertFalse($adapter->supports(MessagingSubjectType::INTERVENTION));
+    self::assertSame('equipment', $adapter->descriptor()->type);
+    self::assertSame('equipment', $adapter->descriptor()->resourceSegment);
+    self::assertSame('organization.equipment.read', $adapter->descriptor()->requiredReadPermission);
   }
 
   #[Test]

@@ -63,14 +63,14 @@ final class OrganizationPermissionCatalogTest extends TestCase
   #[Test]
   public function testDescriptionForReturnsEmptyForUnknownPermission(): void
   {
-    self::assertNotSame('', OrganizationPermissionCatalog::descriptionFor('organization.read'));
-    self::assertSame('', OrganizationPermissionCatalog::descriptionFor('unknown.permission'));
+    self::assertNotSame('', \Tests\Support\OrganizationCatalogTestFactory::permissions()->descriptionFor('organization.read'));
+    self::assertSame('', \Tests\Support\OrganizationCatalogTestFactory::permissions()->descriptionFor('unknown.permission'));
   }
 
   #[Test]
   public function testDefinitionsIncludeWildcard(): void
   {
-    $names = array_column(OrganizationPermissionCatalog::definitions(), 'name');
+    $names = array_column(\Tests\Support\OrganizationCatalogTestFactory::permissions()->definitions(), 'name');
 
     self::assertContains('organization.*', $names);
   }

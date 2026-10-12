@@ -6,6 +6,7 @@ namespace OAuth\Application\UseCase\Command\Token\RevokeToken;
 
 use OAuth\Application\Port\Outbound\Token\TokenRevocationPort;
 use Shared\Application\Message\CommandHandler;
+use Shared\Application\Port\Outbound\TransactionManagerPort;
 
 /**
  * Handler RevokeTokenHandler.
@@ -30,6 +31,7 @@ final readonly class RevokeTokenHandler implements CommandHandler
    */
   public function __construct(
     private readonly TokenRevocationPort $tokenRevocation,
+    private ?TransactionManagerPort $transactionManager = null,
   ) {
   }
   // #endregion
@@ -47,6 +49,15 @@ final readonly class RevokeTokenHandler implements CommandHandler
    * @return RevokeTokenResult the result
    */
   public function __invoke(RevokeTokenCommand $command): RevokeTokenResult
+  {
+    if (null === $this->transactionManager) {
+      return $this->execute($command);
+    }
+
+    return $this->transactionManager->transactional(fn (): RevokeTokenResult => $this->execute($command));
+  }
+
+  private function execute(RevokeTokenCommand $command): RevokeTokenResult
   {
 
     // Try based on hint first

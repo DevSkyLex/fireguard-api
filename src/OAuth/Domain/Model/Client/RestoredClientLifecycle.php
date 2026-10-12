@@ -34,6 +34,7 @@ final readonly class RestoredClientLifecycle
     public bool $isActive,
     public DateTimeImmutable $createdAt,
     public ?DateTimeImmutable $deletedAt,
+    public int $securityRevision = 1,
   ) {
   }
   // #endregion

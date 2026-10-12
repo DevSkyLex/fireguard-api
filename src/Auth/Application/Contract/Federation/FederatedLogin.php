@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Auth\Application\Contract\Federation;
 
 use Auth\Application\Contract\Token\AuthenticationSession;
+use DateTimeImmutable;
 
 /**
  * Contract FederatedLogin.
@@ -36,6 +37,7 @@ final readonly class FederatedLogin
     public AuthenticationSession $login,
     public string $returnUrl,
     public bool $newAccount,
+    public ?DateTimeImmutable $browserProofExpiresAt = null,
   ) {
   }
   // #endregion

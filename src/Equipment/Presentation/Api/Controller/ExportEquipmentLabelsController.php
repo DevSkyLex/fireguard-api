@@ -5,18 +5,19 @@ declare(strict_types=1);
 namespace Equipment\Presentation\Api\Controller;
 
 use Auth\Application\Contract\User\AuthenticatedUser;
-use DateTimeImmutable;
-use Equipment\Application\UseCase\Query\RenderEquipmentLabels\{RenderEquipmentLabelsQuery, RenderEquipmentLabelsResult};
+use Equipment\Application\UseCase\Command\Export\GenerateEquipmentExport\{GenerateEquipmentExportCommand, GenerateEquipmentExportResult};
 use Equipment\Domain\Exception\{EquipmentAccessDeniedException, EquipmentLabelExportTooLargeException, EquipmentNotFoundException};
 use Equipment\Presentation\Api\Trait\Equipment\EquipmentExceptionUnwrapperTrait;
 use InvalidArgumentException;
-use Shared\Application\Port\Inbound\QueryBusPort;
+use LogicException;
+use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, Response};
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException, UnprocessableEntityHttpException};
 use Throwable;
 
+use function base64_decode;
 use function is_string;
 use function sprintf;
 
@@ -59,11 +60,11 @@ final class ExportEquipmentLabelsController extends AbstractController
    *
    * @since 1.0.0
    *
-   * @param QueryBusPort $queryBus the query bus
+   * @param CommandBusPort $commands generates the artifact inside its owning transaction
    * @param Security $security the security service
    */
   public function __construct(
-    private readonly QueryBusPort $queryBus,
+    private readonly CommandBusPort $commands,
     private readonly Security $security,
   ) {
   }
@@ -100,10 +101,11 @@ final class ExportEquipmentLabelsController extends AbstractController
     }
 
     try {
-      /** @var RenderEquipmentLabelsResult $result */
-      $result = $this->queryBus->ask(new RenderEquipmentLabelsQuery(
+      /** @var GenerateEquipmentExportResult $result */
+      $result = $this->commands->dispatch(new GenerateEquipmentExportCommand(
         userId: $user->getId(),
         organizationId: $organizationId,
+        format: 'labels',
         equipmentIds: $equipmentIds,
         facilityId: $facilityId,
       ));
@@ -113,11 +115,14 @@ final class ExportEquipmentLabelsController extends AbstractController
       throw $this->mapLabelException($exception);
     }
 
-    $fileName = sprintf('equipment-labels-%s.pdf', new DateTimeImmutable()->format('Ymd-His'));
+    $contents = base64_decode($result->contentsBase64, true);
+    if (false === $contents) {
+      throw new LogicException('Saved PDF artifact is invalid.');
+    }
 
-    return new Response($result->contents, Response::HTTP_OK, [
-      'Content-Type' => 'application/pdf',
-      'Content-Disposition' => sprintf('attachment; filename="%s"', $fileName),
+    return new Response($contents, Response::HTTP_OK, [
+      'Content-Type' => $result->contentType,
+      'Content-Disposition' => sprintf('attachment; filename="%s"', $result->fileName),
     ]);
   }
 

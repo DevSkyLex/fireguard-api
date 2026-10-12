@@ -35,7 +35,7 @@ final class OrganizationComplianceSettingsOutput
    */
   #[Groups([OrganizationSerializationGroup::READ])]
   #[ApiProperty(readable: true, writable: false, description: 'Effective non-conformity SLA in days per severity')]
-  public array $nonConformitySlaDays = OrganizationComplianceDefaults::NON_CONFORMITY_SLA_DAYS;
+  public array $nonConformitySlaDays = [];
 
   /**
    * Property inspectionPeriodicityDefaults.
@@ -46,7 +46,7 @@ final class OrganizationComplianceSettingsOutput
    */
   #[Groups([OrganizationSerializationGroup::READ])]
   #[ApiProperty(readable: true, writable: false, description: 'Effective inspection periodicity (ISO-8601 duration) per equipment type')]
-  public array $inspectionPeriodicityDefaults = OrganizationComplianceDefaults::INSPECTION_PERIODICITIES;
+  public array $inspectionPeriodicityDefaults = [];
 
   /**
    * Property reminderWindowDays.

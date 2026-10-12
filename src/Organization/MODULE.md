@@ -130,7 +130,7 @@ Join changes emit ID-only audit events after commit and send localized email/rea
 | POST   | `/api/organizations/{id}/suspend`            | Suspend the organization as an explicit, dedicated action — coexists with (does not replace) the legacy `isActive: false` toggle on the settings PATCH below. Requires `organization.settings.write`, the SAME permission the legacy toggle already requires — see Notes (P2.5). 409 when archived (restore it first). Idempotent when already suspended. Returns the refreshed `OrganizationOutput`, caller-membership `isOwner`/`roles` included                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | POST   | `/api/organizations/{id}/restore`            | Restore the organization to ACTIVE from SUSPENDED or ARCHIVED, as an explicit, dedicated action — coexists with (does not replace) the legacy `isActive: true` toggle. Requires `organization.settings.write` — see Notes (P2.5). Idempotent when already active. Returns the refreshed `OrganizationOutput`, caller-membership `isOwner`/`roles` included                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | POST   | `/api/organizations/{id}/transfer-ownership` | Transfer ownership to another active member. The caller must be an ACTIVE member of the organization — a stranger gets the same 404 a nonexistent organization id would produce, before the slug or owner checks ever run (closes an existence/slug oracle — see Notes). An active member who is not the organization's CURRENT owner gets 403 instead — RBAC-independent, no permission grants the right to give away someone else's ownership. Requires the same danger-zone `slug` confirmation as DELETE, now in the request body (missing/mismatched → 422), checked only once the caller is confirmed to be the owner. Target must be an active member (404 otherwise); an archived organization or a target already owning it → 409. The new owner is granted the system `admin` role if missing AND the acting (previous) owner still holds every permission that role carries (`OrganizationPermissionGrantGuardPort`, the same no-privilege-escalation check every other role-granting surface applies); a missing role, a guard refusal, or any other failure while granting it is logged and skipped — it never fails the already-committed transfer. Returns the refreshed `OrganizationOutput` — see Notes. `isOwner` reflects the POST-transfer truth for the acting caller (`false`, since ownership just moved away from them) |
-| PATCH  | `/api/organizations/{id}`                    | Update general & branding settings (name, slug, description, status), the legal profile (`country`, `legalType`, `legalName`, `registrationNumber`, `vatNumber`, `registeredAddress`, `privacyContactEmail` — see below), plus the structured sections: `notifications`, `regional`, `compliance` (non-conformity SLA days per severity, inspection periodicity per equipment type, reminder window — map entries set to `null` revert to the catalog default from `OrganizationComplianceDefaults`; only customizations are persisted, effective values are resolved on read), `automation` (explicit opt-in toggles, e.g. `autoCreateInterventionOnCriticalNc`) , `approval` (R17 four-eyes policy: `actionRules` per gated action type — `enabled`/`minApproverRole`/`minSeverity`, `null` entry reverts to disabled —, `allowSelfApproval`, `approvalTtlDays`; every action type defaults to disabled) and `assistant` (AI-assistant policy: `enabled`, `model`, `temperature`, `includeBusinessContext`; disabled by default). Periodicity keys are validated against the Equipment catalog via `EquipmentTypeCatalogPort`; `approval.actionRules` keys are validated against the Approval catalog via `ApprovalActionTypeCatalogPort`. Requires `organization.settings.write`. Returns the refreshed `OrganizationOutput`, caller-membership `isOwner`/`roles` included               |
+| PATCH  | `/api/organizations/{id}`                    | Update general & branding settings (name, slug, description, status), the legal profile (`country`, `legalType`, `legalName`, `registrationNumber`, `vatNumber`, `registeredAddress`, `privacyContactEmail` — see below), plus the structured sections: `notifications`, `regional`, `compliance` (non-conformity SLA days per severity, inspection periodicity per equipment type, reminder window — map entries set to `null` revert to the owner-contributed catalog default; only customizations are persisted, effective values are resolved on read), `automation` (explicit opt-in toggles, e.g. `autoCreateInterventionOnCriticalNc`) , `approval` (R17 four-eyes policy: `actionRules` per gated action type — `enabled`/`minApproverRole`/`minSeverity`, `null` entry reverts to disabled —, `allowSelfApproval`, `approvalTtlDays`; every action type defaults to disabled) and `assistant` (AI-assistant policy: `enabled`, `model`, `temperature`, `includeBusinessContext`; disabled by default). Periodicity keys are validated against the Equipment catalog via `EquipmentTypeCatalogPort`; `approval.actionRules` keys are validated against the Approval catalog via `ApprovalActionTypeCatalogPort`. Requires `organization.settings.write`. Returns the refreshed `OrganizationOutput`, caller-membership `isOwner`/`roles` included               |
 | GET    | `/api/organizations/legal-types`             | Reference catalog of organization legal entity type values/labels for the Legal profile settings tab select                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 
 Removed 2026-08-20: `GET /api/organizations/statuses` and
@@ -857,7 +857,7 @@ organization.')` → 400, while `GET`, `DELETE` and both member-role
   reserved as an upcasting anchor; additions never need it because
   `fromArray` applies defaults). `compliance` stores ONLY the organization's
   customizations; effective values are resolved on read against
-  `Domain/Catalog/OrganizationComplianceDefaults.php` (severity SLAs
+  `OrganizationSettingsPolicyCatalogPort` (owner-contributed severity SLAs
   low:90/medium:30/high:7/critical:1 days, per-equipment-type inspection
   periodicities, 30-day reminder window), so catalog updates propagate to
   non-customized organizations automatically. `automation` toggles default
@@ -1194,7 +1194,7 @@ aggregate; its `role` field is a free-form label (e.g. `"lead"`),
 - **Permissions**: `organization.teams.read` (all GET), `organization.teams.write`
   (create/update team, add/remove members — day-to-day), `organization.teams.manage`
   (delete team — lifecycle). The system `member` role is granted
-  `organization.teams.read` via `OrganizationSystemRoleCatalog::permissionsFor()`,
+  `organization.teams.read` via `OrganizationSystemRoleCatalogPort::permissionsFor()`,
   which propagates to existing organizations at READ time through
   `mergePermissions()` — no backfill migration needed. `admin` is covered by
   the `organization.*` wildcard.
@@ -1271,6 +1271,78 @@ template; stored notifications and Mercure text preserve the original organizati
 name.
 
 ## Configuration
+
+Module selection loads [the service entry point](../../config/modules/organization.yaml)
+together with its [owner configuration fragments](../../config/modules/organization/).
+Those fragments contribute owned mappings, API/error metadata and configured
+framework/seed registrations. Shared package configuration supplies connections and
+manager definitions; this module's persistence remains explicitly wired to `main`.
+See the [composition standard](../../ARCHITECTURE.md#service-wiring).
+
+Module selection loads [the service entry point](../../config/modules/organization.yaml)
+together with its [owner configuration fragments](../../config/modules/organization/).
+Those fragments contribute owned mappings, API/error metadata and configured
+framework/seed registrations. Shared package configuration supplies connections and
+manager definitions; this module's persistence remains explicitly wired to `main`.
+See the [composition standard](../../ARCHITECTURE.md#service-wiring).
+
+Quota, permission, system-role and settings-policy registries compose framework-free
+published Application contracts. Each owner's Infrastructure adapter publishes a pure
+static `definitions()` manifest; quota counting alone resolves services at runtime.
+The dedicated tags are `organization.quota_contribution`,
+`organization.permission_contribution`, `organization.system_role_contribution` and
+`organization.settings_policy_contribution`. The inbound catalog ports resolve these
+registries without embedding an owner list. Duplicate ownership fails during container
+compilation and direct registry construction. System-role contribution keys are unique
+even when several owners add grants to the same role.
+
+New quota keys, plan limits and permission grants must resolve a registered definition.
+Plan limits with numeric resource keys are rejected as invalid values before any plan is saved, preserving the HTTP 400 contract for malformed quota maps.
+The quota port accepts stable string identifiers; original enum cases remain compatibility
+shorthand. Usage summaries and plan overage checks follow registered resources while
+retaining member/invitation reservation and transaction-scoped advisory locks. Historical
+plan limits hydrate without contributors and preserve syntactically valid retired keys.
+Unknown new resources never become unlimited. Canonical role contributions apply during
+organization creation and system-role reads, retaining historical grants and leaving
+custom roles intact. Unknown requested permissions deny even for wildcard holders.
+Owner-declared historical aliases resolve only for authorization and delegation checks.
+The original stored/public role values remain intact; new grants still require canonical
+catalog names. A historical wildcard requires the actor's full organization wildcard, and
+a legacy read alias cannot be delegated after its canonical permission is withdrawn.
+
+Settings contributors publish typed `section.field` definitions with defaults and
+constraints; JSON value kinds remain a closed technical enum. Equipment, Inspection,
+Maintenance, Approval, Assistant and Automation own the installed policy fields.
+Repository hydration supplies effective compliance default maps while persisting only
+customizations. New unknown fields and invalid structural values are rejected before
+persistence. Programmatic commands can update additional registered sections through
+`policySections`; existing typed sections keep their established capabilities and HTTP
+shape. Historical unknown sections survive hydration and unrelated settings updates.
+
+Organization contributes create-organization, select-plan and invite-members onboarding
+steps through Onboarding's published metadata/evaluate/confirm contract and
+`onboarding.organization_step_contribution` tag.
+
+Organization declares its ordinary HTTP command/result schemas through
+`HttpIdempotencyOperationContributionPort` and supplies current owner replay gates.
+Signed receipts retain the original organization and actual required grants. Fresh SQL
+capabilities recheck membership, roles, lifecycle and current resource ownership before
+opening a stored result; missing and foreign URI targets preserve the original 404.
+Created organizations require current membership. Verified outsider join requests retain
+their existing requester/email-proof rules without adding membership as a new requirement.
+Cross-owner checks use published fresh member scope/directory/workforce and policy ports.
+
+`listOrganizationInvitations` is an explicit stateful GET: expiration, invitation rows and
+inviter display names are captured through one main command transaction. Its key is required;
+replay returns the original list after a fresh `organization.members.manage` check. Batch
+member removal dispatches one primary command and retains ordered removed/failed identifiers.
+Missing or foreign members are classified before mutation, last-admin validation is serialized,
+and a persistence failure rolls back the batch. Replaying a failed target never removes a
+member who became available later.
+
+Invitation subjects and transactional email branding consume Shared's `ProductConfigPort`.
+The public name comes from `config/packages/product.yaml`; the existing Fireguard wording
+and `APP_FRONTEND_URL` invitation links remain the defaults.
 
 Bindings are defined in [Organization configuration](../../config/modules/organization.yaml). Persistence consumers name their entity manager explicitly according to [Doctrine mapping](../../config/packages/doctrine.yaml). Runtime and recovery requirements in the sections above remain part of this contract.
 

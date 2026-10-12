@@ -9,6 +9,7 @@ use OAuth\Domain\Exception\Client\InvalidClientException;
 use OAuth\Domain\ValueObject\Client\{ClientId, ClientSecret};
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\{EventBusPort, HashingPort};
+use Shared\Application\Port\Outbound\TransactionManagerPort;
 use Shared\Domain\Service\EventIdProvider;
 
 use function bin2hex;
@@ -41,6 +42,7 @@ final readonly class RegenerateClientSecretHandler implements CommandHandler
     private readonly HashingPort $hashing,
     private readonly EventBusPort $eventBus,
     private readonly EventIdProvider $eventIdProvider,
+    private ?TransactionManagerPort $transactionManager = null,
   ) {
   }
   // #endregion
@@ -60,6 +62,15 @@ final readonly class RegenerateClientSecretHandler implements CommandHandler
    * @throws InvalidClientException if the client is not found
    */
   public function __invoke(RegenerateClientSecretCommand $command): RegenerateClientSecretResult
+  {
+    if (null === $this->transactionManager) {
+      return $this->execute($command);
+    }
+
+    return $this->transactionManager->transactional(fn (): RegenerateClientSecretResult => $this->execute($command));
+  }
+
+  private function execute(RegenerateClientSecretCommand $command): RegenerateClientSecretResult
   {
     // Find the client
     $clientId = new ClientId(value: $command->clientId);

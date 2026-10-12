@@ -69,7 +69,7 @@ final class GetImportJobResultTest extends TestCase
     $job = ImportJob::create(
       id: ImportJobId::fromString(self::JOB_ID),
       organizationId: 'org-1',
-      kind: ImportKind::EQUIPMENT,
+      kind: ImportKind::from('equipment'),
       storagePath: 'imports/org-1/job.csv',
       originalFilename: 'equipment.csv',
       createdBy: 'user-1',

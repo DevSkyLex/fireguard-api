@@ -24,6 +24,8 @@ intended for authenticated user flows or internal service usage.
 | POST   | `/api/otp/totp/setup`                | Setup TOTP (generates a PENDING secret)      | `SetupTotpProcessor`         |
 | POST   | `/api/otp/totp/confirm`              | Confirm TOTP (activates the PENDING secret)  | `ConfirmTotpProcessor`       |
 | POST   | `/api/otp/totp/disable`              | Disable TOTP (requires a valid current code) | `DisableTotpProcessor`       |
+| GET    | `/api/otp/totp/recovery-codes`       | Read remaining count and generation time     | `GetRecoveryCodesStatusProvider` |
+| POST   | `/api/otp/totp/recovery-codes`       | Replace recovery lot with current TOTP proof | `GenerateRecoveryCodesProcessor` |
 
 `/api/otp/purposes` and `/api/otp/channels` have **no first-party web consumer**
 today. They are retained deliberately as public-API discovery affordances for
@@ -138,6 +140,42 @@ pessimistic lock within that transaction. Concurrent initial setup/confirmation 
 replace a factor activated by an earlier request. Successful events follow commit. The client never supplies the secret back to
 the server for confirm/disable — only the current authenticator code.
 
+### Authenticator recovery
+
+Recovery generation requires an active account, an active authenticator and its current TOTP
+code. It returns ten independently generated 128-bit codes, grouped into eight hexadecimal
+blocks of four characters. Generation replaces every previous code atomically. The enrollment
+persists only SHA-256 digests and a generation timestamp; GET exposes only `remainingCount`
+and `generatedAt`, never proofs or digests. Codes accept compact or formatted hexadecimal
+representations without changing their entropy.
+
+Auth MFA completion accepts `method: otp|recovery_code` (default `otp`) with the existing
+`code` and `preAuthToken` fields. The published `MfaChallengeVerificationPort` binds the
+verified token's owner and LOGIN purpose before challenge locking. It holds the per-user
+enrollment lock, then a fresh owner-filtered challenge write lock, and commits both recovery
+code consumption and challenge consumption on the auth connection. Wrong proofs persist
+challenge attempts. Expired, exhausted, consumed, wrong-owner and wrong-purpose challenges,
+inactive accounts and inactive enrollments cannot consume recovery proofs.
+
+Login proof verification rereads User's published `SignInEligibilityPort` under the auth lock
+with the current `AuthenticationPolicyPort` email-verification choice. A pending-verification
+account may complete email MFA only when that choice is waived; locked, inactive, missing and
+unknown account states always deny. Authenticator management and recovery metadata/generation
+retain their active-account requirement independently of the sign-in policy.
+
+Disable accepts `proofType: totp|recovery_code` (default `totp`). A recovery code already used
+for login cannot disable the authenticator; a different unconsumed code is required. Successful
+disable erases both secret slots, all remaining recovery digests and their generation timestamp.
+Failed disable proofs retain the existing durable cooldown and per-user HTTP rate limit.
+
+Recovery generation and successful consumption enqueue safe owner facts on the auth outbox
+after enrollment/challenge persistence, inside the same transaction. Rollback leaves no recovery
+fact for delivery. Audit records `otp.recovery_codes_generated` with count, date and replacement
+flag, and `otp.recovery_code_consumed` with purpose (`login` or `totp_disable`). Neither event
+contains codes, digests or authenticator material. Successful setup, confirmation, disable and
+lot replacement increment the User security revision in that transaction; consuming a recovery
+login code alone does not change that revision.
+
 ### Mailbox possession
 
 The `email_ownership` purpose is separate from registration and sensitive operations.
@@ -166,6 +204,13 @@ OtpDataLifecyclePort owns challenge purge/retention; enrollment erasure continue
 
 Repositories and capabilities exposing owner-local types are private under Application/Port/Outbound/Internal; cross-module access uses published ports and pure contracts.
 
+Otp publishes its global permission vocabulary through Authorization's pure
+`PermissionCatalogContributionPort`. Its owner-local
+`OtpPermissionContributionAdapter` is registered with
+`authorization.permission_catalog_contribution`; composition rejects duplicate keys
+at boot and preserves explicit publication order. This contribution defines available
+permission keys and does not grant them to a subject.
+
 ## Configuration
 
 Email enrichment uses Shared's GeoIP switch and local database. It is disabled by default
@@ -173,6 +218,7 @@ and never creates a persistent geography history in Notification, audit or realt
 
 
 - Services: `config/modules/otp.yaml`.
+- Recovery generation limiter: `otp_totp_recovery_codes`, five requests per minute per owner.
 - Notification sender: `MAILER_FROM` (used by `OtpNotifierAdapter`).
 - Email template: `templates/otp/email/code.html.twig` (rendered by Twig in `OtpNotifierAdapter`).
 - **Request details in the code email.** Next to the code, the email shows the date and time (UTC,
@@ -263,13 +309,43 @@ chaining provider details into application logs.
 
 - Unit: `tests/Unit/Otp` (handlers, domain, adapters).
 - Functional: `tests/Functional/Api/OtpTotpApiTest.php`.
+- Recovery: `tests/Functional/Api/MfaRecoveryCodesApiTest.php` and the two-connection
+  `tests/Integration/Otp/MfaRecoveryConsumptionConcurrencyTest.php` verify delivery, one-time
+  consumption, safe metadata and independent proof for disable.
 - E2E: `tests/E2E/OtpChallengeFlowTest.php`, `tests/E2E/OtpConfigFlowTest.php`, `tests/E2E/TotpFlowTest.php`.
 
 ## Error Codes
 
 - `404 Not Found`: challenge token not found; no pending TOTP setup for confirm; TOTP not enabled for disable.
 - `422 Unprocessable Entity`: invalid/expired TOTP code on confirm or disable.
+- `422 Unprocessable Entity`: recovery generation rejects an invalid current authenticator code.
+- `404 Not Found`: recovery generation requires an active authenticator enrollment.
 - `429 Too Many Requests`: resend cooldown not elapsed; TOTP confirm/disable rate limit exceeded; **TOTP disable frozen after 5 wrong codes** (`Retry-After` carries the remaining seconds).
 - `409 Conflict`: setup or confirmation attempted while TOTP is already active; disable with the current factor first.
 - `403 Forbidden`: setup refuses a missing or non-active account using a fresh auth-side status check inside the enrollment mutation lock.
 - `400 Bad Request`: invalid input or unauthenticated user where required.
+
+## Challenge and factor HTTP receipts
+
+Otp contributes explicit auth ownership for challenge create/resend/verify and TOTP
+setup/confirm/disable/recovery generation. Current authenticated account state, scoped platform
+grants, exact challenge owner/purpose/channel/recipient and credential revision are checked live
+before an encrypted result is decoded. Generic HTTP challenge creation and resend use the stable
+account ID rather than its email login identifier. Resend rejects another account's challenge.
+Bound verification locks the matching account/purpose row inside an auth transaction before
+consumption; failed verification and its receipt commit the same attempt count.
+
+TOTP mutations own a final auth root transaction around the existing per-user lock. The business
+mutation, security revision, intentional failure counter and receipt are committed together.
+Compatibility enrollment events run after that final commit. Auth-bound recovery facts remain in
+the same transaction. The signed receipt records both the original and committed revision plus
+non-secret current factor timestamps/counters. Exact replay of recovery generation or disable
+therefore does not verify an expired TOTP again or consume a recovery code twice. A later factor
+change, credential revocation or grant removal denies replay; secret results expire after five
+minutes without renewing their deadline.
+
+External email/SMS delivery is fenced immediately before the provider call. A rollback after
+potential delivery leaves the receipt unavailable for automatic retry, preventing a duplicate code
+message after an uncertain provider outcome. Completed receipts reuse the original result and do
+not invoke delivery again. `ChallengeLifecycleProofPort` publishes fresh non-secret ownership and
+consumption facts from auth storage; no code digest, factor secret or bearer token is published.

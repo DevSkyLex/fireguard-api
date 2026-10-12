@@ -71,7 +71,7 @@ final readonly class GetOrCreateConversationProcessor implements ProcessorInterf
     }
 
     $organizationId = ResourceIriParser::id($data->organization, 'organizations');
-    $subjectSegment = ConversationOutputFactory::subjectResourceSegment($data->subjectType);
+    $subjectSegment = $this->mapper->subjectResourceSegment($data->subjectType);
     $subjectId = ResourceIriParser::id($data->subject, $subjectSegment);
 
     try {

@@ -64,6 +64,8 @@ final class OrganizationCompliancePolicyAdapterTest extends TestCase
         settings: new OrganizationSettings(compliance: new OrganizationComplianceSettings(
           inspectionPeriodicityDefaults: ['fire_extinguisher' => 'P6M'],
           reminderWindowDays: 15,
+          defaultSlaDays: \Tests\Support\OrganizationCatalogTestFactory::complianceSlaDefaults(),
+          defaultPeriodicities: \Tests\Support\OrganizationCatalogTestFactory::compliancePeriodicityDefaults(),
         )),
       ),
     );
@@ -82,6 +84,6 @@ final class OrganizationCompliancePolicyAdapterTest extends TestCase
     $repository = $this->createStub(OrganizationRepositoryPort::class);
     $repository->method('findById')->willReturn($organization);
 
-    return new OrganizationCompliancePolicyAdapter($repository);
+    return new OrganizationCompliancePolicyAdapter($repository, settingsPolicies: \Tests\Support\OrganizationCatalogTestFactory::settingsPolicies());
   }
 }

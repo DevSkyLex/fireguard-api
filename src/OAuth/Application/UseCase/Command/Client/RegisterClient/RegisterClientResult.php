@@ -31,6 +31,7 @@ final readonly class RegisterClientResult implements ResultMessage
   public function __construct(
     public readonly string $clientId,
     public readonly string $clientSecret,
+    public readonly ?string $createdAt = null,
   ) {
   }
   // #endregion

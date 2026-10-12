@@ -30,6 +30,37 @@ final class HandleStripeWebhookHandlerTest extends TestCase
   private const string ID = '33333333-3333-4333-8333-333333333333';
 
   #[Test]
+  public function uncertaintyReconciliationReadsCurrentStateWithoutRepeatingAnyOutgoingMutation(): void
+  {
+    $stripe = $this->createMock(StripeGatewayPort::class);
+    $stripe->expects(self::once())->method('listSubscriptions')->with('cus_1')->willReturn([$this->remote('sub_new', 'active', 20)]);
+    foreach (['ensureCustomer', 'createCheckoutSession', 'createBillingPortalSession', 'scheduleCancellation', 'resumeCancellation'] as $method) {
+      $stripe->expects(self::never())->method($method);
+    }
+    $subscriptions = $this->createMock(SubscriptionRepositoryPort::class);
+    $subscriptions->method('findByOrganizationId')->willReturn($this->existing());
+    $subscriptions->expects(self::once())->method('save')->with(self::callback(static fn (Subscription $subscription): bool => 'sub_new' === $subscription->stripeSubscriptionId()));
+    $plans = $this->createMock(OrganizationPlanAssignmentPort::class);
+    $plans->expects(self::once())->method('assignPlanByKey')->with('org-1', 'pro');
+
+    $this->handler($stripe, $subscriptions, $plans)->reconcileOrganization('org-1');
+  }
+
+  #[Test]
+  public function uncertaintyWithNoCustomerMappingCannotCreateAnotherCustomer(): void
+  {
+    $stripe = $this->createMock(StripeGatewayPort::class);
+    $stripe->expects(self::never())->method('ensureCustomer');
+    $stripe->expects(self::never())->method('createCheckoutSession');
+    $subscriptions = $this->createStub(SubscriptionRepositoryPort::class);
+    $plans = $this->createMock(OrganizationPlanAssignmentPort::class);
+    $plans->expects(self::never())->method('assignPlanByKey');
+    $this->expectException(\Billing\Application\Exception\StripeSubscriptionReconciliationException::class);
+
+    $this->handler($stripe, $subscriptions, $plans)->reconcileOrganization('org-1');
+  }
+
+  #[Test]
   public function aFirstEventUsesCurrentRemoteStateRatherThanTheDeliveredSnapshot(): void
   {
     $event = $this->event(status: 'canceled', type: 'customer.subscription.deleted');

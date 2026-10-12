@@ -46,7 +46,7 @@ remain unchanged.
 | GET    | `/api/oauth2/authorize`        | Authorize client (code + PKCE)     | Bearer access token | N/A                           | Redirects on success; supports `prompt`/`max_age` |
 | POST   | `/api/oauth2/token`            | Issue access token                 | Client credentials  | `limiter.oauth_token`         | Supports multiple grants                          |
 | POST   | `/api/oauth2/token/introspect` | Introspect access or refresh token | Client credentials  | `limiter.oauth_introspection` | Returns RFC 7662 payload                          |
-| POST   | `/api/oauth2/token/revoke`     | Revoke access or refresh token     | Client credentials  | `limiter.oauth_revocation`    | RFC 7009 semantics                                |
+| POST   | `/api/oauth2/token/revoke`     | Revoke access or refresh token     | Bearer access token | `limiter.oauth_revocation`    | RFC 7009 semantics after the existing actor gate  |
 | GET    | `/api/oauth2/userinfo`         | UserInfo (OpenID Connect)          | Bearer access token | N/A                           | Requires user-bound token                         |
 | GET    | `/api/oauth2/logout`           | End session (OpenID Connect)       | N/A                 | N/A                           | Supports `id_token_hint` + post-logout redirect   |
 | GET    | `/api/oauth2/consent/check`    | Check consent status               | Bearer access token | N/A                           | Query params: `client_id`, `scope`                |
@@ -65,6 +65,14 @@ Token endpoints accept:
 > When the `authorization_code` grant is used with the `openid` scope, the token response also includes an `id_token`.
 > If a refresh token is used and the original scopes include `openid`, a new `id_token` is also returned when a user-bound token is available.
 > OIDC claims are scope-gated: `profile` adds name/username/picture claims, and `email` adds email claims.
+
+Token, introspection and revocation declare their JSON response formats on the OAuth operations,
+so `Accept: application/json` works while existing JSON-LD requests remain supported. Their owner
+`OAuthFormDecoder` accepts at most 64 flat, uniquely named scalar form parameters, preserves
+credential case and decoded bytes, and distinguishes an omitted scope from an empty scope.
+Nested values, duplicate names, PHP name aliases and malformed percent escapes fail as OAuth
+`invalid_request` before command dispatch. Form parameter order does not change the logical
+idempotency input.
 
 #### OIDC Scopes & Claims
 
@@ -102,11 +110,11 @@ Example (client_credentials):
 
 | Method | Endpoint                              | Description              | Auth             | Notes                     |
 | ------ | ------------------------------------- | ------------------------ | ---------------- | ------------------------- |
-| POST   | `/api/clients`                        | Register a client        | `clients.create` | Secret returned once      |
+| POST   | `/api/clients`                        | Register a client        | `clients.create` | Secret recovery for the keyed operation |
 | GET    | `/api/clients/{id}`                   | Get client details       | `clients.read`   | No secret in response     |
 | GET    | `/api/clients`                        | List clients             | `clients.read`   | Pagination supported      |
 | PATCH  | `/api/clients/{id}`                   | Update client details    | `clients.update` | Validates scopes/grants   |
-| POST   | `/api/clients/{id}/regenerate-secret` | Regenerate client secret | `clients.update` | Secret returned once      |
+| POST   | `/api/clients/{id}/regenerate-secret` | Regenerate client secret | `clients.update` | Secret recovery for the keyed operation |
 | POST   | `/api/clients/{id}/activate`          | Activate client          | `clients.update` | Re-enables token issuance |
 | POST   | `/api/clients/{id}/deactivate`        | Deactivate client        | `clients.update` | Blocks token issuance     |
 | DELETE | `/api/clients/{id}`                   | Delete client            | `clients.delete` | Removes client data       |
@@ -115,7 +123,10 @@ Client secrets are only returned at creation or regeneration. Store them securel
 Client endpoints are defined in `src/OAuth/Presentation/Api/Resource/ClientResource.php`.
 
 > [!IMPORTANT]
-> The client secret is shown once. Persist it securely and rotate it via the regenerate endpoint if lost.
+> Persist the client secret securely. A retry of the same keyed creation or regeneration can recover
+> the original secret for five minutes after its first commit, while the current actor permission,
+> client revision and secret lineage still match. A later client change invalidates that recovery.
+> Receipts contain encrypted results; clients outside this bounded recovery use the regenerate endpoint.
 
 ### Discovery
 
@@ -358,6 +369,13 @@ OAuthDataLifecyclePort owns account consent, refresh-token, authorization-code a
 
 Repositories and capabilities exposing owner-local types are private under Application/Port/Outbound/Internal; cross-module access uses published ports and pure contracts.
 
+OAuth publishes its global permission vocabulary through Authorization's pure
+`PermissionCatalogContributionPort`. Its owner-local
+`OAuthPermissionContributionAdapter` is registered with
+`authorization.permission_catalog_contribution`; composition rejects duplicate keys
+at boot and preserves explicit publication order. This contribution defines available
+permission keys and does not grant them to a subject.
+
 ## Configuration
 
 Environment variables (examples):
@@ -439,3 +457,48 @@ OAuth error responses follow RFC 6749 and use:
 | 400  | `invalid_scope`           | Invalid or unknown scope           |
 | 429  | `temporarily_unavailable` | Rate limit exceeded                |
 | 500  | `server_error`            | Unexpected server error            |
+
+## Protocol receipts
+
+The token operation records its encrypted application result in the owning auth transaction.
+Every attempt verifies the current client secret, grant allowlist, account revision and owner
+authorization facts before decoding a receipt. Authorization-code proof includes the exact client,
+redirect and PKCE verifier; refresh proof binds the current issued lineage. The native refresh key
+uses the verified grant identity so a daughter starts a new logical rotation. Client-credentials
+requests require the explicit key when mandatory-header enforcement is enabled.
+
+`AuthorizationReceiptPort` covers native authorization and consent completion, including GET
+authorization-code issuance. League validation and consent checks precede the fresh browser/session,
+client, redirect, PKCE and scoped request binding. State is retained when supplied. A retry returns
+the original redirect only while its code remains current and unconsumed; a different narrowed
+scope request has a different native identity. Consent mutation, code/nonce persistence and the
+protocol result share the final auth commit. Both replay and reconciliation authorize the exact
+completed receipt selected by the engine before opening encrypted data, rechecking the current
+account/client revisions, owner grants and selected code usability. Protocol failures keep the
+RFC OAuth response format.
+
+The six client mutations are explicit auth-owned operations contributed by
+`OAuthClientHttpIdempotencyOperationContributionAdapter`. Their handlers also own an auth
+transaction for internal command dispatch. Creation captures its original creation time; update,
+secret regeneration, activation and deactivation capture the exact `GetClientQuery` result before
+commit. The signed receipt preserves the revision before the mutation for input comparison and
+the resulting revision, activity, deletion and secret fingerprint for fresh replay authorization.
+`ClientLifecycleProofPort` exposes these pure current facts without leaking the stored secret hash.
+Their public `ClientLifecycleChangedEvent` records enter the auth outbox through the owner-local
+transactional event adapter, in the same commit as the client and receipt.
+
+`GrantConsentProcessor` supplies validated normalized authorization parameters and the approval
+decision to `AuthorizationReceiptPort`. Accepted consent and code creation share the native root
+transaction and final redirect snapshot. A declined request records the original error redirect
+without creating consent or a code. This route uses explicit native proof coverage rather than
+an ordinary nested command receipt.
+
+Revocation retains its existing authenticated `ROLE_USER` gate, requires a key and records its
+empty public result in the auth transaction. Fresh caller/account authority is part of every
+receipt proof and its scope also binds that authenticated caller.
+`TokenRevocationProofPort` verifies an access token's signature or authenticates a refresh token's
+ciphertext before consulting the native grant and current client/account revision. The receipt
+scope binds a keyed fingerprint of the exact submitted token. A replay checks the resulting
+revocation state and current revisions before opening its result. After the caller gate, invalid
+or unknown tokens retain the opaque HTTP 200 response, carry no invented token-owner identity,
+and cannot mutate a grant.

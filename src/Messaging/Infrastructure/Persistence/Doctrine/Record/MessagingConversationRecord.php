@@ -49,7 +49,7 @@ class MessagingConversationRecord
   /**
    * Property subjectType.
    *
-   * One of `facility`, `equipment`, `intervention`, `non_conformity`.
+   * An unchanged subject key, including historical or unloaded owner types.
    *
    * @since 1.0.0
    */

@@ -14,6 +14,7 @@ use Organization\Domain\ValueObject\OrganizationId;
 use Shared\Application\Contract\Transaction\CommitOutcomeUnknownException;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, FileCleanupPort, FileStoragePort, LoggerPort, RootTransactionManagerPort, UuidGeneratorPort};
+use Shared\Application\Port\Outbound\Idempotency\HttpIdempotencyExecutionPort;
 use Throwable;
 
 use function rtrim;
@@ -47,7 +48,7 @@ final readonly class UploadOrganizationLogoHandler implements CommandHandler
    * @param UuidGeneratorPort $ids the upload attempt identity generator
    * @param LoggerPort $logger the compensation failure logger
    */
-  public function __construct(private OrganizationRepositoryPort $organizations, private OrganizationAuthorizationPort $authorization, private OrganizationLogoImagePort $images, private FileStoragePort $files, private FileCleanupPort $cleanup, private RootTransactionManagerPort $transactions, private EventDispatcherPort $events, private UuidGeneratorPort $ids, private LoggerPort $logger)
+  public function __construct(private OrganizationRepositoryPort $organizations, private OrganizationAuthorizationPort $authorization, private OrganizationLogoImagePort $images, private FileStoragePort $files, private FileCleanupPort $cleanup, private RootTransactionManagerPort $transactions, private EventDispatcherPort $events, private UuidGeneratorPort $ids, private LoggerPort $logger, private ?HttpIdempotencyExecutionPort $idempotency = null)
   {
   }
   // #endregion
@@ -88,7 +89,10 @@ final readonly class UploadOrganizationLogoHandler implements CommandHandler
         }
         $this->events->dispatch(new OrganizationSettingsUpdatedEvent($command->organizationId, ['logo']));
 
-        return new UploadOrganizationLogoResult($command->organizationId, $url);
+        $result = new UploadOrganizationLogoResult($command->organizationId, $url);
+        $this->idempotency?->captureResult($result);
+
+        return $result;
       });
     } catch (CommitOutcomeUnknownException $exception) {
       throw $exception;

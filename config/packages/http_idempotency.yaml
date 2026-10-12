@@ -1,0 +1,25 @@
+parameters:
+  http_idempotency.required_default: true
+  # Publish the final required contract even in legacy test transport compatibility.
+  http_idempotency.documentation_required: true
+  http_idempotency.required: '%env(bool:default:http_idempotency.required_default:HTTP_IDEMPOTENCY_REQUIRED)%'
+  http_idempotency.lease_seconds: 60
+  http_idempotency.read_only_operations: [workload_assess, introspect_token]
+  http_idempotency.native_proof_operations: [authorize, grant_consent]
+  http_idempotency.conditional_key_descriptions:
+    token: 'Idempotency-Key is required for client_credentials. Verified authorization_code and refresh_token grants use their authenticated native grant identity when omitted. Repeat the original key and logical request for replay.'
+  http_idempotency.empty_key: ''
+  http_idempotency.empty_keyring: '{}'
+  http_idempotency.default_key_version: 'v1'
+  http_idempotency.hmac_key: '%env(default:http_idempotency.empty_key:HTTP_IDEMPOTENCY_HMAC_KEY)%'
+  http_idempotency.encryption_keys: '%env(json:default:http_idempotency.empty_keyring:HTTP_IDEMPOTENCY_ENCRYPTION_KEYS)%'
+  http_idempotency.encryption_active_version: '%env(default:http_idempotency.default_key_version:HTTP_IDEMPOTENCY_ENCRYPTION_ACTIVE_VERSION)%'
+
+when@test:
+  parameters:
+    http_idempotency.required: false
+    # Public, distinct NONPRODUCTION keys for isolated tests only.
+    http_idempotency.hmac_key: 'Tk9OUFJPRFVDVElPTl9ITUFDX1RFU1RfS0VZXzAwMDAwMQ=='
+    http_idempotency.encryption_keys:
+      test_v1: 'Tk9OUFJPRFVDVElPTl9BRVNfR0NNX0tFWV8wMDAwMDE='
+    http_idempotency.encryption_active_version: 'test_v1'

@@ -6,8 +6,8 @@ namespace Auth\Infrastructure\Adapter\Mfa;
 
 use Auth\Application\Port\Outbound\Internal\Mfa\ChallengeVerifierPort;
 use Auth\Application\UseCase\Command\Mfa\MfaVerify\MfaVerifyResult;
-use Otp\Application\Contract\Challenge\VerificationInfo;
-use Otp\Application\Port\Inbound\Challenge\OtpChallengePort;
+use Otp\Application\Contract\Challenge\{OtpPurpose, VerificationInfo};
+use Otp\Application\Port\Inbound\Challenge\MfaChallengeVerificationPort;
 
 /**
  * Adapter OtpModuleChallengeVerifierAdapter.
@@ -23,10 +23,10 @@ final readonly class OtpModuleChallengeVerifierAdapter implements ChallengeVerif
   /**
    * Constructor.
    *
-   * @param OtpChallengePort $challengePort the OTP challenge port
+   * @param MfaChallengeVerificationPort $challengePort the bound MFA verification capability
    */
   public function __construct(
-    private OtpChallengePort $challengePort,
+    private MfaChallengeVerificationPort $challengePort,
   ) {
   }
   // #endregion
@@ -41,15 +41,20 @@ final readonly class OtpModuleChallengeVerifierAdapter implements ChallengeVerif
    *
    * @param string $challengeToken the pre-authentication challenge token
    * @param string $code the submitted one-time code
+   * @param string $userId account identifier from the signed pre-auth token
+   * @param string $method otp or recovery_code
    *
    * @return MfaVerifyResult the mapped verification result
    */
-  public function verify(string $challengeToken, string $code): MfaVerifyResult
+  public function verify(string $challengeToken, string $code, string $userId, string $method = 'otp'): MfaVerifyResult
   {
     /** @var VerificationInfo $result */
-    $result = $this->challengePort->verify(
+    $result = $this->challengePort->verifyFor(
       challengeToken: $challengeToken,
-      code: $code,
+      userId: $userId,
+      purpose: OtpPurpose::LOGIN,
+      method: $method,
+      proof: $code,
     );
 
     return new MfaVerifyResult(

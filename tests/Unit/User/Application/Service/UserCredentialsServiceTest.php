@@ -11,6 +11,7 @@ use Tests\Support\Factory\UserTestFactory;
 use User\Application\Contract\User\UserView;
 use User\Application\Port\Inbound\UserDirectoryPort;
 use User\Application\Port\Outbound\Internal\UserRepositoryPort;
+use User\Application\Port\Outbound\PasswordPolicyPort;
 use User\Application\Service\UserCredentialsService;
 use User\Domain\ValueObject\UserStatus;
 
@@ -43,7 +44,7 @@ final class UserCredentialsServiceTest extends TestCase
     $directory = $this->createMock(UserDirectoryPort::class);
     $directory->expects(self::never())->method('findById');
 
-    $result = new UserCredentialsService($users, $directory)->authenticate(self::USER_ID, 'wrong');
+    $result = new UserCredentialsService($users, $directory, $this->createStub(PasswordPolicyPort::class))->authenticate(self::USER_ID, 'wrong');
 
     self::assertSame('missing', $result->status);
     self::assertNull($result->user);
@@ -61,7 +62,7 @@ final class UserCredentialsServiceTest extends TestCase
     $directory = $this->createMock(UserDirectoryPort::class);
     $directory->expects(self::never())->method('findById');
 
-    $result = new UserCredentialsService($users, $directory)->authenticate(self::USER_ID, 'wrong');
+    $result = new UserCredentialsService($users, $directory, $this->createStub(PasswordPolicyPort::class))->authenticate(self::USER_ID, 'wrong');
 
     self::assertSame('unavailable', $result->status);
     self::assertNull($result->user);
@@ -79,7 +80,7 @@ final class UserCredentialsServiceTest extends TestCase
     $users->expects(self::exactly(5))->method('save')->with($user);
     $directory = $this->createMock(UserDirectoryPort::class);
     $directory->expects(self::never())->method('findById');
-    $service = new UserCredentialsService($users, $directory);
+    $service = new UserCredentialsService($users, $directory, $this->createStub(PasswordPolicyPort::class));
     for ($attempt = 1; $attempt <= 5; ++$attempt) {
       $result = $service->authenticate(self::USER_ID, 'wrong');
       self::assertSame('invalid_password', $result->status);
@@ -111,7 +112,7 @@ final class UserCredentialsServiceTest extends TestCase
       return $view;
     });
 
-    $result = new UserCredentialsService($users, $directory)->authenticate(self::USER_ID, 'password123');
+    $result = new UserCredentialsService($users, $directory, $this->createStub(PasswordPolicyPort::class))->authenticate(self::USER_ID, 'password123');
 
     self::assertSame('authenticated', $result->status);
     self::assertSame($view, $result->user);
@@ -132,7 +133,7 @@ final class UserCredentialsServiceTest extends TestCase
 
     $this->expectException(RuntimeException::class);
     $this->expectExceptionMessage('accounting unavailable');
-    new UserCredentialsService($users, $directory)->authenticate(self::USER_ID, 'wrong');
+    new UserCredentialsService($users, $directory, $this->createStub(PasswordPolicyPort::class))->authenticate(self::USER_ID, 'wrong');
   }
   // #endregion
 }

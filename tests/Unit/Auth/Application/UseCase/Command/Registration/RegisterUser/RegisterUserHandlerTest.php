@@ -9,6 +9,7 @@ use Auth\Application\UseCase\Command\Registration\RegisterUser\{
   RegisterUserHandler,
   RegisterUserResult
 };
+use Auth\Infrastructure\Adapter\Policy\ConfiguredAuthenticationPolicyAdapter;
 use DateTimeImmutable;
 use Otp\Application\Contract\Challenge\{ChallengeInfo, OtpChannel, OtpPurpose};
 use Otp\Application\Port\Inbound\Challenge\OtpChallengePort;
@@ -18,6 +19,7 @@ use PHPUnit\Framework\TestCase;
 use ReflectionMethod;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Tests\Helper\IdentityBoundaryFactories;
+use User\Application\Port\Inbound\UserRegistrationPort;
 use User\Application\Port\Outbound\Internal\UserRepositoryPort;
 use User\Application\UseCase\Command\User\CreateUser\{CreateUserCommand, CreateUserResult};
 
@@ -77,7 +79,7 @@ final class RegisterUserHandlerTest extends TestCase
         },
       );
 
-    $handler = new RegisterUserHandler($this->registrationBusCapability($users, $commandBus), $otpChallenge);
+    $handler = new RegisterUserHandler($this->registrationBusCapability($users, $commandBus), $otpChallenge, new ConfiguredAuthenticationPolicyAdapter());
 
     $result = $handler(new RegisterUserCommand(
       email: 'New.User@Example.com',
@@ -108,7 +110,7 @@ final class RegisterUserHandlerTest extends TestCase
     $otpChallenge = $this->createMock(OtpChallengePort::class);
     $otpChallenge->expects(self::never())->method('generate');
 
-    $handler = new RegisterUserHandler($this->registrationBusCapability($users, $commandBus), $otpChallenge);
+    $handler = new RegisterUserHandler($this->registrationBusCapability($users, $commandBus), $otpChallenge, new ConfiguredAuthenticationPolicyAdapter());
 
     $result = $handler(new RegisterUserCommand(
       email: 'Taken@Example.com',
@@ -154,7 +156,7 @@ final class RegisterUserHandlerTest extends TestCase
     $otpChallenge = $this->createMock(OtpChallengePort::class);
     $otpChallenge->expects(self::once())->method('generate')->willReturn($challenge);
 
-    $handler = new RegisterUserHandler($this->registrationBusCapability($users, $commandBus), $otpChallenge);
+    $handler = new RegisterUserHandler($this->registrationBusCapability($users, $commandBus), $otpChallenge, new ConfiguredAuthenticationPolicyAdapter());
 
     $result = $handler(new RegisterUserCommand(
       email: 'johndoe@example.com',
@@ -198,7 +200,7 @@ final class RegisterUserHandlerTest extends TestCase
     $otpChallenge = $this->createMock(OtpChallengePort::class);
     $otpChallenge->expects(self::once())->method('generate')->willReturn($challenge);
 
-    $handler = new RegisterUserHandler($this->registrationBusCapability($users, $commandBus), $otpChallenge);
+    $handler = new RegisterUserHandler($this->registrationBusCapability($users, $commandBus), $otpChallenge, new ConfiguredAuthenticationPolicyAdapter());
 
     $result = $handler(new RegisterUserCommand(
       email: 'jane@example.com',
@@ -240,7 +242,7 @@ final class RegisterUserHandlerTest extends TestCase
     $otpChallenge = $this->createMock(OtpChallengePort::class);
     $otpChallenge->expects(self::once())->method('generate')->willReturn($challenge);
 
-    $handler = new RegisterUserHandler($this->registrationBusCapability($users, $commandBus), $otpChallenge);
+    $handler = new RegisterUserHandler($this->registrationBusCapability($users, $commandBus), $otpChallenge, new ConfiguredAuthenticationPolicyAdapter());
 
     $result = $handler(new RegisterUserCommand(
       email: 'ab@example.com',
@@ -259,6 +261,7 @@ final class RegisterUserHandlerTest extends TestCase
     $handler = new RegisterUserHandler(
       $this->registrationBusCapability($this->createStub(UserRepositoryPort::class), $this->createStub(CommandBusPort::class)),
       $this->createStub(OtpChallengePort::class),
+      new ConfiguredAuthenticationPolicyAdapter(),
     );
 
     // The Email value object guarantees an "@", so this defensive branch is
@@ -266,5 +269,37 @@ final class RegisterUserHandlerTest extends TestCase
     $normalize = new ReflectionMethod($handler, 'normalizeUsernameBase');
 
     self::assertSame('nodomain', $normalize->invoke($handler, 'nodomain'));
+  }
+
+  #[Test]
+  public function testDisabledSignupDeniesBeforeAccountLookupOrOtp(): void
+  {
+    $users = $this->createMock(UserRegistrationPort::class);
+    $users->expects(self::never())->method('emailExists');
+    $users->expects(self::never())->method('register');
+    $otp = $this->createMock(OtpChallengePort::class);
+    $otp->expects(self::never())->method('generate');
+    $handler = new RegisterUserHandler($users, $otp, new ConfiguredAuthenticationPolicyAdapter(signupEnabled: false));
+    $result = $handler(new RegisterUserCommand('reviewer@example.com', 'Abcdef1!', 'Review', 'User'));
+
+    self::assertFalse($result->success);
+    self::assertSame(RegisterUserResult::ERROR_REGISTRATION_DISABLED, $result->errorCode);
+  }
+
+  #[Test]
+  public function testOptionalVerificationCreatesAccountWithoutClaimingMailboxProofOrIssuingOtp(): void
+  {
+    $users = $this->createMock(UserRegistrationPort::class);
+    $users->method('emailExists')->willReturn(false);
+    $users->method('usernameExists')->willReturn(false);
+    $users->expects(self::once())->method('register')->with('reviewer', 'reviewer@example.com', 'Abcdef1!', 'Review', 'User', false)->willReturn('user');
+    $otp = $this->createMock(OtpChallengePort::class);
+    $otp->expects(self::never())->method('generate');
+    $handler = new RegisterUserHandler($users, $otp, new ConfiguredAuthenticationPolicyAdapter(emailVerificationRequired: false));
+    $result = $handler(new RegisterUserCommand('reviewer@example.com', 'Abcdef1!', 'Review', 'User'));
+
+    self::assertTrue($result->success);
+    self::assertNull($result->challengeToken);
+    self::assertSame('Your account has been created. You can now sign in.', $result->message);
   }
 }

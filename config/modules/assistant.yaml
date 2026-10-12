@@ -1,3 +1,9 @@
+imports:
+  - { resource: 'assistant/doctrine.yaml' }
+  - { resource: 'assistant/api_platform.yaml' }
+  - { resource: 'assistant/framework.yaml' }
+  - { resource: 'assistant/framework_2.yaml' }
+
 services:
   _defaults:
     autowire: true
@@ -135,3 +141,17 @@ services:
 
   Assistant\Application\UseCase\Query\Thread\GetAssistantThreadSubscription\GetAssistantThreadSubscriptionHandler:
     tags: ['messenger.message_handler']
+
+  Assistant\Infrastructure\Adapter\Event\IntegrationEventConverterAdapter: ~
+
+  Assistant\Infrastructure\Adapter\OrganizationCatalog\AssistantSettingsPolicyContributionAdapter:
+    tags: [organization.settings_policy_contribution]
+
+  Assistant\Infrastructure\Adapter\Idempotency\AssistantHttpIdempotencyOperationContributionAdapter:
+    tags: [http.idempotency_operation]
+
+  Assistant\Infrastructure\Adapter\Idempotency\AssistantHttpIdempotencyReplayAuthorizationAdapter:
+    arguments:
+      $connection: '@doctrine.dbal.main_connection'
+      $settings: '@Organization\Infrastructure\Adapter\Idempotency\FreshOrganizationAssistantSettingsAdapter'
+    tags: [http.idempotency_replay_authorization]

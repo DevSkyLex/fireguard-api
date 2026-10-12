@@ -25,6 +25,27 @@ Current flow:
 | POST   | `/api/onboarding/organization/dismiss`                 | Hide the activation flow without completing it (progression preserved)          |
 | POST   | `/api/onboarding/organization/resume`                  | Clear a previous dismissal so the activation flow is visible again              |
 
+The GET initializes or synchronizes the persisted session, so it participates in HTTP
+idempotency together with all seven POST operations. Clients allocate one `Idempotency-Key`
+per logical request and retain it for retries, including this exact GET path. The deployment
+stages the mandatory header as described in [the operating guide](../../OPERATIONS.md).
+
+Each HTTP transition dispatches a typed [owner command](Application/UseCase/Command/Flow/).
+The preparation command also returns its final state. Their immutable result contains the
+complete [session projection](Application/Service/OrganizationOnboardingSessionState.php),
+including setup receipts and registered step descriptors, before the final `main` commit.
+Presentation only assembles that result; a committed retry reuses it without synchronizing,
+resetting, executing or rolling back the session again. Existing fields, start defaults,
+step order and historical open keys remain unchanged. A schema or snapshot failure rolls
+back the state change and cannot leave a successful mutation without its receipt.
+
+The [owner manifest](Infrastructure/Adapter/Idempotency/OnboardingHttpIdempotencyOperationContributionAdapter.php)
+declares an explicitly nullable original organization identifier: a new flow can have no
+workspace yet. When a result includes a workspace, its signed proof binds that identifier.
+The [owner replay gate](Infrastructure/Adapter/Idempotency/OnboardingHttpIdempotencyReplayAuthorizationAdapter.php)
+rechecks active membership and the common current principal/tenant requirements before
+opening the saved state. Removed membership or inconsistent original context fails closed.
+
 ## Flows
 
 Organization onboarding is stateful and contains five sequential steps:
@@ -101,7 +122,7 @@ disappeared keeps resetting the flow, as described above.
 ## Architecture
 
 Flow orchestration consumes Organization's published onboarding directory and archive
-capability, plus Facility and Equipment availability ports. Foreign queries, results,
+capability and a registry of owner-published step contributions. Foreign queries, results,
 aggregates and archive commands remain inside their owning adapters. Rollback keeps its
 independent creator, owner and creation-time checks before delegating archive.
 Completion uses the pure event dispatcher port; notification lookup uses User's
@@ -115,6 +136,19 @@ published account directory and the stable integration-event name.
   - `Facility` module for facility existence checks
   - `Equipment` module for equipment existence checks
   - Shared command/query bus and transaction manager
+
+Organization, Facility and Equipment register their own step descriptors and authoritative
+precondition checks through `OrganizationOnboardingStepContributionPort`. Its pure static
+`definition()` supplies the stable key, label, execution order, required flag and advertised
+action. `evaluate()` and `execute()` receive a typed authenticated session and pinned
+organization context; the engine controls sequential progression and confirmation history.
+The five FireGuard contributions preserve the documented order and API values. A new owner
+can add a step without editing the engine or HTTP assembler.
+
+The domain validates key syntax rather than installed contributions. Historical completed,
+skipped and audit entries survive a contributor's removal; new execution and skipping of an
+unregistered key fail closed. Organization creation retains its independent guarded archive
+rollback; contributions cannot bypass creator, owner or creation-time checks.
 
 ## Notes
 
@@ -156,7 +190,20 @@ The existing JSON journal column retains a versioned envelope after its items ar
 
 ## Configuration
 
+Module selection loads [the service entry point](../../config/modules/onboarding.yaml)
+together with its [owner configuration fragments](../../config/modules/onboarding/).
+Those fragments contribute owned mappings, API/error metadata and configured
+framework/seed registrations. Shared package configuration supplies connections and
+manager definitions; this module's persistence remains explicitly wired to `main`.
+See the [composition standard](../../ARCHITECTURE.md#service-wiring).
+
 Bindings are defined in [Onboarding configuration](../../config/modules/onboarding.yaml). Persistence consumers name their entity manager explicitly according to [Doctrine mapping](../../config/packages/doctrine.yaml). Runtime and recovery requirements in the sections above remain part of this contract.
+
+The registry receives the `onboarding.organization_step_contribution` tagged iterator.
+Owners register the three Organization steps and the Facility/Equipment first-resource steps
+in their own module configuration. Composition validates the pure static manifests during
+container compilation and rejects duplicate step keys before boot; the registry repeats the
+duplicate guard when composed directly in unit tests.
 
 ## Testing
 

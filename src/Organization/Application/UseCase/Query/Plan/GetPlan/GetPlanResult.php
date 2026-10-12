@@ -5,9 +5,10 @@ declare(strict_types=1);
 namespace Organization\Application\UseCase\Query\Plan\GetPlan;
 
 use DateTimeImmutable;
+use Organization\Application\Contract\Quota\OrganizationQuotaDefinition;
+use Organization\Application\Port\Inbound\OrganizationQuotaCatalogPort;
 use Organization\Domain\Catalog\PlanPresentationCatalog;
 use Organization\Domain\Model\Plan\Plan;
-use Organization\Domain\ValueObject\OrganizationQuotaResource;
 use Shared\Application\Message\ResultMessage;
 use Shared\Application\Port\Outbound\TranslationPort;
 
@@ -81,20 +82,20 @@ final readonly class GetPlanResult implements ResultMessage
    *
    * @return self the plan read model
    */
-  public static function fromDomain(Plan $plan, TranslationPort $translator): self
+  public static function fromDomain(Plan $plan, TranslationPort $translator, OrganizationQuotaCatalogPort $quotaCatalog): self
   {
     $quotas = array_map(
-      static function (OrganizationQuotaResource $resource) use ($plan): array {
-        $limit = $plan->limitFor($resource);
+      static function (OrganizationQuotaDefinition $resource) use ($plan): array {
+        $limit = $plan->limitFor($resource->key);
 
         return [
-          'resource' => $resource->value,
-          'label' => $resource->label(),
+          'resource' => $resource->key,
+          'label' => $resource->label,
           'limit' => $limit,
           'summary' => $resource->summarize($limit),
         ];
       },
-      OrganizationQuotaResource::cases(),
+      $quotaCatalog->definitions(),
     );
 
     $planKey = (string) $plan->key();

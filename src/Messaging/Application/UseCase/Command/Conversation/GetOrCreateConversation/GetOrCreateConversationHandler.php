@@ -9,7 +9,7 @@ use Messaging\Application\Service\{MessagingAccessPolicy, MessagingSubjectResolv
 use Messaging\Domain\Exception\MessagingValidationException;
 use Messaging\Domain\ValueObject\{ConversationVisibility, MessagingSubjectType};
 use Shared\Application\Message\CommandHandler;
-use ValueError;
+use Shared\Domain\Exception\InvalidValueException;
 
 use function sprintf;
 
@@ -57,7 +57,7 @@ final readonly class GetOrCreateConversationHandler implements CommandHandler
   {
     try {
       $subjectType = MessagingSubjectType::from($command->subjectType);
-    } catch (ValueError) {
+    } catch (InvalidValueException) {
       throw new MessagingValidationException(sprintf('Unsupported subject type "%s".', $command->subjectType));
     }
 

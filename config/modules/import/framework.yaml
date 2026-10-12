@@ -1,0 +1,4 @@
+framework:
+    messenger:
+        routing:
+            'Import\Application\UseCase\Command\ProcessImportJob\ProcessImportJobCommand': main_outbox

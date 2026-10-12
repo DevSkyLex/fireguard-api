@@ -11,7 +11,6 @@ use Messaging\Application\Port\Outbound\{MessagingConversationFavoriteRepository
 use Messaging\Application\Service\MessagingAccessPolicy;
 use Messaging\Application\UseCase\Query\Conversation\ListConversations\{ListConversationsHandler, ListConversationsQuery};
 use Messaging\Domain\Exception\MessagingValidationException;
-use Messaging\Domain\ValueObject\MessagingSubjectType;
 use Organization\Application\Contract\Exception\OrganizationAccessDeniedException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -79,7 +78,7 @@ final class ListConversationsHandlerTest extends TestCase
       new MessagingAccessPolicy($this->createStub(OrganizationAuthorizationPort::class), $members, $this->createStub(MessagingParticipantRepositoryPort::class)),
     );
 
-    $result = $handler->__invoke(new ListConversationsQuery('user-1', self::ORG_ID, subjectType: MessagingSubjectType::FACILITY->value));
+    $result = $handler->__invoke(new ListConversationsQuery('user-1', self::ORG_ID, subjectType: 'facility'));
 
     self::assertSame(0, $result->page->total);
     self::assertSame([], $result->unreadCounts);

@@ -6,10 +6,12 @@ namespace Otp\Presentation\Api\Processor\Challenge;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
+use Otp\Application\Port\Inbound\Challenge\ChallengeLifecycleProofPort;
 use Otp\Application\UseCase\Command\Challenge\VerifyOtp\{VerifyOtpCommand, VerifyOtpResult};
 use Otp\Presentation\Api\Dto\Input\Challenge\VerifyOtpInput;
 use Otp\Presentation\Api\Dto\Output\Challenge\VerifyOtpOutput;
 use Shared\Application\Port\Inbound\CommandBusPort;
+use Shared\Application\Port\Outbound\Idempotency\HttpIdempotencyPrincipalPort;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpKernel\Exception\{BadRequestHttpException, NotFoundHttpException, TooManyRequestsHttpException};
 use Symfony\Component\RateLimiter\RateLimiterFactory;
@@ -48,6 +50,8 @@ final readonly class VerifyOtpProcessor implements ProcessorInterface
     private readonly int $otpCodeLength = 6,
     #[Autowire(service: 'limiter.otp_challenge_verify')]
     private readonly ?RateLimiterFactory $rateLimiter = null,
+    private ?HttpIdempotencyPrincipalPort $principal = null,
+    private ?ChallengeLifecycleProofPort $challenges = null,
   ) {
   }
   // #endregion
@@ -71,11 +75,15 @@ final readonly class VerifyOtpProcessor implements ProcessorInterface
       throw new BadRequestHttpException('Invalid code format.');
     }
 
+    $challenge = is_string($challengeToken) ? $this->challenges?->current($challengeToken) : $this->challenges?->byId($otpId);
     /** @var VerifyOtpResult $result */
     $result = $this->commandBus->dispatch(new VerifyOtpCommand(
       otpId: is_string($otpId) ? $otpId : null,
       challengeToken: is_string($challengeToken) ? $challengeToken : null,
       code: $data->code,
+      expectedUserId: $this->principal?->current()?->principalId,
+      expectedPurpose: null === $challenge ? null : \Otp\Domain\ValueObject\OtpPurpose::from($challenge->purpose->value),
+      expectedRecipient: $challenge?->recipient,
     ));
 
     $output = new VerifyOtpOutput();

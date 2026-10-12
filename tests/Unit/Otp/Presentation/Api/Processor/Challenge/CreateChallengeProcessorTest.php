@@ -56,7 +56,12 @@ final class CreateChallengeProcessorTest extends TestCase
   #[Test]
   public function testProcessThrowsWhenRecipientMissing(): void
   {
-    $user = new class () implements UserInterface {
+    $user = new class () implements UserInterface, \Auth\Application\Contract\User\AuthenticatedUser {
+      public function getId(): string
+      {
+        return $this->getUserIdentifier();
+      }
+
       public function getUserIdentifier(): string
       {
         return 'user-1';
@@ -95,7 +100,12 @@ final class CreateChallengeProcessorTest extends TestCase
   #[Test]
   public function testProcessCreatesChallenge(): void
   {
-    $user = new class () implements UserInterface {
+    $user = new class () implements UserInterface, \Auth\Application\Contract\User\AuthenticatedUser {
+      public function getId(): string
+      {
+        return $this->getUserIdentifier();
+      }
+
       public function getUserIdentifier(): string
       {
         return 'user-2';
@@ -160,7 +170,12 @@ final class CreateChallengeProcessorTest extends TestCase
   #[Test]
   public function testProcessUsesPhoneWhenSmsRecipientMissing(): void
   {
-    $user = new class () implements UserInterface {
+    $user = new class () implements UserInterface, \Auth\Application\Contract\User\AuthenticatedUser {
+      public function getId(): string
+      {
+        return $this->getUserIdentifier();
+      }
+
       public function getUserIdentifier(): string
       {
         return 'user-3';
@@ -223,7 +238,12 @@ final class CreateChallengeProcessorTest extends TestCase
   #[Test]
   public function testProcessThrowsTooManyRequestsWhenRateLimited(): void
   {
-    $user = new class () implements UserInterface {
+    $user = new class () implements UserInterface, \Auth\Application\Contract\User\AuthenticatedUser {
+      public function getId(): string
+      {
+        return $this->getUserIdentifier();
+      }
+
       public function getUserIdentifier(): string
       {
         return 'user-4';
@@ -266,7 +286,12 @@ final class CreateChallengeProcessorTest extends TestCase
   #[Test]
   public function testProcessProceedsWhenTheRateLimiterStillHasRoom(): void
   {
-    $user = new class () implements UserInterface {
+    $user = new class () implements UserInterface, \Auth\Application\Contract\User\AuthenticatedUser {
+      public function getId(): string
+      {
+        return $this->getUserIdentifier();
+      }
+
       public function getUserIdentifier(): string
       {
         return 'user-10';

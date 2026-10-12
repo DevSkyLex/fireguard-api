@@ -131,6 +131,23 @@ final class DeployEnvContractTest extends TestCase
   }
 
   /**
+   * Method testIdempotencyKeysUseDedicatedSecretsAndTheActiveVersionUsesConfiguration.
+   *
+   * @return void
+   */
+  #[Test]
+  public function testIdempotencyKeysUseDedicatedSecretsAndTheActiveVersionUsesConfiguration(): void
+  {
+    /** @var array{jobs: array{deploy: array{env: array<string, string>}}} $workflow */
+    $workflow = Yaml::parseFile(dirname(__DIR__, 3) . '/.github/workflows/deploy-vps.yml');
+    $environment = $workflow['jobs']['deploy']['env'];
+
+    self::assertSame('${{ secrets.HTTP_IDEMPOTENCY_HMAC_KEY }}', $environment['HTTP_IDEMPOTENCY_HMAC_KEY']);
+    self::assertSame('${{ secrets.HTTP_IDEMPOTENCY_ENCRYPTION_KEYS }}', $environment['HTTP_IDEMPOTENCY_ENCRYPTION_KEYS']);
+    self::assertSame('${{ vars.HTTP_IDEMPOTENCY_ENCRYPTION_ACTIVE_VERSION }}', $environment['HTTP_IDEMPOTENCY_ENCRYPTION_ACTIVE_VERSION']);
+  }
+
+  /**
    * Method testDeploymentOnlyWorkflowKeysAreReadByAnsible.
    *
    * These values may be excluded from the container env contract only when the

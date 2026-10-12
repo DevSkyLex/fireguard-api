@@ -42,7 +42,7 @@ final class PlanMapperTest extends TestCase
   }
 
   #[Test]
-  public function testToDomainDropsUnknownAndInvalidLimits(): void
+  public function testToDomainPreservesHistoricalKeysAndDropsInvalidLimits(): void
   {
     $record = $this->record([
       'members' => 50,
@@ -51,7 +51,7 @@ final class PlanMapperTest extends TestCase
       'equipment' => 'many',
     ]);
 
-    self::assertSame(['members' => 50], PlanMapper::toDomain($record)->limits());
+    self::assertSame(['members' => 50, 'not_a_quota' => 10], PlanMapper::toDomain($record)->limits());
   }
 
   #[Test]

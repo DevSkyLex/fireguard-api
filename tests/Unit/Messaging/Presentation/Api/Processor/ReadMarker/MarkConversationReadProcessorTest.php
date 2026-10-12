@@ -98,7 +98,7 @@ final class MarkConversationReadProcessorTest extends TestCase
 
     $processor = new MarkConversationReadProcessor(
       $this->createStub(CommandBusPort::class),
-      new ConversationOutputFactory(),
+      new ConversationOutputFactory(\Tests\Support\Messaging\MessagingSubjectCatalog::create()),
       $security,
     );
 
@@ -122,7 +122,7 @@ final class MarkConversationReadProcessorTest extends TestCase
   {
     return new MarkConversationReadProcessor(
       $commandBus,
-      new ConversationOutputFactory(),
+      new ConversationOutputFactory(\Tests\Support\Messaging\MessagingSubjectCatalog::create()),
       $this->securityWithUser(),
     );
   }

@@ -72,9 +72,8 @@ final class UserInput
    */
   #[Groups([UserSerializationGroup::WRITE])]
   #[Assert\NotBlank]
-  #[Assert\Length(min: 8)]
   #[ApiProperty(
-    description: 'User password (minimum 8 characters).',
+    description: 'User password (must satisfy GET /api/auth/password-policy).',
     readable: false,
     writable: true,
     required: true,
@@ -83,7 +82,6 @@ final class UserInput
     openapiContext: [
       'type' => 'string',
       'format' => 'password',
-      'minLength' => 8,
       'writeOnly' => true,
     ],
   )]

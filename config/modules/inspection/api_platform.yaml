@@ -1,0 +1,25 @@
+api_platform:
+  mapping:
+    paths:
+      - '%kernel.project_dir%/src/Inspection/Presentation/Api/Resource'
+  exception_to_status:
+    Inspection\Domain\Exception\InspectionAttachmentNotFoundException: 404
+    Inspection\Domain\Exception\InspectionAccessDeniedException: 403
+    Inspection\Domain\Exception\CanonicalInspectionConflictException: 409
+    Inspection\Domain\Exception\CanonicalInspectionValidationException: 422
+    Inspection\Domain\Exception\ChecklistArchivedException: 409
+    Inspection\Domain\Exception\ChecklistInUseException: 409
+    Inspection\Domain\Exception\ChecklistNotFoundException: 404
+    Inspection\Domain\Exception\ChecklistReferenceCodeAlreadyExistsException: 409
+    Inspection\Domain\Exception\InspectionAlreadyCancelledException: 409
+    Inspection\Domain\Exception\InspectionAlreadyClosedException: 409
+    Inspection\Domain\Exception\InspectionAlreadySubmittedException: 409
+    Inspection\Domain\Exception\InspectionNotFoundException: 404
+    Inspection\Domain\Exception\EquipmentInspectionSummaryNotFoundException: 404
+    Inspection\Domain\Exception\EquipmentInspectionSummaryAccessDeniedException: 403
+    Inspection\Domain\Exception\InspectionNotSubmittedException: 409
+    Inspection\Domain\Exception\InspectionResponseConflictException: 409
+    Inspection\Domain\Exception\InspectionResponseNotFoundException: 404
+    Inspection\Domain\Exception\InspectionRevisionMismatchException: 412
+    Inspection\Domain\Exception\NonConformityAlreadyResolvedException: 409
+    Inspection\Domain\Exception\NonConformityNotFoundException: 404

@@ -22,6 +22,7 @@ use Session\Application\Port\Inbound\SessionRevocationPort;
 use Shared\Domain\ValueObject\Email;
 use Tests\Helper\{IdentityBoundaryFactories, TestEventIdProvider};
 use User\Application\Port\Outbound\Internal\UserRepositoryPort;
+use User\Application\Port\Outbound\PasswordPolicyPort;
 use User\Domain\Model\User\User;
 use User\Domain\ValueObject\{HashedPassword, UserId, UserProfile, Username};
 
@@ -187,6 +188,7 @@ final class ConfirmPasswordResetHandlerTest extends TestCase
     $userRepository ??= $this->createStub(UserRepositoryPort::class);
 
     return new ConfirmPasswordResetHandler(
+      passwordPolicy: $this->createStub(PasswordPolicyPort::class),
       otpRepository: new ChallengeAccessService($otpRepository),
       otpChallenge: $this->challengeCapability($otpRepository),
       userRepository: $this->credentialCapability($userRepository),

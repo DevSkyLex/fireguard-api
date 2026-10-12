@@ -101,10 +101,10 @@ readonly class RefreshTokenCookieService
    *
    * @return Cookie the configured cookie
    */
-  public function createCookie(string $refreshToken, bool $rememberMe = false): Cookie
+  public function createCookie(string $refreshToken, bool $rememberMe = false, ?int $absoluteExpiresAt = null): Cookie
   {
     $lifetime = $rememberMe ? $this->lifetimeLong : $this->lifetimeShort;
-    $expiry = new DateTimeImmutable(datetime: '+' . $lifetime . ' seconds');
+    $expiry = null === $absoluteExpiresAt ? new DateTimeImmutable(datetime: '+' . $lifetime . ' seconds') : new DateTimeImmutable()->setTimestamp($absoluteExpiresAt);
 
     return Cookie::create(
       name: $this->getCookieName(),

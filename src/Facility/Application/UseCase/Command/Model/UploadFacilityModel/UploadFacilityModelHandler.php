@@ -12,6 +12,7 @@ use Facility\Domain\ValueObject\GlbDocument;
 use Shared\Application\Contract\Transaction\CommitOutcomeUnknownException;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\{FileStoragePort, RootTransactionManagerPort, UuidGeneratorPort};
+use Shared\Application\Port\Outbound\Idempotency\HttpIdempotencyExecutionPort;
 use Throwable;
 
 use function count;
@@ -49,6 +50,7 @@ final readonly class UploadFacilityModelHandler implements CommandHandler
     private FileStoragePort $storage,
     private UuidGeneratorPort $uuids,
     private RootTransactionManagerPort $transactionManager,
+    private ?HttpIdempotencyExecutionPort $idempotency = null,
   ) {
   }
   // #endregion
@@ -84,9 +86,13 @@ final readonly class UploadFacilityModelHandler implements CommandHandler
     );
 
     try {
-      $this->transactionManager->transactional(function () use ($model, $command): void {
+      return $this->transactionManager->transactional(function () use ($model, $command): UploadFacilityModelResult {
         $this->storage->write($model->storagePath, $command->contents);
         $this->models->insert($model);
+        $result = new UploadFacilityModelResult(\Facility\Application\Service\FacilityModelViewFactory::fromModel($model));
+        $this->idempotency?->captureResult($result);
+
+        return $result;
       });
     } catch (CommitOutcomeUnknownException $exception) {
       throw $exception;
@@ -99,8 +105,6 @@ final readonly class UploadFacilityModelHandler implements CommandHandler
 
       throw $exception;
     }
-
-    return new UploadFacilityModelResult(\Facility\Application\Service\FacilityModelViewFactory::fromModel($model));
   }
   // #endregion
 }

@@ -16,5 +16,18 @@ use User\Application\Contract\User\UserAuthentication;
  */
 interface UserAuthenticationPort
 {
-  public function authenticate(string $identifier, string $plainPassword): UserAuthentication;
+  /**
+   * Method authenticate
+   *
+   * Verifies stored credentials without creation-policy checks. A verification waiver permits only pending accounts.
+   *
+   * @access public
+   *
+   * @param string $identifier account email or username
+   * @param string $plainPassword submitted existing credential
+   * @param bool $requireEmailVerification trusted project authentication choice
+   *
+   * @return UserAuthentication neutral credential outcome
+   */
+  public function authenticate(string $identifier, string $plainPassword, bool $requireEmailVerification = true): UserAuthentication;
 }

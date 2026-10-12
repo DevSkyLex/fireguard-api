@@ -21,12 +21,14 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use ReflectionClass;
 use Shared\Application\Port\Inbound\SeedStepPort;
 use Shared\Infrastructure\Console\{AppendSeedFixturesCommand, LoadSeedFixturesCommand};
-use Shared\Infrastructure\DataFixtures\SeedFixtureAdapter;
+use Shared\Infrastructure\DataFixtures\{OrmFixtureExecutor, SeedFixtureAdapter};
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use User\Infrastructure\DataFixtures\UserFixtures;
 use Workload\Infrastructure\DataFixtures\WorkloadFixtures;
 
+use function count;
 use function is_iterable;
+use function ksort;
 
 #[CoversClass(LoadSeedFixturesCommand::class)]
 final class LoadSeedFixturesCommandTest extends KernelTestCase
@@ -98,11 +100,12 @@ final class LoadSeedFixturesCommandTest extends KernelTestCase
    *
    * @param iterable<mixed> $fixtures tagged capabilities injected by the container
    * @param EntityManagerInterface $manager explicitly owning database
-   * @param array<string, array{class-string<FixtureInterface>, list<string>}> $expected ordered capability identities, local owners and prerequisites
+   * @param array<string, array{class-string<FixtureInterface>, list<string>}> $expected capability identities, local owners and prerequisites
    */
   private function assertSeedCapabilities(iterable $fixtures, EntityManagerInterface $manager, array $expected): void
   {
     $actual = [];
+    $capabilities = [];
     $reflection = new ReflectionClass(SeedFixtureAdapter::class);
     foreach ($fixtures as $fixture) {
       self::assertInstanceOf(SeedStepPort::class, $fixture);
@@ -112,12 +115,26 @@ final class LoadSeedFixturesCommandTest extends KernelTestCase
       $owner = $reflection->getProperty('fixture')->getValue($fixture);
       self::assertInstanceOf(FixtureInterface::class, $owner);
       self::assertSame($manager, $reflection->getProperty('manager')->getValue($fixture), 'Seed capabilities must retain their explicitly selected owning database.');
-      foreach ($fixture->dependencies() as $prerequisite) {
-        self::assertArrayHasKey($prerequisite, $actual, 'The configured group must register prerequisites before their consumers.');
-      }
       $actual[$key] = [$owner::class, $fixture->dependencies()];
+      $capabilities[] = $fixture;
     }
 
-    self::assertSame($expected, $actual, 'Each tagged group must preserve all owner capabilities, their registration order and prerequisites.');
+    ksort($expected);
+    ksort($actual);
+    self::assertSame($expected, $actual, 'Each tagged group must preserve all owner capabilities and prerequisites.');
+
+    $executor = self::getContainer()->get(OrmFixtureExecutor::class);
+    self::assertInstanceOf(OrmFixtureExecutor::class, $executor);
+    $ordered = new ReflectionClass($executor)->getMethod('orderFixtures')->invoke($executor, $capabilities);
+    self::assertIsArray($ordered);
+    self::assertCount(count($capabilities), $ordered);
+    $completed = [];
+    foreach ($ordered as $fixture) {
+      self::assertInstanceOf(SeedStepPort::class, $fixture);
+      foreach ($fixture->dependencies() as $prerequisite) {
+        self::assertArrayHasKey($prerequisite, $completed, 'The executor must plan prerequisites before their consumers.');
+      }
+      $completed[$fixture->key()] = true;
+    }
   }
 }

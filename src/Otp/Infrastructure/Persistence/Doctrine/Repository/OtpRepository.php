@@ -187,5 +187,35 @@ final readonly class OtpRepository implements OtpRepositoryPort
 
     return is_int($result) ? $result : 0;
   }
+
+  /**
+   * Method findForVerification
+   *
+   * Filters another owner's rows out before the database obtains its pessimistic write lock.
+   *
+   * @access public
+   *
+   * @param \Otp\Domain\ValueObject\ChallengeToken $token bound challenge token
+   * @param string $userId expected owner
+   * @param OtpPurpose $purpose expected purpose
+   *
+   * @return ?Otp freshly locked challenge
+   */
+  public function findForVerification(\Otp\Domain\ValueObject\ChallengeToken $token, string $userId, OtpPurpose $purpose): ?Otp
+  {
+    $query = $this->entityManager->getRepository(OtpRecord::class)->createQueryBuilder('o')
+      ->where('o.challengeToken = :token')
+      ->andWhere('o.userId = :userId')
+      ->andWhere('o.purpose = :purpose')
+      ->setParameter('token', $token->value)
+      ->setParameter('userId', $userId)
+      ->setParameter('purpose', $purpose->value)
+      ->getQuery();
+    $query->setLockMode(LockMode::PESSIMISTIC_WRITE);
+    $query->setHint(\Doctrine\ORM\Query::HINT_REFRESH, true);
+    $record = $query->getOneOrNullResult();
+
+    return $record instanceof OtpRecord ? $this->mapper->toDomain($record) : null;
+  }
   // #endregion
 }

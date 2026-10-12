@@ -9,7 +9,6 @@ use DateTimeImmutable;
 use Inspection\Application\Contract\Event\Export\InspectionReportExportedEvent;
 use Inspection\Application\Contract\Response\InspectionResponseView;
 use Inspection\Application\Port\Outbound\InspectionReportPdfRendererPort;
-use Inspection\Application\UseCase\Command\Export\RecordInspectionExport\RecordInspectionExportCommand;
 use Inspection\Application\UseCase\Query\Inspection\GetInspection\{GetInspectionQuery, GetInspectionResult};
 use Inspection\Application\UseCase\Query\NonConformity\ListNonConformities\{ListNonConformitiesQuery, NonConformityResult};
 use Inspection\Application\UseCase\Query\Report\ResolveInspectionReportAccess\{ResolveInspectionReportAccessQuery, ResolveInspectionReportAccessResult};
@@ -25,8 +24,8 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Application\Contract\Pagination\PaginatedResult;
-use Shared\Application\Message\VoidResult;
-use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
+use Shared\Application\Port\Inbound\QueryBusPort;
+use Shared\Application\Port\Outbound\EventDispatcherPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, Response};
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
@@ -52,6 +51,7 @@ use function substr;
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 #[CoversClass(ExportInspectionReportController::class)]
+#[CoversClass(\Inspection\Application\UseCase\Command\Export\ExportInspectionReportDocument\ExportInspectionReportDocumentHandler::class)]
 final class ExportInspectionReportControllerTest extends TestCase
 {
   private const string ORGANIZATION_ID = '550e8400-e29b-41d4-a716-446655509101';
@@ -136,14 +136,14 @@ final class ExportInspectionReportControllerTest extends TestCase
   {
     $dispatched = null;
 
-    /** @var CommandBusPort&MockObject $commandBus */
-    $commandBus = $this->createMock(CommandBusPort::class);
+    /** @var EventDispatcherPort&MockObject $commandBus */
+    $commandBus = $this->createMock(EventDispatcherPort::class);
     $commandBus->expects(self::once())
       ->method('dispatch')
-      ->willReturnCallback(static function (RecordInspectionExportCommand $command) use (&$dispatched): VoidResult {
-        $dispatched = $command->event;
+      ->willReturnCallback(static function (object $event) use (&$dispatched): void {
+        $dispatched = $event;
 
-        return new VoidResult();
+
       });
 
     $this->createController($this->queryBus(), commandBus: $commandBus)->__invoke($this->request());
@@ -217,8 +217,8 @@ final class ExportInspectionReportControllerTest extends TestCase
     $renderer = $this->createMock(InspectionReportPdfRendererPort::class);
     $renderer->expects(self::never())->method('render');
 
-    /** @var CommandBusPort&MockObject $commandBus */
-    $commandBus = $this->createMock(CommandBusPort::class);
+    /** @var EventDispatcherPort&MockObject $commandBus */
+    $commandBus = $this->createMock(EventDispatcherPort::class);
     $commandBus->expects(self::never())->method('dispatch');
 
     $controller = $this->createController(
@@ -242,8 +242,8 @@ final class ExportInspectionReportControllerTest extends TestCase
     $renderer = $this->createMock(InspectionReportPdfRendererPort::class);
     $renderer->expects(self::never())->method('render');
 
-    /** @var CommandBusPort&MockObject $commandBus */
-    $commandBus = $this->createMock(CommandBusPort::class);
+    /** @var EventDispatcherPort&MockObject $commandBus */
+    $commandBus = $this->createMock(EventDispatcherPort::class);
     $commandBus->expects(self::never())->method('dispatch');
 
     $controller = $this->createController($queryBus, renderer: $renderer, commandBus: $commandBus);
@@ -308,7 +308,7 @@ final class ExportInspectionReportControllerTest extends TestCase
   private function createController(
     QueryBusPort $queryBus,
     ?InspectionReportPdfRendererPort $renderer = null,
-    ?CommandBusPort $commandBus = null,
+    ?EventDispatcherPort $commandBus = null,
     ?Security $security = null,
   ): ExportInspectionReportController {
     if (null === $security) {
@@ -328,13 +328,7 @@ final class ExportInspectionReportControllerTest extends TestCase
       $renderer->method('render')->willReturn('%PDF-fake');
     }
 
-    return new ExportInspectionReportController(
-      queryBus: $queryBus,
-      branding: $this->brandingPort(),
-      renderer: $renderer,
-      commandBus: $commandBus ?? $this->createStub(CommandBusPort::class),
-      security: $security,
-    );
+    return new ExportInspectionReportController(commandBus: $this->documents(new \Inspection\Application\UseCase\Command\Export\ExportInspectionReportDocument\ExportInspectionReportDocumentHandler(queryBus: $queryBus, branding: $this->brandingPort(), renderer: $renderer, events: $commandBus ?? $this->createStub(EventDispatcherPort::class), transactions: $this->transactions())), security: $security);
   }
 
   /**
@@ -466,5 +460,21 @@ final class ExportInspectionReportControllerTest extends TestCase
       updatedAt: new DateTimeImmutable('2026-06-01T08:30:00+00:00'),
     );
   }
+
   // #endregion
+  private function documents(\Inspection\Application\UseCase\Command\Export\ExportInspectionReportDocument\ExportInspectionReportDocumentHandler $handler): \Shared\Application\Port\Inbound\CommandBusPort
+  {
+    $documents = $this->createStub(\Shared\Application\Port\Inbound\CommandBusPort::class);
+    $documents->method('dispatch')->willReturnCallback($handler(...));
+
+    return $documents;
+  }
+
+  private function transactions(): \Shared\Application\Port\Outbound\TransactionManagerPort
+  {
+    $transactions = $this->createStub(\Shared\Application\Port\Outbound\TransactionManagerPort::class);
+    $transactions->method('transactional')->willReturnCallback(static fn (callable $operation): mixed => $operation());
+
+    return $transactions;
+  }
 }

@@ -138,6 +138,8 @@ final class CreateOrganizationHandlerTest extends TestCase
       uuidFactory: $uuidFactory,
       transactionManager: $transactionManager,
       eventDispatcher: $eventDispatcher,
+      systemRoles: \Tests\Support\OrganizationCatalogTestFactory::systemRoles(),
+      settingsPolicies: \Tests\Support\OrganizationCatalogTestFactory::settingsPolicies(),
     );
 
     $result = $handler->__invoke(new CreateOrganizationCommand(
@@ -200,6 +202,8 @@ final class CreateOrganizationHandlerTest extends TestCase
       uuidFactory: $this->createStub(UuidGeneratorPort::class),
       transactionManager: $transactionManager,
       eventDispatcher: $eventDispatcher,
+      systemRoles: \Tests\Support\OrganizationCatalogTestFactory::systemRoles(),
+      settingsPolicies: \Tests\Support\OrganizationCatalogTestFactory::settingsPolicies(),
     );
 
     $this->expectException(InvalidArgumentException::class);
@@ -251,6 +255,8 @@ final class CreateOrganizationHandlerTest extends TestCase
       uuidFactory: $uuidFactory,
       transactionManager: $transactionManager,
       eventDispatcher: $eventDispatcher,
+      systemRoles: \Tests\Support\OrganizationCatalogTestFactory::systemRoles(),
+      settingsPolicies: \Tests\Support\OrganizationCatalogTestFactory::settingsPolicies(),
     );
 
     $this->expectExceptionObject($failure);
@@ -327,6 +333,8 @@ final class CreateOrganizationHandlerTest extends TestCase
       uuidFactory: $uuidFactory,
       transactionManager: $transactionManager,
       eventDispatcher: $eventDispatcher,
+      systemRoles: \Tests\Support\OrganizationCatalogTestFactory::systemRoles(),
+      settingsPolicies: \Tests\Support\OrganizationCatalogTestFactory::settingsPolicies(),
     );
 
     $this->expectException(OrganizationSlugAlreadyExistsException::class);

@@ -54,7 +54,7 @@ final readonly class UserRegistrationService implements UserRegistrationPort
   /**
    * {@inheritDoc}
    */
-  public function register(string $username, string $email, string $password, string $firstName, string $lastName): string
+  public function register(string $username, string $email, string $password, string $firstName, string $lastName, bool $requireEmailVerification = true): string
   {
     return ($this->create)(new CreateUserCommand(
       username: $username,
@@ -62,6 +62,7 @@ final readonly class UserRegistrationService implements UserRegistrationPort
       password: $password,
       firstName: $firstName,
       lastName: $lastName,
+      requireEmailVerification: $requireEmailVerification,
     ))->userId;
   }
 

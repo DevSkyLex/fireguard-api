@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Tests\Unit\Audit\Infrastructure\EventSubscriber;
 
 use Audit\Application\UseCase\Command\RecordAuditEvent\{RecordAuditEventCommand, RecordAuditEventResult};
-use Audit\Infrastructure\EventSubscriber\{AbstractAuditEventSubscriber, OrganizationAccessAuditEventSubscriber, OrganizationLifecycleAuditEventSubscriber};
 use Audit\Infrastructure\Service\AuditPiiSanitizer;
 use Organization\Application\Contract\Event\Invitation\{OrganizationInvitationAcceptedEvent, OrganizationInvitationRevokedEvent, OrganizationInvitationSentEvent};
 use Organization\Application\Contract\Event\Member\{OrganizationMemberAddedEvent, OrganizationMemberRemovedEvent};
@@ -14,7 +13,7 @@ use Organization\Application\Contract\Event\OrganizationSettingsUpdatedEvent;
 use Organization\Application\Contract\Event\Plan\OrganizationPlanChangedEvent;
 use Organization\Application\Contract\Event\Role\{OrganizationRoleAssignedEvent, OrganizationRoleCreatedEvent, OrganizationRoleDeletedEvent, OrganizationRoleUnassignedEvent, OrganizationRoleUpdatedEvent};
 use Organization\Application\Contract\Event\Security\{OrganizationLastAdminLockoutPreventedEvent, OrganizationPermissionGrantDeniedEvent};
-use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use Shared\Application\Port\Inbound\CommandBusPort;
@@ -40,9 +39,6 @@ use function sprintf;
  *
  * @category Event Subscriber Tests
  */
-#[CoversClass(className: AbstractAuditEventSubscriber::class)]
-#[CoversClass(className: OrganizationLifecycleAuditEventSubscriber::class)]
-#[CoversClass(className: OrganizationAccessAuditEventSubscriber::class)]
 final class OrganizationAuditWiringTest extends TestCase
 {
   // #region Tests

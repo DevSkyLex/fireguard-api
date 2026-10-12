@@ -9,7 +9,6 @@ use Intervention\Application\Contract\Event\InterventionReportExportedEvent;
 use Intervention\Application\Contract\Resource\InterventionIssue;
 use Intervention\Application\Contract\Workflow\{InterventionWorkflowPage, InterventionWorkflowView};
 use Intervention\Application\Port\Outbound\{InterventionMemberNamingPort, InterventionReportPdfRendererPort, InterventionSiteNamingPort};
-use Intervention\Application\UseCase\Command\Export\RecordInterventionExport\RecordInterventionExportCommand;
 use Intervention\Application\UseCase\Query\Activity\ListInterventionActivities\{ListInterventionActivitiesQuery, ListInterventionActivitiesResult};
 use Intervention\Application\UseCase\Query\Attachment\ListInterventionAttachments\{ListInterventionAttachmentsQuery, ListInterventionAttachmentsResult};
 use Intervention\Application\UseCase\Query\Workflow\GetInterventionWorkflow\{GetInterventionWorkflowQuery, GetInterventionWorkflowResult};
@@ -24,8 +23,8 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
-use Shared\Application\Message\VoidResult;
-use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
+use Shared\Application\Port\Inbound\QueryBusPort;
+use Shared\Application\Port\Outbound\EventDispatcherPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, Response};
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, NotFoundHttpException};
@@ -46,6 +45,7 @@ use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, NotFoundH
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 #[CoversClass(ExportInterventionReportController::class)]
+#[CoversClass(\Intervention\Application\UseCase\Command\Export\ExportInterventionReportDocument\ExportInterventionReportDocumentHandler::class)]
 final class ExportInterventionReportControllerTest extends TestCase
 {
   private const string ORGANIZATION_ID = '550e8400-e29b-41d4-a716-446655507101';
@@ -170,14 +170,14 @@ final class ExportInterventionReportControllerTest extends TestCase
   {
     $dispatched = null;
 
-    /** @var CommandBusPort&MockObject $commandBus */
-    $commandBus = $this->createMock(CommandBusPort::class);
+    /** @var EventDispatcherPort&MockObject $commandBus */
+    $commandBus = $this->createMock(EventDispatcherPort::class);
     $commandBus->expects(self::once())
       ->method('dispatch')
-      ->willReturnCallback(static function (RecordInterventionExportCommand $command) use (&$dispatched): VoidResult {
-        $dispatched = $command->event;
+      ->willReturnCallback(static function (object $event) use (&$dispatched): void {
+        $dispatched = $event;
 
-        return new VoidResult();
+
       });
 
     $this->createController($this->queryBus(), commandBus: $commandBus)->__invoke($this->request());
@@ -197,8 +197,8 @@ final class ExportInterventionReportControllerTest extends TestCase
     $renderer = $this->createMock(InterventionReportPdfRendererPort::class);
     $renderer->expects(self::never())->method('render');
 
-    /** @var CommandBusPort&MockObject $commandBus */
-    $commandBus = $this->createMock(CommandBusPort::class);
+    /** @var EventDispatcherPort&MockObject $commandBus */
+    $commandBus = $this->createMock(EventDispatcherPort::class);
     $commandBus->expects(self::never())->method('dispatch');
 
     $this->expectException(NotFoundHttpException::class);
@@ -216,15 +216,7 @@ final class ExportInterventionReportControllerTest extends TestCase
     $renderer = $this->createMock(InterventionReportPdfRendererPort::class);
     $renderer->expects(self::never())->method('render');
 
-    $controller = new ExportInterventionReportController(
-      queryBus: $this->createStub(QueryBusPort::class),
-      renderer: $renderer,
-      branding: $this->brandingPort(),
-      memberNaming: $this->memberNamingPort(),
-      siteNaming: $this->siteNamingPort(),
-      commandBus: $this->createStub(CommandBusPort::class),
-      security: $security,
-    );
+    $controller = new ExportInterventionReportController(commandBus: $this->documents(new \Intervention\Application\UseCase\Command\Export\ExportInterventionReportDocument\ExportInterventionReportDocumentHandler(queryBus: $this->createStub(QueryBusPort::class), renderer: $renderer, branding: $this->brandingPort(), memberNaming: $this->memberNamingPort(), siteNaming: $this->siteNamingPort(), events: $this->createStub(EventDispatcherPort::class), transactions: $this->transactions(), authorization: $this->authorization())), security: $security);
 
     $this->expectException(AccessDeniedHttpException::class);
     $this->expectExceptionMessage('Authentication required.');
@@ -299,7 +291,7 @@ final class ExportInterventionReportControllerTest extends TestCase
     QueryBusPort $queryBus,
     ?OrganizationDocumentBrandingPort $branding = null,
     ?InterventionReportPdfRendererPort $renderer = null,
-    ?CommandBusPort $commandBus = null,
+    ?EventDispatcherPort $commandBus = null,
   ): ExportInterventionReportController {
     $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn(new SecurityUser(
@@ -316,15 +308,7 @@ final class ExportInterventionReportControllerTest extends TestCase
       $renderer->method('render')->willReturn('%PDF-fake');
     }
 
-    return new ExportInterventionReportController(
-      queryBus: $queryBus,
-      renderer: $renderer,
-      branding: $branding ?? $this->brandingPort(),
-      memberNaming: $this->memberNamingPort(),
-      siteNaming: $this->siteNamingPort(),
-      commandBus: $commandBus ?? $this->createStub(CommandBusPort::class),
-      security: $security,
-    );
+    return new ExportInterventionReportController(commandBus: $this->documents(new \Intervention\Application\UseCase\Command\Export\ExportInterventionReportDocument\ExportInterventionReportDocumentHandler(queryBus: $queryBus, renderer: $renderer, branding: $branding ?? $this->brandingPort(), memberNaming: $this->memberNamingPort(), siteNaming: $this->siteNamingPort(), events: $commandBus ?? $this->createStub(EventDispatcherPort::class), transactions: $this->transactions(), authorization: $this->authorization())), security: $security);
   }
 
   /**
@@ -483,5 +467,29 @@ final class ExportInterventionReportControllerTest extends TestCase
       ],
     );
   }
+
   // #endregion
+  private function documents(\Intervention\Application\UseCase\Command\Export\ExportInterventionReportDocument\ExportInterventionReportDocumentHandler $handler): \Shared\Application\Port\Inbound\CommandBusPort
+  {
+    $documents = $this->createStub(\Shared\Application\Port\Inbound\CommandBusPort::class);
+    $documents->method('dispatch')->willReturnCallback($handler(...));
+
+    return $documents;
+  }
+
+  private function transactions(): \Shared\Application\Port\Outbound\TransactionManagerPort
+  {
+    $transactions = $this->createStub(\Shared\Application\Port\Outbound\TransactionManagerPort::class);
+    $transactions->method('transactional')->willReturnCallback(static fn (callable $operation): mixed => $operation());
+
+    return $transactions;
+  }
+
+  private function authorization(): \Organization\Application\Port\Inbound\OrganizationAuthorizationPort
+  {
+    $authorization = $this->createStub(\Organization\Application\Port\Inbound\OrganizationAuthorizationPort::class);
+    $authorization->method('resolveAccess')->willReturn(\Organization\Application\Contract\Authorization\OrganizationAccessDecision::GRANTED);
+
+    return $authorization;
+  }
 }

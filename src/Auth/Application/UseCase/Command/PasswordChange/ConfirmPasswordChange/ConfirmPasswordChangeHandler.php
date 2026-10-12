@@ -10,6 +10,7 @@ use Otp\Application\Port\Inbound\Challenge\{ChallengeAccessPort, OtpChallengePor
 use Session\Application\Port\Inbound\SessionRevocationPort;
 use Shared\Application\Message\CommandHandler;
 use User\Application\Port\Inbound\UserCredentialsPort;
+use User\Application\Port\Outbound\PasswordPolicyPort;
 
 /**
  * Class ConfirmPasswordChangeHandler
@@ -37,6 +38,7 @@ final readonly class ConfirmPasswordChangeHandler implements CommandHandler
    * @param UserCredentialsPort $userRepository the user repository port
    * @param SessionRevocationPort $sessionRepository the session repository port
    * @param TokenRevocationPort $tokenRevocation the token revocation port
+   * @param PasswordPolicyPort $passwordPolicy authoritative requirements checked before consuming the OTP
    */
   public function __construct(
     private readonly ChallengeAccessPort $otpRepository,
@@ -44,6 +46,7 @@ final readonly class ConfirmPasswordChangeHandler implements CommandHandler
     private readonly SessionRevocationPort $sessionRepository,
     private readonly TokenRevocationPort $tokenRevocation,
     private OtpChallengePort $otpChallenge,
+    private PasswordPolicyPort $passwordPolicy,
   ) {
   }
   // #endregion
@@ -62,6 +65,8 @@ final readonly class ConfirmPasswordChangeHandler implements CommandHandler
    */
   public function __invoke(ConfirmPasswordChangeCommand $command): ConfirmPasswordChangeResult
   {
+    $this->passwordPolicy->assertAcceptable($command->newPassword);
+
     $otp = $this->otpRepository->find($command->token);
     if (null === $otp || $otp->userId !== $command->userId || OtpPurpose::SENSITIVE_OPERATION !== $otp->purpose) {
       return ConfirmPasswordChangeResult::failed(

@@ -46,6 +46,7 @@ final class OrganizationRepositoryTest extends TestCase
 
     $repository = new OrganizationRepository(
       entityManager: $entityManager,
+      settingsPolicies: \Tests\Support\OrganizationCatalogTestFactory::settingsPolicies(),
     );
 
     $repository->delete(OrganizationId::fromString($record->id));

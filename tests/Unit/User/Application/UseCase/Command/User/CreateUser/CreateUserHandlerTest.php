@@ -12,6 +12,7 @@ use Shared\Application\Port\Outbound\UuidGeneratorPort;
 use Shared\Domain\ValueObject\HashedSecret;
 use Tests\Helper\TestEventIdProvider;
 use User\Application\Port\Outbound\Internal\UserRepositoryPort;
+use User\Application\Port\Outbound\PasswordPolicyPort;
 use User\Application\UseCase\Command\User\CreateUser\{CreateUserCommand, CreateUserHandler, CreateUserResult};
 use User\Domain\Model\User\User;
 
@@ -91,6 +92,7 @@ final class CreateUserHandlerTest extends TestCase
       hashing: $this->hashing,
       eventBus: $this->eventBus,
       eventIdProvider: $this->eventIdProvider,
+      passwordPolicy: $this->createStub(PasswordPolicyPort::class),
     );
   }
   // #endregion

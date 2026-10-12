@@ -7,10 +7,10 @@ namespace Auth\Presentation\Api\Processor\Auth;
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use Auth\Application\Port\Outbound\JwtTokenServicePort;
-use Auth\Application\UseCase\Query\Session\RefreshToken\{RefreshTokenQuery, RefreshTokenResult};
+use Auth\Application\UseCase\Command\Session\RefreshToken\{RefreshTokenCommand, RefreshTokenResult};
 use Auth\Presentation\Api\Dto\Output\Auth\LoginOutput;
 use Auth\Presentation\Api\Service\RefreshTokenCookieService;
-use Shared\Application\Port\Inbound\QueryBusPort;
+use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\{TooManyRequestsHttpException, UnauthorizedHttpException};
@@ -46,12 +46,12 @@ final readonly class RefreshTokenProcessor implements ProcessorInterface
    *
    * @since 1.0.0
    *
-   * @param QueryBusPort $queryBus the query bus
+   * @param CommandBusPort $commandBus the command bus
    * @param RequestStack $requestStack the request stack
    * @param RefreshTokenCookieService $cookieService the cookie service
    */
   public function __construct(
-    private readonly QueryBusPort $queryBus,
+    private readonly CommandBusPort $commandBus,
     private readonly RequestStack $requestStack,
     private readonly RefreshTokenCookieService $cookieService,
     private readonly JwtTokenServicePort $jwtService,
@@ -100,8 +100,8 @@ final readonly class RefreshTokenProcessor implements ProcessorInterface
      *
      * @var RefreshTokenResult $result
      */
-    $result = $this->queryBus->ask(
-      query: new RefreshTokenQuery(
+    $result = $this->commandBus->dispatch(
+      command: new RefreshTokenCommand(
         refreshToken: $refreshToken,
         ipAddress: $request->getClientIp(),
       ),
@@ -127,8 +127,8 @@ final readonly class RefreshTokenProcessor implements ProcessorInterface
 
     if (null !== $result->refreshToken) {
       $rememberMe = $result->rememberMe ?? false;
+      $payload = $this->jwtService->decodeRefreshToken($result->refreshToken);
       if (null === $result->rememberMe) {
-        $payload = $this->jwtService->decodeRefreshToken($result->refreshToken);
         if (is_array($payload) && array_key_exists('remember_me', $payload)) {
           $rememberMe = $payload['remember_me'];
         }
@@ -137,6 +137,7 @@ final readonly class RefreshTokenProcessor implements ProcessorInterface
       $cookie = $this->cookieService->createCookie(
         refreshToken: $result->refreshToken,
         rememberMe: $rememberMe,
+        absoluteExpiresAt: $payload['expires_at'] ?? null,
       );
 
       $request->attributes->set(

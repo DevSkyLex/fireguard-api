@@ -6,7 +6,7 @@ namespace Import\Application\UseCase\Command\ResumeImportJob;
 
 use Import\Application\Port\Outbound\ImportJobQueuePort;
 use Import\Application\Port\Outbound\Internal\{ImportExecutionPort, ImportJobRepositoryPort};
-use Import\Application\Service\ImportPermissions;
+use Import\Application\Port\Outbound\Internal\ImportKindRegistryPort;
 use Import\Application\UseCase\Query\GetImportJob\GetImportJobResult;
 use Import\Domain\Exception\{ImportAccessDeniedException, ImportJobNotFoundException};
 use Import\Domain\Model\ImportJob\ImportJob;
@@ -43,6 +43,7 @@ final readonly class ResumeImportJobHandler implements CommandHandler
     private OrganizationAuthorizationPort $authorization,
     private ImportExecutionPort $execution,
     private ImportJobQueuePort $queue,
+    private ImportKindRegistryPort $kinds,
   ) {
   }
 
@@ -68,7 +69,7 @@ final readonly class ResumeImportJobHandler implements CommandHandler
   {
     $id = ImportJobId::fromString($command->importJobId);
     $job = $this->jobs->findById($id) ?? throw ImportJobNotFoundException::withId($command->importJobId);
-    $permission = ImportPermissions::write($job->kind());
+    $permission = $this->kinds->get($job->kind()->value)->descriptor()->writePermission;
     $decision = $this->authorization->resolveAccess($command->userId, $job->organizationId(), $permission);
     if ($decision->isOutsideScope()) {
       throw ImportJobNotFoundException::withId($command->importJobId);

@@ -152,6 +152,7 @@ final readonly class OrganizationOnboardingSessionRepository implements Organiza
     $existing->rollbackStack = $record->rollbackStack;
     $existing->stepHistory = $record->stepHistory;
     $existing->updatedAt = $record->updatedAt;
+    $existing->dismissedAt = $record->dismissedAt;
     $existing->creationIntent = $record->creationIntent;
   }
   // #endregion

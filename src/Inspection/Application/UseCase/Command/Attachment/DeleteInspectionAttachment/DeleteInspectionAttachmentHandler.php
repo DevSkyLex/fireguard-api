@@ -12,6 +12,7 @@ use Inspection\Domain\ValueObject\{InspectionAttachmentId, InspectionId, Inspect
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\{FileCleanupPort, RootTransactionManagerPort};
+use Shared\Application\Port\Outbound\Idempotency\HttpIdempotencyExecutionPort;
 
 /**
  * UseCase DeleteInspectionAttachmentHandler.
@@ -44,6 +45,7 @@ final readonly class DeleteInspectionAttachmentHandler implements CommandHandler
     private RootTransactionManagerPort $transactions,
     private InspectionMediaLookupPort $media,
     private OrganizationAuthorizationPort $authorization,
+    private ?HttpIdempotencyExecutionPort $idempotency = null,
   ) {
   }
   // #endregion
@@ -85,10 +87,13 @@ final readonly class DeleteInspectionAttachmentHandler implements CommandHandler
       $this->attachmentRepository->delete($attachmentId);
       $this->fileCleanup->request($attachment->storagePath());
 
-      return new DeleteInspectionAttachmentResult(
+      $result = new DeleteInspectionAttachmentResult(
         attachmentId: (string) $attachmentId,
         inspectionId: (string) $inspectionId,
       );
+      $this->idempotency?->captureResult($result);
+
+      return $result;
     });
   }
 

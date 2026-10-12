@@ -8,7 +8,9 @@ use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Application\Contract\Transaction\{CommitOutcomeUnknownException, TransactionAlreadyActiveException};
 use Shared\Application\Port\Outbound\{FileCleanupPort, LoggerPort, RootTransactionManagerPort, UuidGeneratorPort};
+use Shared\Application\Port\Outbound\Idempotency\HttpIdempotencyExecutionPort;
 use Tests\Support\Factory\UserTestFactory;
+use Tests\Support\Idempotency\RootMediaCaptureHarness;
 use Throwable;
 use User\Application\Contract\User\AvatarPaths;
 use User\Application\Port\Outbound\{AvatarPersistencePort, AvatarStoragePort};
@@ -131,6 +133,50 @@ final class UploadUserAvatarHandlerTest extends TestCase
     $this->handler($users, $storage)($this->command());
   }
 
+  public function testClaimPrecedesImageWritesAndCapturePrecedesCommit(): void
+  {
+    $execution = new RootMediaCaptureHarness();
+    $storage = $this->createMock(AvatarStoragePort::class);
+    $storage->expects(self::once())->method('resize')->willReturnCallback(static function () use ($execution): void { $execution->events[] = 'resize'; });
+    $users = $this->users();
+    $users->method('save')->willReturnCallback(static function () use ($execution): void { $execution->events[] = 'save'; });
+    $result = $this->handler($users, $storage, transactions: $execution, idempotency: $execution)($this->command());
+
+    self::assertSame(['begin', 'claim', 'resize', 'save', 'capture', 'commit'], $execution->events);
+    self::assertSame($result, $execution->committedSnapshot);
+  }
+
+  public function testCaptureFailureRollsBackAndCompensatesOnlyThisGeneration(): void
+  {
+    $execution = new RootMediaCaptureHarness();
+    $failure = new RuntimeException('snapshot encoding failed');
+    $execution->captureFailure = $failure;
+    $storage = $this->createMock(AvatarStoragePort::class);
+    $storage->expects(self::once())->method('resize');
+    $storage->expects(self::once())->method('delete')->with(self::ID, self::GENERATION);
+
+    try {
+      $this->handler($this->users(), $storage, transactions: $execution, idempotency: $execution)($this->command());
+      self::fail('The snapshot failure must roll back the avatar write.');
+    } catch (Throwable $actual) {
+      self::assertSame($failure, $actual);
+    }
+    self::assertNull($execution->committedSnapshot);
+    self::assertSame(['begin', 'claim', 'capture', 'rollback'], $execution->events);
+  }
+
+  public function testRejectedClaimCannotPrepareAvatarBytes(): void
+  {
+    $execution = new RootMediaCaptureHarness();
+    $failure = new RuntimeException('lease superseded');
+    $execution->claimFailure = $failure;
+    $storage = $this->createMock(AvatarStoragePort::class);
+    $storage->expects(self::never())->method('resize');
+    $this->expectExceptionObject($failure);
+
+    $this->handler($this->users(), $storage, transactions: $execution, idempotency: $execution)($this->command());
+  }
+
   private function command(): UploadUserAvatarCommand
   {
     return new UploadUserAvatarCommand(self::ID, 'bytes', 'https://api.example.test', 123);
@@ -152,7 +198,7 @@ final class UploadUserAvatarHandlerTest extends TestCase
     return $avatars;
   }
 
-  private function handler(UserRepositoryPort $users, AvatarStoragePort $storage, ?RootTransactionManagerPort $transactions = null, ?AvatarPersistencePort $avatars = null, ?FileCleanupPort $cleanup = null, ?LoggerPort $logger = null): UploadUserAvatarHandler
+  private function handler(UserRepositoryPort $users, AvatarStoragePort $storage, ?RootTransactionManagerPort $transactions = null, ?AvatarPersistencePort $avatars = null, ?FileCleanupPort $cleanup = null, ?LoggerPort $logger = null, ?HttpIdempotencyExecutionPort $idempotency = null): UploadUserAvatarHandler
   {
     if (null === $transactions) {
       $transactions = $this->createStub(RootTransactionManagerPort::class);
@@ -161,6 +207,6 @@ final class UploadUserAvatarHandlerTest extends TestCase
     $ids = $this->createStub(UuidGeneratorPort::class);
     $ids->method('generate')->willReturn(self::GENERATION);
 
-    return new UploadUserAvatarHandler($users, $storage, $avatars ?? $this->avatars(), $transactions, $cleanup ?? $this->createStub(FileCleanupPort::class), $ids, $logger ?? $this->createStub(LoggerPort::class));
+    return new UploadUserAvatarHandler($users, $storage, $avatars ?? $this->avatars(), $transactions, $cleanup ?? $this->createStub(FileCleanupPort::class), $ids, $logger ?? $this->createStub(LoggerPort::class), $idempotency);
   }
 }

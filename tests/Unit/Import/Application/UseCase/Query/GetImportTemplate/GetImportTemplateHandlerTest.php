@@ -12,11 +12,24 @@ use PHPUnit\Framework\TestCase;
 
 final class GetImportTemplateHandlerTest extends TestCase
 {
+  public function testIndependentContributionSuppliesItsTemplateAndWritePermission(): void
+  {
+    $auth = $this->createMock(OrganizationAuthorizationPort::class);
+    $auth->expects(self::once())->method('resolveAccess')
+      ->with('actor', 'org', 'organization.test_assets.write')->willReturn(OrganizationAccessDecision::GRANTED);
+    $registry = new \Import\Application\Service\ImportKindProcessorRegistry([new \Tests\Support\Import\RecordingImportKindProcessor()]);
+
+    $result = new GetImportTemplateHandler($auth, $registry)(new GetImportTemplateQuery('actor', 'org', 'test_asset'));
+
+    self::assertSame("name\r\n", $result->content);
+    self::assertSame('test-assets-template.csv', $result->filename);
+  }
+
   public function testFacilityTemplateRequiresWriteAndReturnsOnlyTheHeader(): void
   {
     $auth = $this->createMock(OrganizationAuthorizationPort::class);
     $auth->expects(self::once())->method('resolveAccess')->with('actor', 'org', 'organization.facilities.write')->willReturn(OrganizationAccessDecision::GRANTED);
-    $result = new GetImportTemplateHandler($auth)(new GetImportTemplateQuery('actor', 'org', 'facility'));
+    $result = new GetImportTemplateHandler($auth, \Tests\Support\Import\BuiltinImportProcessors::create())(new GetImportTemplateQuery('actor', 'org', 'facility'));
     self::assertSame("type,name,code,address,latitude,longitude,parentCode\r\n", $result->content);
   }
 
@@ -25,6 +38,6 @@ final class GetImportTemplateHandlerTest extends TestCase
     $auth = $this->createStub(OrganizationAuthorizationPort::class);
     $auth->method('resolveAccess')->willReturn(OrganizationAccessDecision::OUTSIDE_SCOPE);
     $this->expectException(ImportJobNotFoundException::class);
-    new GetImportTemplateHandler($auth)(new GetImportTemplateQuery('actor', 'org', 'member'));
+    new GetImportTemplateHandler($auth, \Tests\Support\Import\BuiltinImportProcessors::create())(new GetImportTemplateQuery('actor', 'org', 'member'));
   }
 }

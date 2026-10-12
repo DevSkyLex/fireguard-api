@@ -61,6 +61,7 @@ interface StripeGatewayPort
     string $planKey,
     string $successUrl,
     string $cancelUrl,
+    ?string $idempotencyKey = null,
   ): string;
 
   /**
@@ -75,7 +76,7 @@ interface StripeGatewayPort
    *
    * @return string the hosted Billing Portal URL
    */
-  public function createBillingPortalSession(string $customerId, string $returnUrl): string;
+  public function createBillingPortalSession(string $customerId, string $returnUrl, ?string $idempotencyKey = null): string;
 
   /**
    * Method parseEvent.
@@ -130,7 +131,7 @@ interface StripeGatewayPort
    *
    * @param string $subscriptionId the Stripe subscription identifier
    */
-  public function scheduleCancellation(string $subscriptionId): void;
+  public function scheduleCancellation(string $subscriptionId, ?string $idempotencyKey = null): void;
 
   /**
    * Method resumeCancellation.
@@ -142,7 +143,7 @@ interface StripeGatewayPort
    *
    * @param string $subscriptionId the Stripe subscription identifier
    */
-  public function resumeCancellation(string $subscriptionId): void;
+  public function resumeCancellation(string $subscriptionId, ?string $idempotencyKey = null): void;
 
   /**
    * Method getPaymentMethod.

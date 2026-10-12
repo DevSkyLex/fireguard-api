@@ -1,0 +1,11 @@
+doctrine:
+  orm:
+    entity_managers:
+      auth:
+        mappings:
+          TrustedDevice:
+            is_bundle: false
+            type: attribute
+            dir: '%kernel.project_dir%/src/TrustedDevice/Infrastructure/Persistence/Doctrine/Record'
+            prefix: 'TrustedDevice\Infrastructure\Persistence\Doctrine\Record'
+            alias: TrustedDevice

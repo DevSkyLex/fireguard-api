@@ -835,7 +835,7 @@ delegated to `GetInterventionWorkflowHandler`'s existing
 /interventions/{id}` uses): the controller performs no permission decision of
 its own, only authentication.
 
-**No new use case.** The controller assembles its Twig context from the
+**Typed export use case.** `ExportInterventionReportDocumentHandler` assembles its context from the
 SAME read queries the workflow/attachments/activities endpoints already
 dispatch through the query bus — `GetInterventionWorkflowQuery` (the sole
 authorization gate), `ListInterventionWorkflowQuery` (twice: `resource:
@@ -886,7 +886,7 @@ severities are translated as well. The
 layout carries no normative claim by product decision.
 
 **Audit** — `InterventionReportExportedEvent` (intervention id, organization
-id, actor user id) is dispatched by the controller after a successful render,
+id, actor user id) is recorded by the export command after a successful render, before the same main commit,
 recorded in the ledger as `intervention.report_exported` (subject type
 `intervention`), mirroring `compliance.register_exported`'s "who pulled this
 document" traceability. `OrganizationAuditMetadataProjection` carries an
@@ -1025,7 +1025,7 @@ naming ports the Statistics endpoint above already uses for its
 
 Ledger wiring: the export dispatches
 `Intervention\Application\Contract\Event\Export\InterventionsExportedEvent` through
-`RecordInterventionExportHandler` after rendering, inside a main outbox transaction, recorded by `Audit\...\AuditEventSubscriber` as
+`ExportInterventionsDocumentHandler` after rendering, inside the same main transaction as the original document receipt, recorded by `Audit\...\AuditEventSubscriber` as
 `intervention.list_exported` (subject: the organization; metadata:
 `row_count`, `filter_keys` — the applied filter **names** only, never their
 raw values), mirroring how the audit ledger records its own
@@ -1282,7 +1282,7 @@ bug waiting for the backend to change underneath it:
 | `Organization\Application\Port\Outbound\InterventionSearchPort` _(cross-module, consumed by Organization)_     | `Intervention\Infrastructure\Adapter\Organization\InterventionSearchAdapter` — organization global search (`GET /organizations/{organizationId}/search`): `LIKE` on the name, exact number match for an all-digit term                                                                                    |
 | `Equipment\Application\Port\Outbound\InterventionServiceReportPort` _(cross-module, consumed by Equipment)_    | `Intervention\Infrastructure\Adapter\Equipment\InterventionServiceReportAdapter`                                                                                                                                                                                                                          |
 | `Organization\Application\Port\Inbound\TeamDirectoryPort` _(cross-module, consumed BY Intervention)_           | `Organization\Application\Service\TeamDirectoryService` — R9 team-assignment; consumed directly, no Intervention-side wrapper port, exactly like `OrganizationAuthorizationPort`                                                                                                                          |
-| `Calendar\Application\Port\Outbound\Feed\InterventionCalendarFeedPort` _(cross-module, consumed by Calendar)_  | `Intervention\Infrastructure\Adapter\Calendar\InterventionCalendarFeedAdapter`                                                                                                                                                                                                                            |
+| `Calendar\Application\Port\Outbound\Feed\CalendarFeedSourcePort` _(cross-module, consumed by Calendar)_  | `Intervention\Infrastructure\Adapter\Calendar\InterventionCalendarFeedAdapter`                                                                                                                                                                                                                            |
 
 `InterventionServiceReportAdapter` (`Infrastructure/Adapter/Equipment/`,
 R12) hosts the adapter for Equipment's consumer port
@@ -1319,15 +1319,16 @@ section (`GetOrganizationDashboardHandler`), gated by
 `config/modules/organization.yaml`.
 
 `InterventionCalendarFeedAdapter` (`Infrastructure/Adapter/Calendar/`)
-implements the Calendar module's `InterventionCalendarFeedPort`
-(`findBetween(organizationId, from, to, limit)`), mirroring
+implements the Calendar module's `CalendarFeedSourcePort`
+(`sourceKey(): 'intervention'`, `findBetween(organizationId, from, to, limit)`), mirroring
 `InterventionStatisticsAdapter`: it queries `InterventionRecord` directly
 (main entity manager) rather than through an intermediate repository. An
 intervention occurs on the calendar when either its `plannedStartAt` or its
 `dueAt` falls within the requested range (`COALESCE(plannedStartAt, dueAt)`
 resolves the occurrence instant; `dueAt` also surfaces as the feed item's
 `endsAt` when it differs from the resolved start). Registered in
-`config/modules/intervention.yaml`; aliased in `config/modules/calendar.yaml`.
+`config/modules/intervention.yaml` with `calendar.feed_source` (priority 200),
+collected by Calendar's registry.
 See `src/Calendar/MODULE.md`.
 
 Label resolution during intervention create/update (asserting each
@@ -1747,7 +1748,7 @@ acting user as actor; `MaterializeDueRecurrencesHandler` emits
 `intervention.recurrence_materialized` for every due occurrence it processes
 (success or failure) with a system actor.
 
-`ExportInterventionReportController` (Lot P4.5) emits
+`ExportInterventionReportDocumentHandler` emits
 `InterventionReportExportedEvent` (`intervention.report_exported` in the
 ledger, subject `intervention`) after a successful PDF render, with the
 exporting user as actor — mirrors `compliance.register_exported`'s "who
@@ -1803,3 +1804,40 @@ bounded grouped reads and remain unchanged after measurement.
 Bindings are defined in [Intervention configuration](../../config/modules/intervention.yaml). Persistence consumers name their entity manager explicitly according to [Doctrine mapping](../../config/packages/doctrine.yaml). Runtime and recovery requirements in the sections above remain part of this contract.
 
 Stored attachment `clientId` replay enforces the same `organization.interventions.read` access decision as the single-item GET endpoint: outsiders and unknown parents return the same 404, owning members without READ receive 403, and authorized replay returns the original row without multipart file validation or overwrite. Fresh IDs retain the handler's phase-based write permission rather than requiring READ.
+
+## Durable HTTP mutation replay
+
+Every HTTP mutation publishes an explicit module-owned idempotency operation and immutable
+application result schema. The receipt commits with the owning main-database mutation and
+outbox. Media handlers retain their final transaction boundary; upload processing does not
+run under a parent HTTP transaction.
+
+Before any replay result is opened, the owner reads current scalar scope on the explicitly
+selected main connection and checks fresh organization grants. Global resource deletions
+retain signed original organization evidence so a completed deletion can replay after the
+row disappears. Saved response projections preserve the original result rather than reading
+later modified state. Intervention-derived operations also recheck current participation and
+assignment through the published fresh owner capability.
+
+
+A native attachment `clientId` acknowledgement always dispatches the existing owner upload command with creation disabled. The final root transaction rechecks the identity and access, captures its immutable typed result, and commits a new HTTP receipt before responding. If the attachment disappears after the initial lookup, acknowledgement fails without creating bytes. A new HTTP key can acknowledge the same native identity; repeating that key replays the committed snapshot.
+
+### Durable effectful document GETs
+
+CSV list export and the intervention PDF report publish typed main-owned command results
+containing the original base64 bytes, attachment filename and MIME type. Rendering, receipt
+and audit intent commit atomically on main. Keyed replay returns that original document and
+its headers without rerunning workflow reads, branding resolution or the PDF renderer.
+Current owning scope, active membership and `organization.interventions.read` are checked
+before any saved document is decoded; revoked READ denies without another outbox entry.
+The PDF remains available in every phase and retains its existing absence of a plan gate.
+Native main transactions also preserve atomic audit delivery for compatibility calls without
+an active HTTP receipt. CSV columns, reversible spreadsheet text encoding and the existing
+50,000-row cap remain unchanged.
+
+The named export handlers bind an explicit main transaction and durable event dispatcher;
+`InterventionCsvRendererPort` preserves the original CSV byte formatting. Effectful export
+GETs require `Idempotency-Key` when mandatory-header enforcement is enabled. An attachment
+POST that acknowledges an existing native client identifier on its exact parent checks READ,
+including published interventions, before receipt creation; new attachments retain their
+normal phase-based mutation policy.

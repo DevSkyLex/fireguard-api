@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Tests\E2E;
 
+use DAMA\DoctrineTestBundle\PHPUnit\SkipDatabaseRollback;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\HttpFoundation\Response;
+use Tests\Support\Database\RootCommitDatabaseIsolationTrait;
 
 use function bindec;
 use function chr;
@@ -42,8 +44,11 @@ use const STR_PAD_LEFT;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
+#[SkipDatabaseRollback]
 final class OtpWriteFlowTest extends OAuth2WebTestCase
 {
+  use RootCommitDatabaseIsolationTrait;
+
   private const string ADMIN_EMAIL = 'admin@fireguard.local';
 
   private const string ADMIN_PASSWORD = 'Admin123!';

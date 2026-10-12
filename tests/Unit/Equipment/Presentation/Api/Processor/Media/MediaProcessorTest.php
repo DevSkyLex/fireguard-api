@@ -8,7 +8,7 @@ use ApiPlatform\Metadata\{Delete, Post};
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
-use Equipment\Application\UseCase\Command\Equipment\AddAttachment\AddAttachmentResult;
+use Equipment\Application\UseCase\Command\Equipment\AddAttachment\{AddAttachmentCommand, AddAttachmentResult};
 use Equipment\Application\UseCase\Command\Equipment\DeleteAttachment\DeleteAttachmentCommand;
 use Equipment\Infrastructure\Persistence\Doctrine\Record\{EquipmentAttachmentRecord, EquipmentRecord};
 use Equipment\Presentation\Api\Attachment\MultipartAttachmentGuard;
@@ -357,12 +357,15 @@ final class MediaProcessorTest extends TestCase
     $equipment = $this->equipment();
     $existing = $this->attachment($equipment);
 
+    $commands = $this->createMock(CommandBusPort::class);
+    $commands->expects(self::once())->method('dispatch')->with(self::callback(static fn (AddAttachmentCommand $command): bool => $command->acknowledgementOnly && self::CLIENT_ID === $command->attachmentId && '' === $command->contents))->willReturn(new AddAttachmentResult($existing->id, self::EQUIPMENT_ID, $existing->fileName, $existing->mimeType, $existing->size, $existing->label, $existing->uploadedAt));
     $result = $this->processor(
       entityManager: $this->entityManager([
         EquipmentRecord::class => $equipment,
         EquipmentAttachmentRecord::class => $existing,
       ]),
       requestStack: $this->uploadRequest(['clientId' => self::CLIENT_ID]),
+      commandBus: $commands,
     )->process(null, new Post());
 
     self::assertSame($existing->id, $result?->id);

@@ -96,10 +96,11 @@ final class OrganizationOnboardingSession
    *
    * @param string $id the session identifier
    * @param string $userId the authenticated user identifier
+   * @param string|null $firstStep first owner-registered step, or null for an empty flow
    *
    * @return self the started session
    */
-  public static function start(string $id, string $userId): self
+  public static function start(string $id, string $userId, ?string $firstStep = OrganizationOnboardingStep::CREATE_ORGANIZATION): self
   {
     $now = new DateTimeImmutable();
 
@@ -108,7 +109,7 @@ final class OrganizationOnboardingSession
       userId: $userId,
       flow: 'organization',
       state: OrganizationOnboardingState::IN_PROGRESS,
-      nextStep: OrganizationOnboardingStep::CREATE_ORGANIZATION,
+      nextStep: $firstStep,
       blockedReason: null,
       targetOrganizationId: null,
       targetOrganizationName: null,

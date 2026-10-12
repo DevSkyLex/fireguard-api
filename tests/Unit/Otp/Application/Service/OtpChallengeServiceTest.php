@@ -63,6 +63,7 @@ final class OtpChallengeServiceTest extends TestCase
     );
 
     $verifyHandler = new VerifyOtpHandler(
+      transaction: new \App\Tests\Support\Shared\ImmediateTransactionManager(),
       otpRepository: $this->createStub(OtpRepositoryPort::class),
       totpEnrollmentRepository: $this->createStub(TotpEnrollmentRepositoryPort::class),
       totpService: $this->createStub(TotpServicePort::class),
@@ -97,6 +98,7 @@ final class OtpChallengeServiceTest extends TestCase
       ->willReturn(null);
 
     $verifyHandler = new VerifyOtpHandler(
+      transaction: new \App\Tests\Support\Shared\ImmediateTransactionManager(),
       otpRepository: $repository,
       totpEnrollmentRepository: $this->createStub(TotpEnrollmentRepositoryPort::class),
       totpService: $this->createStub(TotpServicePort::class),
@@ -146,6 +148,7 @@ final class OtpChallengeServiceTest extends TestCase
       ->with($otp);
 
     $verifyHandler = new VerifyOtpHandler(
+      transaction: new \App\Tests\Support\Shared\ImmediateTransactionManager(),
       otpRepository: $repository,
       totpEnrollmentRepository: $this->createStub(TotpEnrollmentRepositoryPort::class),
       totpService: $this->createStub(TotpServicePort::class),
@@ -181,6 +184,7 @@ final class OtpChallengeServiceTest extends TestCase
 
     $repository = $this->createMock(OtpRepositoryPort::class);
     $repository->method('findByChallengeToken')->willReturn($otp);
+    $repository->method('findForVerification')->willReturn($otp);
     $repository->expects(self::never())->method('save');
 
     $service = new OtpChallengeService(
@@ -190,6 +194,7 @@ final class OtpChallengeServiceTest extends TestCase
         uuidFactory: $this->createStub(UuidGeneratorPort::class),
       ),
       verifyHandler: new VerifyOtpHandler(
+        transaction: new \App\Tests\Support\Shared\ImmediateTransactionManager(),
         otpRepository: $repository,
         totpEnrollmentRepository: $this->createStub(TotpEnrollmentRepositoryPort::class),
         totpService: $this->createStub(TotpServicePort::class),

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Tests\Unit\Audit\Infrastructure\EventSubscriber;
 
 use Audit\Application\UseCase\Command\RecordAuditEvent\{RecordAuditEventCommand, RecordAuditEventResult};
-use Audit\Infrastructure\EventSubscriber\{AbstractAuditEventSubscriber, OperationsAuditEventSubscriber};
 use Audit\Infrastructure\Service\AuditPiiSanitizer;
 use Messaging\Application\Contract\Event\Channel\{
   MessagingChannelCreatedEvent,
@@ -16,7 +15,7 @@ use Messaging\Application\Contract\Event\Channel\{
 };
 use Messaging\Application\Contract\Event\Conversation\MessagingConversationArchivedEvent;
 use Messaging\Application\Contract\Event\Message\{MessagingMessageModeratedEvent, MessagingMessageUnpinModeratedEvent};
-use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use Shared\Application\Port\Inbound\CommandBusPort;
@@ -41,8 +40,6 @@ use function sprintf;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-#[CoversClass(className: AbstractAuditEventSubscriber::class)]
-#[CoversClass(className: OperationsAuditEventSubscriber::class)]
 final class MessagingAuditWiringTest extends TestCase
 {
   // #region Constants

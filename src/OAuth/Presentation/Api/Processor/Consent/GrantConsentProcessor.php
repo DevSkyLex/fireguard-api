@@ -149,6 +149,10 @@ final readonly class GrantConsentProcessor implements ProcessorInterface
     if (null === $request) {
       throw new UnauthorizedHttpException(challenge: 'Bearer', message: 'Authentication required.');
     }
+    $request->attributes->set('_fireguard_oauth_authorization_parameters', [
+      ...$this->buildAuthorizationRequest($data)->getQueryParams(),
+      'approved' => $approved,
+    ]);
 
     return $this->grantCompletion->complete($request, $userId, function () use ($approved, $userId, $data, $scopes, $authorizationRequest): Response {
       if ($approved) {

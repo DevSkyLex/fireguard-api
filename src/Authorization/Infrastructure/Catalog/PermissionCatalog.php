@@ -4,85 +4,88 @@ declare(strict_types=1);
 
 namespace Authorization\Infrastructure\Catalog;
 
+use Authorization\Application\Contract\Catalog\PermissionDefinition;
+use Authorization\Application\Port\Inbound\PermissionCatalogContributionPort;
+use Authorization\Application\Port\Outbound\PermissionCatalogPort;
+use LogicException;
+
+use function array_values;
+use function strcmp;
+use function uasort;
+
 /**
- * PermissionCatalog.
+ * Class PermissionCatalog
  *
- * Central list of permission definitions to keep fixtures,
- * commands, and documentation in sync.
+ * Composes owner vocabulary and rejects ambiguous keys before seeding or accepting writes.
+ *
+ * @category Catalog
  */
-final class PermissionCatalog
+final readonly class PermissionCatalog implements PermissionCatalogPort
 {
+  // #region Properties
   /**
-   * @return list<array{name: string, description: string}>
+   * Property entries
+   *
+   * @var array<string, PermissionDefinition>
    */
-  public static function definitions(): array
+  private array $entries;
+  // #endregion
+
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Accepts tagged contributors or their classes for identical runtime and compiler validation.
+   *
+   * @access public
+   *
+   * @param iterable<PermissionCatalogContributionPort|class-string<PermissionCatalogContributionPort>> $contributors owner contributions
+   *
+   * @return void
+   *
+   * @throws LogicException on duplicate keys
+   */
+  public function __construct(iterable $contributors)
   {
-    return [
-      // User management
-      ['name' => 'users.create', 'description' => 'Create new users'],
-      ['name' => 'users.read', 'description' => 'View user information'],
-      ['name' => 'users.update', 'description' => 'Modify user data'],
-      ['name' => 'users.delete', 'description' => 'Delete users'],
-      ['name' => 'users.*', 'description' => 'All user operations'],
-
-      // Client (OAuth2) management
-      ['name' => 'clients.create', 'description' => 'Create OAuth2 clients'],
-      ['name' => 'clients.read', 'description' => 'View OAuth2 clients'],
-      ['name' => 'clients.update', 'description' => 'Modify OAuth2 clients'],
-      ['name' => 'clients.delete', 'description' => 'Delete OAuth2 clients'],
-      ['name' => 'clients.*', 'description' => 'All client operations'],
-
-      // Role management
-      ['name' => 'roles.create', 'description' => 'Create roles'],
-      ['name' => 'roles.read', 'description' => 'View roles'],
-      ['name' => 'roles.update', 'description' => 'Modify roles'],
-      ['name' => 'roles.delete', 'description' => 'Delete roles'],
-      ['name' => 'roles.assign', 'description' => 'Assign roles to users'],
-      ['name' => 'roles.*', 'description' => 'All role operations'],
-
-      // Permission management
-      ['name' => 'permissions.read', 'description' => 'View permissions'],
-      ['name' => 'permissions.manage', 'description' => 'Manage permissions'],
-
-      // Profile (self-service)
-      ['name' => 'profile.read', 'description' => 'View own profile'],
-      ['name' => 'profile.update', 'description' => 'Update own profile'],
-
-      // Session management
-      ['name' => 'sessions.read', 'description' => 'View own sessions'],
-      ['name' => 'sessions.revoke', 'description' => 'Revoke own sessions'],
-
-      // OTP management
-      ['name' => 'otp_config.read', 'description' => 'View OTP configuration'],
-      ['name' => 'otp_challenges.create', 'description' => 'Create OTP challenges'],
-      ['name' => 'otp_challenges.read', 'description' => 'View OTP challenges'],
-      ['name' => 'otp_challenges.verify', 'description' => 'Verify OTP challenges'],
-      ['name' => 'otp_challenges.resend', 'description' => 'Resend OTP challenges'],
-      ['name' => 'otp_challenges.*', 'description' => 'All OTP challenge operations'],
-      ['name' => 'otp_totp.setup', 'description' => 'Setup TOTP'],
-      ['name' => 'otp_totp.confirm', 'description' => 'Confirm TOTP setup'],
-      ['name' => 'otp_totp.disable', 'description' => 'Disable TOTP'],
-
-      // Trusted device management
-      ['name' => 'trusted_devices.create', 'description' => 'Create trusted devices'],
-      ['name' => 'trusted_devices.read', 'description' => 'View trusted devices'],
-      ['name' => 'trusted_devices.revoke', 'description' => 'Revoke trusted devices'],
-      ['name' => 'trusted_devices.*', 'description' => 'All trusted device operations'],
-
-      // Tenant management
-      ['name' => 'tenants.create', 'description' => 'Create tenants'],
-      ['name' => 'tenants.read', 'description' => 'View tenants'],
-      ['name' => 'tenants.update', 'description' => 'Modify tenants'],
-      ['name' => 'tenants.delete', 'description' => 'Delete tenants'],
-      ['name' => 'tenants.*', 'description' => 'All tenant operations'],
-
-      // Audit management
-      ['name' => 'audit.read', 'description' => 'View audit events'],
-      ['name' => 'audit.export', 'description' => 'Export audit events'],
-      ['name' => 'audit.*', 'description' => 'All audit operations'],
-
-      // Super admin wildcard
-      ['name' => '*.*', 'description' => 'Full system access (super admin)'],
-    ];
+    $entries = [];
+    foreach ($contributors as $contributor) {
+      foreach ($contributor::definitions() as $definition) {
+        if (isset($entries[$definition->name])) {
+          throw new LogicException('Duplicate permission catalog key: ' . $definition->name);
+        }
+        $entries[$definition->name] = $definition;
+      }
+    }
+    uasort($entries, static fn (PermissionDefinition $left, PermissionDefinition $right): int => ($left->order <=> $right->order) ?: strcmp($left->name, $right->name));
+    $this->entries = $entries;
   }
+  // #endregion
+
+  // #region Methods
+  /**
+   * Method definitions
+   *
+   * @access public
+   *
+   * @return list<PermissionDefinition> deterministic registered vocabulary
+   */
+  public function definitions(): array
+  {
+    return array_values($this->entries);
+  }
+
+  /**
+   * Method contains
+   *
+   * @access public
+   *
+   * @param string $name exact permission key
+   *
+   * @return bool whether registered
+   */
+  public function contains(string $name): bool
+  {
+    return isset($this->entries[$name]);
+  }
+  // #endregion
 }

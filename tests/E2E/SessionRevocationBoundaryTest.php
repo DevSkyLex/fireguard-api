@@ -4,8 +4,13 @@ declare(strict_types=1);
 
 namespace App\Tests\E2E;
 
+use Audit\Application\Contract\Event\AuditRecordRequestedEvent;
+use Shared\Infrastructure\Messaging\Outbox\{DeliverOutboxEventHandler, OutboxEvent};
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\BrowserKit\Cookie;
+use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
+
+use function hash;
 
 /** Real interactive tokens, persistence and HTTP authorization across separate requests. */
 final class SessionRevocationBoundaryTest extends OAuth2WebTestCase
@@ -21,10 +26,34 @@ final class SessionRevocationBoundaryTest extends OAuth2WebTestCase
     self::assertInstanceOf(\Auth\Application\Port\Outbound\JwtTokenServicePort::class, $issuer);
     $payload = $issuer->decodeRefreshToken($this->refreshCookie($client));
     self::assertNotNull($payload);
+    self::assertSame(0, $em->getConnection()->fetchOne("SELECT COUNT(*) FROM audit_events WHERE action = 'auth.token_issued' AND subject_id = ?", [$payload['access_token_id']]));
+    $delivery = static::getContainer()->get(DeliverOutboxEventHandler::class);
+    self::assertInstanceOf(DeliverOutboxEventHandler::class, $delivery);
+    $requests = [];
+    foreach (['main_outbox', 'auth_outbox'] as $queue) {
+      $transport = static::getContainer()->get('messenger.transport.' . $queue);
+      self::assertInstanceOf(InMemoryTransport::class, $transport);
+      foreach ($transport->getSent() as $envelope) {
+        $message = $envelope->getMessage();
+        if ($message instanceof OutboxEvent && $message->event instanceof AuditRecordRequestedEvent && 'auth.token_issued' === $message->event->record->action && $payload['access_token_id'] === $message->event->record->subjectId) {
+          $requests[] = $message;
+        }
+      }
+    }
+    self::assertCount(1, $requests, 'The public token-issuance fact queues one deferred Audit request.');
+    foreach ($requests as $request) {
+      $delivery($request);
+      $delivery($request);
+      self::assertInstanceOf(AuditRecordRequestedEvent::class, $request->event);
+      $record = $request->event->record;
+      $receipt = hash('sha256', $request->event->requestId . "\0audit:" . $record->action . ':' . $record->subjectType . ':' . $record->subjectId);
+      self::assertSame(1, $em->getConnection()->fetchOne('SELECT COUNT(*) FROM consumed_events WHERE id = ?', [$receipt]));
+    }
     self::assertSame(1, $em->getConnection()->fetchOne(
       "SELECT COUNT(*) FROM audit_events WHERE action = 'auth.token_issued' AND subject_id = ?",
       [$payload['access_token_id']],
     ));
+    self::assertTrue($em->isOpen());
   }
 
   public function testMfaPreAuthenticationTokenCannotAuthorizeApiRequests(): void

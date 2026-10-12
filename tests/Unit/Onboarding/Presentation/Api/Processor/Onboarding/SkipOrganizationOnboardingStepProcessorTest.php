@@ -11,6 +11,7 @@ use LogicException;
 use Onboarding\Application\Port\Inbound\Internal\OrganizationOnboardingServicePort;
 use Onboarding\Application\Port\Outbound\Internal\OrganizationOnboardingSessionRepositoryPort;
 use Onboarding\Application\Service\OrganizationOnboardingFlowService;
+use Onboarding\Application\UseCase\Command\Flow\SkipOrganizationOnboardingStep\SkipOrganizationOnboardingStepCommand;
 use Onboarding\Domain\ValueObject\OrganizationOnboardingStep;
 use Onboarding\Presentation\Api\Dto\Output\Onboarding\OrganizationOnboardingOutput;
 use Onboarding\Presentation\Api\Processor\Onboarding\SkipOrganizationOnboardingStepProcessor;
@@ -40,7 +41,7 @@ final class SkipOrganizationOnboardingStepProcessorTest extends TestCase
       ->willReturn(null);
 
     $processor = new SkipOrganizationOnboardingStepProcessor(
-      flowService: $this->buildFlowService(),
+      commandBus: new \Tests\Helper\Onboarding\OrganizationOnboardingCommandBus($this->buildFlowService()),
       security: $security,
     );
 
@@ -60,7 +61,7 @@ final class SkipOrganizationOnboardingStepProcessorTest extends TestCase
       ->willReturn($this->createSecurityUser($userId));
 
     $processor = new SkipOrganizationOnboardingStepProcessor(
-      flowService: $this->buildFlowService(),
+      commandBus: new \Tests\Helper\Onboarding\OrganizationOnboardingCommandBus($this->buildFlowService()),
       security: $security,
     );
 
@@ -85,7 +86,7 @@ final class SkipOrganizationOnboardingStepProcessorTest extends TestCase
       ->willThrowException(new InvalidArgumentException('Step "create_organization" is not skippable.'));
 
     $processor = new SkipOrganizationOnboardingStepProcessor(
-      flowService: $flowService,
+      commandBus: new \Tests\Helper\Onboarding\OrganizationOnboardingCommandBus($flowService),
       security: $security,
     );
 
@@ -110,7 +111,7 @@ final class SkipOrganizationOnboardingStepProcessorTest extends TestCase
       ->willThrowException(new LogicException('No onboarding session found.'));
 
     $processor = new SkipOrganizationOnboardingStepProcessor(
-      flowService: $flowService,
+      commandBus: new \Tests\Helper\Onboarding\OrganizationOnboardingCommandBus($flowService),
       security: $security,
     );
 
@@ -137,7 +138,7 @@ final class SkipOrganizationOnboardingStepProcessorTest extends TestCase
       );
 
     $processor = new SkipOrganizationOnboardingStepProcessor(
-      flowService: $flowService,
+      commandBus: new \Tests\Helper\Onboarding\OrganizationOnboardingCommandBus($flowService),
       security: $security,
     );
 
@@ -185,7 +186,7 @@ final class SkipOrganizationOnboardingStepProcessorTest extends TestCase
       );
 
     $processor = new SkipOrganizationOnboardingStepProcessor(
-      flowService: $flowService,
+      commandBus: new \Tests\Helper\Onboarding\OrganizationOnboardingCommandBus($flowService),
       security: $security,
     );
 
@@ -193,6 +194,22 @@ final class SkipOrganizationOnboardingStepProcessorTest extends TestCase
 
     self::assertInstanceOf(OrganizationOnboardingOutput::class, $output);
     self::assertSame('organization', $output->flow);
+  }
+
+  #[Test]
+  public function testWrappedInvalidStepRemainsABadRequestAcrossTheCommandBus(): void
+  {
+    $userId = '550e8400-e29b-41d4-a716-446655440707';
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($this->createSecurityUser($userId));
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())->method('dispatch')->with(self::callback(
+      static fn (SkipOrganizationOnboardingStepCommand $command): bool => $command->userId === $userId && 'unknown_step' === $command->stepKey,
+    ))->willThrowException(MessengerRuntimeException::wrap(new InvalidArgumentException('Unknown onboarding step.')));
+    $this->expectException(BadRequestHttpException::class);
+    $this->expectExceptionMessage('Unknown onboarding step.');
+
+    new SkipOrganizationOnboardingStepProcessor($commandBus, $security)->process(null, new Post(), ['stepKey' => 'unknown_step']);
   }
 
   #[Test]
@@ -212,7 +229,7 @@ final class SkipOrganizationOnboardingStepProcessorTest extends TestCase
       );
 
     $processor = new SkipOrganizationOnboardingStepProcessor(
-      flowService: $flowService,
+      commandBus: new \Tests\Helper\Onboarding\OrganizationOnboardingCommandBus($flowService),
       security: $security,
     );
 
@@ -237,8 +254,7 @@ final class SkipOrganizationOnboardingStepProcessorTest extends TestCase
     return new OrganizationOnboardingFlowService(
       sessionRepository: $sessionRepository ?? $this->createStub(OrganizationOnboardingSessionRepositoryPort::class),
       organizationDirectory: new \Organization\Infrastructure\Adapter\Onboarding\OrganizationOnboardingDirectoryAdapter($queryBus ?? $this->createStub(QueryBusPort::class), $commandBus ?? $this->createStub(CommandBusPort::class)),
-      facilities: new \Facility\Infrastructure\Adapter\Onboarding\FacilityAvailabilityAdapter($queryBus ?? $this->createStub(QueryBusPort::class)),
-      equipment: new \Equipment\Infrastructure\Adapter\Onboarding\EquipmentAvailabilityAdapter($queryBus ?? $this->createStub(QueryBusPort::class)),
+      steps: \Tests\Helper\Onboarding\RegisteredOrganizationOnboardingSteps::withAvailability(new \Facility\Infrastructure\Adapter\Onboarding\FacilityAvailabilityAdapter($queryBus ?? $this->createStub(QueryBusPort::class)), new \Equipment\Infrastructure\Adapter\Onboarding\EquipmentAvailabilityAdapter($queryBus ?? $this->createStub(QueryBusPort::class))),
       uuidFactory: $uuidFactory ?? $this->createStub(UuidGeneratorPort::class),
       transactionManager: $transactionManager,
       eventDispatcher: $eventDispatcher ?? $this->createStub(EventDispatcherPort::class),

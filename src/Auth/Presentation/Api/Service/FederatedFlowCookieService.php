@@ -72,6 +72,23 @@ final readonly class FederatedFlowCookieService
   }
 
   /**
+   * Method createReplayCookie
+   *
+   * Retains browser proof only until the first completion's absolute deadline; retries never extend it.
+   *
+   * @access public
+   *
+   * @param string $binding original browser binding secret
+   * @param DateTimeImmutable $expiresAt absolute server proof deadline
+   *
+   * @return Cookie retained proof cookie
+   */
+  public function createReplayCookie(string $binding, DateTimeImmutable $expiresAt): Cookie
+  {
+    return Cookie::create(self::NAME, $binding, $expiresAt, '/', null, $this->secure(), true, false, Cookie::SAMESITE_LAX);
+  }
+
+  /**
    * @since 1.0.0
    */
   public function getFromRequest(Request $request): ?string

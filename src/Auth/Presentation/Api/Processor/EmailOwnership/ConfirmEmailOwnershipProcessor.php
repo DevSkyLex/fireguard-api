@@ -7,6 +7,7 @@ namespace Auth\Presentation\Api\Processor\EmailOwnership;
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use Auth\Application\UseCase\Command\EmailOwnership\ConfirmEmailOwnership\{ConfirmEmailOwnershipCommand, ConfirmEmailOwnershipResult};
+use Auth\Domain\Exception\EmailOwnershipException;
 use Auth\Presentation\Api\Dto\Input\EmailOwnership\ConfirmEmailOwnershipInput;
 use Auth\Presentation\Api\Dto\Output\EmailOwnership\EmailOwnershipOutput;
 use Auth\Presentation\Api\Service\EmailOwnershipActor;
@@ -66,7 +67,11 @@ final readonly class ConfirmEmailOwnershipProcessor implements ProcessorInterfac
      */
     $result = $this->bus->dispatch(new ConfirmEmailOwnershipCommand($userId, $data->challengeToken, $data->code));
 
-    return new EmailOwnershipOutput($result->verified);
+    if (!$result->verified) {
+      throw new EmailOwnershipException();
+    }
+
+    return new EmailOwnershipOutput(true);
   }
   // #endregion
 }

@@ -47,6 +47,7 @@ final class CreateOrganizationRoleProcessorTest extends TestCase
       authorization: $authorization,
       grantGuard: $this->createStub(OrganizationPermissionGrantGuardPort::class),
       security: $security,
+      permissionCatalog: \Tests\Support\OrganizationCatalogTestFactory::permissions(),
     );
 
     $input = new CreateOrganizationRoleInput();
@@ -98,6 +99,7 @@ final class CreateOrganizationRoleProcessorTest extends TestCase
       authorization: $authorization,
       grantGuard: $this->createStub(OrganizationPermissionGrantGuardPort::class),
       security: $security,
+      permissionCatalog: \Tests\Support\OrganizationCatalogTestFactory::permissions(),
     );
 
     $input = new CreateOrganizationRoleInput();
@@ -132,6 +134,7 @@ final class CreateOrganizationRoleProcessorTest extends TestCase
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
       grantGuard: $this->createStub(OrganizationPermissionGrantGuardPort::class),
       security: $security,
+      permissionCatalog: \Tests\Support\OrganizationCatalogTestFactory::permissions(),
     );
 
     $this->expectException(BadRequestHttpException::class);
@@ -163,6 +166,7 @@ final class CreateOrganizationRoleProcessorTest extends TestCase
       authorization: $authorization,
       grantGuard: $grantGuard,
       security: $security,
+      permissionCatalog: \Tests\Support\OrganizationCatalogTestFactory::permissions(),
     );
 
     $input = new CreateOrganizationRoleInput();
@@ -185,6 +189,7 @@ final class CreateOrganizationRoleProcessorTest extends TestCase
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
       grantGuard: $this->createStub(OrganizationPermissionGrantGuardPort::class),
       security: $security,
+      permissionCatalog: \Tests\Support\OrganizationCatalogTestFactory::permissions(),
     );
 
     $this->expectException(AccessDeniedHttpException::class);
@@ -256,6 +261,7 @@ final class CreateOrganizationRoleProcessorTest extends TestCase
       authorization: $authorization,
       grantGuard: $this->createStub(OrganizationPermissionGrantGuardPort::class),
       security: $security,
+      permissionCatalog: \Tests\Support\OrganizationCatalogTestFactory::permissions(),
     );
   }
 

@@ -1,0 +1,11 @@
+doctrine:
+  orm:
+    entity_managers:
+      auth:
+        mappings:
+          Session:
+            is_bundle: false
+            type: attribute
+            dir: '%kernel.project_dir%/src/Session/Infrastructure/Persistence/Doctrine/Record'
+            prefix: 'Session\Infrastructure\Persistence\Doctrine\Record'
+            alias: Session

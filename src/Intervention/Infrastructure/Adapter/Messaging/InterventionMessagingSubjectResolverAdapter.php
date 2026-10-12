@@ -6,7 +6,7 @@ namespace Intervention\Infrastructure\Adapter\Messaging;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Intervention\Infrastructure\Persistence\Doctrine\Record\InterventionRecord;
-use Messaging\Application\Contract\Subject\{MessagingSubjectResolution, MessagingSubjectType};
+use Messaging\Application\Contract\Subject\{MessagingSubjectDescriptor, MessagingSubjectResolution};
 use Messaging\Application\Port\Outbound\MessagingSubjectResolverPort;
 
 /**
@@ -55,20 +55,17 @@ final readonly class InterventionMessagingSubjectResolverAdapter implements Mess
 
   // #region Methods
   /**
-   * Method supports
+   * Method descriptor.
    *
-   * Handles intervention subject references.
+   * Publishes the stable subject metadata and required read permission.
    *
    * @access public
-   * @access public
    *
-   * @param MessagingSubjectType $type subject type to check
-   *
-   * @return bool whether this adapter supports the type
+   * @return MessagingSubjectDescriptor the owner-published subject descriptor
    */
-  public function supports(MessagingSubjectType $type): bool
+  public function descriptor(): MessagingSubjectDescriptor
   {
-    return MessagingSubjectType::INTERVENTION === $type;
+    return new MessagingSubjectDescriptor('intervention', 'Intervention', 'interventions', self::REQUIRED_READ_PERMISSION);
   }
 
   /**

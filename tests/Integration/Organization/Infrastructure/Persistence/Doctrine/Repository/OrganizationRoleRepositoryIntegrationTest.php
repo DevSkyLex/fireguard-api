@@ -39,7 +39,7 @@ final class OrganizationRoleRepositoryIntegrationTest extends KernelTestCase
     /** @var EntityManagerInterface $entityManager */
     $entityManager = static::getContainer()->get('doctrine.orm.main_entity_manager');
     $this->entityManager = $entityManager;
-    $this->repository = new OrganizationRoleRepository($this->entityManager);
+    $this->repository = new OrganizationRoleRepository($this->entityManager, \Tests\Support\OrganizationCatalogTestFactory::systemRoles());
   }
 
   protected function tearDown(): void
@@ -191,7 +191,7 @@ final class OrganizationRoleRepositoryIntegrationTest extends KernelTestCase
         $this->deletedKeys = [];
       }
     };
-    $repository = new OrganizationRoleRepository($this->entityManager, new OrganizationCacheInvalidator($cache));
+    $repository = new OrganizationRoleRepository($this->entityManager, \Tests\Support\OrganizationCatalogTestFactory::systemRoles(), new OrganizationCacheInvalidator($cache));
 
     $organization = $this->createOrganization('c3000000-0000-4000-8000-000000000051', 'role-save-org');
     $this->entityManager->persist($organization);
@@ -284,7 +284,7 @@ final class OrganizationRoleRepositoryIntegrationTest extends KernelTestCase
         $this->deletedKeys = [];
       }
     };
-    $repository = new OrganizationRoleRepository($this->entityManager, new OrganizationCacheInvalidator($cache));
+    $repository = new OrganizationRoleRepository($this->entityManager, \Tests\Support\OrganizationCatalogTestFactory::systemRoles(), new OrganizationCacheInvalidator($cache));
 
     $organization = $this->createOrganization('c3000000-0000-4000-8000-000000000061', 'role-remove-org');
     $this->entityManager->persist($organization);

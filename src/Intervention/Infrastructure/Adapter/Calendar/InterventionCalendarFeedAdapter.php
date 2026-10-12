@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Intervention\Infrastructure\Adapter\Calendar;
 
 use Calendar\Application\Contract\Feed\CalendarFeedItem;
-use Calendar\Application\Port\Outbound\Feed\InterventionCalendarFeedPort;
+use Calendar\Application\Port\Outbound\Feed\CalendarFeedSourcePort;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Intervention\Infrastructure\Persistence\Doctrine\Record\InterventionRecord;
@@ -38,7 +38,7 @@ use function max;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class InterventionCalendarFeedAdapter implements InterventionCalendarFeedPort
+final readonly class InterventionCalendarFeedAdapter implements CalendarFeedSourcePort
 {
   // #region Constants
   /**
@@ -75,6 +75,18 @@ final readonly class InterventionCalendarFeedAdapter implements InterventionCale
   // #endregion
 
   // #region Methods
+  /**
+   * Method sourceKey
+   *
+   * @access public
+   *
+   * @return string the intervention contributor's stable source key
+   */
+  public function sourceKey(): string
+  {
+    return self::SOURCE_KEY;
+  }
+
   /**
    * Method findBetween
    *

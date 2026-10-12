@@ -13,9 +13,15 @@ use Otp\Domain\Exception\{
   TotpEnrollmentNoPendingSecretException,
   TotpEnrollmentNotActiveException,
 };
-use Otp\Domain\ValueObject\TotpSecret;
+use Otp\Domain\ValueObject\{RecoveryCode, TotpSecret};
+use Shared\Domain\Exception\InvalidValueException;
 
+use function array_unique;
+use function array_values;
+use function count;
+use function hash_equals;
 use function max;
+use function preg_match;
 
 /**
  * Model TotpEnrollment.
@@ -71,6 +77,10 @@ final class TotpEnrollment
    * @param int $maxAttempts maximum confirmation attempts allowed
    * @param DateTimeImmutable $createdAt creation time
    * @param DateTimeImmutable $updatedAt last update time
+   * @param int $disableAttempts failed disable proofs in the current window
+   * @param ?DateTimeImmutable $disableLockedUntil temporary disable cooldown
+   * @param list<string> $recoveryCodeHashes remaining recovery digests
+   * @param ?DateTimeImmutable $recoveryCodesGeneratedAt generation time for the current lot
    */
   private function __construct(
     private readonly string $userId,
@@ -84,6 +94,8 @@ final class TotpEnrollment
     private DateTimeImmutable $updatedAt,
     private int $disableAttempts = 0,
     private ?DateTimeImmutable $disableLockedUntil = null,
+    private array $recoveryCodeHashes = [],
+    private ?DateTimeImmutable $recoveryCodesGeneratedAt = null,
   ) {
   }
   // #endregion
@@ -135,6 +147,8 @@ final class TotpEnrollment
    * @param TotpEnrollmentAttempts $attemptState the independent attempt counters
    * @param DateTimeImmutable $createdAt creation time
    * @param DateTimeImmutable $updatedAt last update time
+   * @param list<string> $recoveryCodeHashes remaining recovery digests
+   * @param ?DateTimeImmutable $recoveryCodesGeneratedAt generation time for the current lot
    *
    * @return self the reconstituted enrollment
    */
@@ -144,6 +158,8 @@ final class TotpEnrollment
     TotpEnrollmentAttempts $attemptState,
     DateTimeImmutable $createdAt,
     DateTimeImmutable $updatedAt,
+    array $recoveryCodeHashes = [],
+    ?DateTimeImmutable $recoveryCodesGeneratedAt = null,
   ): self {
     return new self(
       userId: $userId,
@@ -157,6 +173,8 @@ final class TotpEnrollment
       updatedAt: $updatedAt,
       disableAttempts: $attemptState->disableAttempts,
       disableLockedUntil: $attemptState->disableLockedUntil,
+      recoveryCodeHashes: $recoveryCodeHashes,
+      recoveryCodesGeneratedAt: $recoveryCodesGeneratedAt,
     );
   }
   // #endregion
@@ -357,9 +375,106 @@ final class TotpEnrollment
   {
     return null !== $this->pendingSecret;
   }
+
+  /**
+   * Method recoveryCodeHashes
+   *
+   * @access public
+   *
+   * @return list<string> remaining one-time proof digests
+   */
+  public function recoveryCodeHashes(): array
+  {
+    return $this->recoveryCodeHashes;
+  }
+
+  /**
+   * Method recoveryCodesGeneratedAt
+   *
+   * @access public
+   *
+   * @return ?DateTimeImmutable time the current lot replaced its predecessor
+   */
+  public function recoveryCodesGeneratedAt(): ?DateTimeImmutable
+  {
+    return $this->recoveryCodesGeneratedAt;
+  }
+
+  /**
+   * Method recoveryCodesRemaining
+   *
+   * @access public
+   *
+   * @return int unconsumed recovery proof count
+   */
+  public function recoveryCodesRemaining(): int
+  {
+    return count($this->recoveryCodeHashes);
+  }
   // #endregion
 
   // #region Methods
+  /**
+   * Method replaceRecoveryCodes
+   *
+   * Replaces the lot only for an active enrollment after the caller verifies its current TOTP proof.
+   *
+   * @access public
+   *
+   * @param list<string> $hashes generated recovery code digests
+   * @param DateTimeImmutable $generatedAt time of generation
+   *
+   * @return void
+   */
+  public function replaceRecoveryCodes(array $hashes, DateTimeImmutable $generatedAt): void
+  {
+    if (!$this->isActive()) {
+      throw TotpEnrollmentNotActiveException::forUser($this->userId);
+    }
+    if (count($hashes) > 10 || count(array_unique($hashes)) !== count($hashes)) {
+      throw InvalidValueException::because('Recovery code digests must be distinct and limited to ten.');
+    }
+    foreach ($hashes as $hash) {
+      if (1 !== preg_match('/\A[a-f0-9]{64}\z/', $hash)) {
+        throw InvalidValueException::because('Recovery codes must be stored as SHA-256 digests.');
+      }
+    }
+    $this->recoveryCodeHashes = $hashes;
+    $this->recoveryCodesGeneratedAt = $generatedAt;
+    $this->updatedAt = $generatedAt;
+  }
+
+  /**
+   * Method consumeRecoveryCode
+   *
+   * Must be called under the user enrollment lock; a consumed digest cannot authorize a second operation.
+   *
+   * @access public
+   *
+   * @param string $proof formatted recovery code
+   *
+   * @return bool whether an active enrollment held this unconsumed proof
+   */
+  public function consumeRecoveryCode(string $proof): bool
+  {
+    $hash = RecoveryCode::hash($proof);
+    if (!$this->isActive() || null === $hash) {
+      return false;
+    }
+    foreach ($this->recoveryCodeHashes as $index => $stored) {
+      if (hash_equals($stored, $hash)) {
+        $remaining = $this->recoveryCodeHashes;
+        unset($remaining[$index]);
+        $this->recoveryCodeHashes = array_values($remaining);
+        $this->updatedAt = new DateTimeImmutable();
+
+        return true;
+      }
+    }
+
+    return false;
+  }
+
   /**
    * Method requestNewSecret.
    *
@@ -492,6 +607,9 @@ final class TotpEnrollment
     $this->attempts = 0;
     $this->disableAttempts = 0;
     $this->disableLockedUntil = null;
+
+    $this->recoveryCodeHashes = [];
+    $this->recoveryCodesGeneratedAt = null;
 
     return true;
   }

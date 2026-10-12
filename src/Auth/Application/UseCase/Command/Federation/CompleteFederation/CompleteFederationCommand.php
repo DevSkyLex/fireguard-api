@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Auth\Application\UseCase\Command\Federation\CompleteFederation;
 
-use Auth\Application\Contract\Federation\{FederatedLoginContext, FederatedProvider};
+use Auth\Application\Contract\Federation\{FederatedLoginContext, ProviderId};
 use Shared\Application\Message\CommandMessage;
 
 /**
@@ -17,7 +17,7 @@ use Shared\Application\Message\CommandMessage;
  */
 final readonly class CompleteFederationCommand implements CommandMessage
 {
-  public function __construct(public FederatedProvider $provider, public string $state, public string $code, public string $browserBinding, public ?string $providerError, public FederatedLoginContext $loginContext, public ?string $userId = null)
+  public function __construct(public ProviderId $provider, public string $state, public string $code, public string $browserBinding, public ?string $providerError, public FederatedLoginContext $loginContext, public ?string $userId = null)
   {
   }
 }

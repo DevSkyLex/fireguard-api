@@ -83,7 +83,7 @@ final class GetOrCreateConversationProcessorTest extends TestCase
 
     $processor = new GetOrCreateConversationProcessor(
       $this->createStub(CommandBusPort::class),
-      new ConversationOutputFactory(),
+      new ConversationOutputFactory(\Tests\Support\Messaging\MessagingSubjectCatalog::create()),
       $security,
     );
 
@@ -119,7 +119,7 @@ final class GetOrCreateConversationProcessorTest extends TestCase
   {
     return new GetOrCreateConversationProcessor(
       $commandBus,
-      new ConversationOutputFactory(),
+      new ConversationOutputFactory(\Tests\Support\Messaging\MessagingSubjectCatalog::create()),
       $this->securityWithUser(),
     );
   }

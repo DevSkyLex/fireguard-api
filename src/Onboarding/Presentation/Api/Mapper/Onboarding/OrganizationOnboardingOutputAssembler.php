@@ -15,6 +15,7 @@ use Onboarding\Presentation\Api\Dto\Output\Onboarding\{
 use function array_map;
 use function in_array;
 use function sprintf;
+use function str_replace;
 
 /**
  * Assembler OrganizationOnboardingOutputAssembler.
@@ -107,68 +108,27 @@ final class OrganizationOnboardingOutputAssembler
     }
 
     $orgId = $state->targetOrganizationId;
-    $isCreateCompleted = in_array(OrganizationOnboardingStep::CREATE_ORGANIZATION, $state->completedSteps, true);
-
-    // Step catalog: key => [label, required, skippable, actionMethod, actionPath]
-    $stepCatalog = [
-      OrganizationOnboardingStep::CREATE_ORGANIZATION => [
-        'label' => 'Create organization',
-        'required' => true,
-        'skippable' => false,
-        'actionMethod' => 'POST',
-        'actionPath' => '/api/organizations',
-      ],
-      OrganizationOnboardingStep::SELECT_PLAN => [
-        'label' => 'Choose a plan',
-        'required' => false,
-        'skippable' => true,
-        'actionMethod' => 'POST',
-        'actionPath' => null !== $orgId
-          ? sprintf('/api/organizations/%s/billing/checkout', $orgId)
-          : '/api/organizations/{organizationId}/billing/checkout',
-      ],
-      OrganizationOnboardingStep::INVITE_MEMBERS => [
-        'label' => 'Invite members',
-        'required' => false,
-        'skippable' => true,
-        'actionMethod' => 'POST',
-        'actionPath' => null !== $orgId
-          ? sprintf('/api/organizations/%s/invitations', $orgId)
-          : '/api/organizations/{organizationId}/invitations',
-      ],
-      OrganizationOnboardingStep::CREATE_FIRST_FACILITY => [
-        'label' => 'Create first facility',
-        'required' => true,
-        'skippable' => false,
-        'actionMethod' => 'POST',
-        'actionPath' => null !== $orgId
-          ? sprintf('/api/organizations/%s/facilities', $orgId)
-          : '/api/organizations/{organizationId}/facilities',
-      ],
-      OrganizationOnboardingStep::CREATE_FIRST_EQUIPMENT => [
-        'label' => 'Create first equipment',
-        'required' => true,
-        'skippable' => false,
-        'actionMethod' => 'POST',
-        'actionPath' => null !== $orgId
-          ? sprintf('/api/organizations/%s/equipment', $orgId)
-          : '/api/organizations/{organizationId}/equipment',
-      ],
-    ];
+    $hasCreationStep = false;
+    foreach ($state->stepDefinitions as $definition) {
+      if (OrganizationOnboardingStep::CREATE_ORGANIZATION === $definition->key) {
+        $hasCreationStep = true;
+      }
+    }
+    $isCreateCompleted = !$hasCreationStep || in_array(OrganizationOnboardingStep::CREATE_ORGANIZATION, $state->completedSteps, true);
 
     $steps = [];
-    foreach (OrganizationOnboardingStep::all() as $stepKey) {
-      $meta = $stepCatalog[$stepKey];
-
+    foreach ($state->stepDefinitions as $definition) {
+      $stepKey = $definition->key;
       $step = self::createStep(
         key: $stepKey,
-        label: $meta['label'],
-        actionMethod: $meta['actionMethod'],
-        actionPath: $meta['actionPath'],
+        label: $definition->label,
+        actionMethod: $definition->actionMethod,
+        actionPath: null !== $definition->actionPath
+          ? str_replace('{organizationId}', $orgId ?? '{organizationId}', $definition->actionPath)
+          : null,
       );
-      $step->skippable = $meta['skippable'];
-
-      $isTerminal = self::hydrateStepState($step, $meta['required'], $state, $isCreateCompleted);
+      $step->skippable = !$definition->required;
+      $isTerminal = self::hydrateStepState($step, $definition->required, $state, $isCreateCompleted);
 
       // Only expose completedAt for steps that are actually confirmed or skipped;
       // history entries from a rolled-back or externally-reset session must not

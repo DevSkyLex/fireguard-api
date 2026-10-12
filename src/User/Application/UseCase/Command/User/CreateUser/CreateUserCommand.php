@@ -32,6 +32,7 @@ final readonly class CreateUserCommand implements CommandMessage
    * @param string $lastName the last name
    * @param string|null $avatarUrl the avatar URL
    * @param string|null $tenantId the tenant ID (for multi-tenant)
+   * @param bool $requireEmailVerification trusted project registration choice
    */
   public function __construct(
     public readonly string $username,
@@ -41,6 +42,7 @@ final readonly class CreateUserCommand implements CommandMessage
     public readonly string $lastName,
     public readonly ?string $avatarUrl = null,
     public readonly ?string $tenantId = null,
+    public readonly bool $requireEmailVerification = true,
   ) {
   }
   // #endregion

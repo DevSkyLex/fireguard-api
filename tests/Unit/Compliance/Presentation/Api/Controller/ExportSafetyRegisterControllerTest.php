@@ -8,10 +8,11 @@ use Auth\Infrastructure\Security\User\SecurityUser;
 use Compliance\Application\Contract\{ComplianceStatus, FacilityComplianceView};
 use Compliance\Application\Port\Outbound\{ComplianceExportEntitlementPort, SafetyRegisterPdfRendererPort};
 use Compliance\Application\Service\SafetyRegisterContextBuilder;
-use Compliance\Application\UseCase\Command\Export\ExportSafetyRegister\ExportSafetyRegisterHandler;
+use Compliance\Application\UseCase\Command\Export\ExportSafetyRegister\{ExportSafetyRegisterHandler, ExportSafetyRegisterResult};
 use Compliance\Application\UseCase\Query\GetComplianceOverview\{GetComplianceOverviewQuery, GetComplianceOverviewResult};
 use Compliance\Application\UseCase\Query\GetFacilityCompliance\{GetFacilityComplianceQuery, GetFacilityComplianceResult};
 use Compliance\Domain\Event\SafetyRegisterExportedEvent;
+use Compliance\Infrastructure\Adapter\Idempotency\ComplianceHttpIdempotencyOperationContributionAdapter;
 use Compliance\Presentation\Api\Controller\ExportSafetyRegisterController;
 use Organization\Application\Contract\Document\OrganizationDocumentBranding;
 use Organization\Application\Contract\Exception\OrganizationAccessDeniedException;
@@ -22,9 +23,12 @@ use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Shared\Application\Port\Outbound\EventDispatcherPort;
+use Shared\Infrastructure\Idempotency\HttpIdempotencyResultCodec;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, Response};
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
+
+use function base64_encode;
 
 /**
  * Test ExportSafetyRegisterControllerTest.
@@ -47,6 +51,32 @@ final class ExportSafetyRegisterControllerTest extends TestCase
   private const string USER_ID = '550e8400-e29b-41d4-a716-446655507002';
 
   private const string FACILITY_ID = '550e8400-e29b-41d4-a716-446655507003';
+
+  #[Test]
+  public function binaryPdfRendererBytesSurviveTheDeclaredReceiptAndHttpReplay(): void
+  {
+    $bytes = "%PDF-1.7\n\x00\xff\x80 binary\n";
+    $renderer = $this->createStub(SafetyRegisterPdfRendererPort::class);
+    $renderer->method('render')->willReturn($bytes);
+    $queries = $this->createStub(QueryBusPort::class);
+    $queries->method('ask')->willReturn($this->overviewResult());
+    $initial = $this->createController($queries, renderer: $renderer)->__invoke($this->request());
+    self::assertSame($bytes, $initial->getContent());
+
+    $operation = ComplianceHttpIdempotencyOperationContributionAdapter::definitions()[1];
+    $original = new ExportSafetyRegisterResult(base64_encode($bytes), 'original-register.pdf');
+    $codec = new HttpIdempotencyResultCodec();
+    $restored = $codec->decode($codec->encode($original, $operation), $operation);
+    self::assertInstanceOf(ExportSafetyRegisterResult::class, $restored);
+    $commands = $this->createMock(CommandBusPort::class);
+    $commands->expects(self::once())->method('dispatch')->willReturn($restored);
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn(new SecurityUser(self::USER_ID, 'export@example.com', 'hash', ['ROLE_USER'], [], true));
+    $replay = new ExportSafetyRegisterController($commands, $security)->__invoke($this->request());
+
+    self::assertSame($bytes, $replay->getContent());
+    self::assertSame('attachment; filename="original-register.pdf"', $replay->headers->get('Content-Disposition'));
+  }
 
   #[Test]
   public function testItReturnsTheOrganizationWideRegisterAsAPdfAttachment(): void

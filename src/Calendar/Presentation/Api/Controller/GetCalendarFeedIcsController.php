@@ -4,13 +4,9 @@ declare(strict_types=1);
 
 namespace Calendar\Presentation\Api\Controller;
 
-use Calendar\Application\UseCase\Query\Feed\GetCalendarFeed\{GetCalendarFeedQuery, GetCalendarFeedResult};
-use Calendar\Application\UseCase\Query\FeedToken\ResolveCalendarFeedToken\{ResolveCalendarFeedTokenQuery, ResolveCalendarFeedTokenResult};
-use Calendar\Presentation\Api\Ical\CalendarFeedIcalWriter;
+use Calendar\Application\UseCase\Command\Feed\ReadCalendarFeedIcs\{ReadCalendarFeedIcsCommand, ReadCalendarFeedIcsResult};
 use Calendar\Presentation\Api\Trait\CalendarExceptionMapperTrait;
-use DateTimeImmutable;
-use DateTimeZone;
-use Shared\Application\Port\Inbound\QueryBusPort;
+use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\{Request, Response};
@@ -23,15 +19,10 @@ use function is_string;
 /**
  * Controller GetCalendarFeedIcsController.
  *
- * The unauthenticated iCal subscription endpoint
- * (`GET /api/calendar/feed/{token}.ics`, PUBLIC_ACCESS in
- * `config/packages/security.yaml`, same mechanism as the public invitation
- * preview). The capability IS the URL: the token secret authenticates the
- * request. Thin composition of two use cases — resolve the token (hash
- * lookup, hour-throttled `lastUsedAt`, window computation), then the exact
- * same `GetCalendarFeedQuery` the interactive feed runs, with the token
- * member's identity, so the member's `organization.events.read` permission
- * and visibility rules apply unchanged.
+ * The subscription secret authenticates the member-scoped feed. Its owning
+ * command atomically commits hourly usage and the exact serialized response.
+ * The declared Idempotency-Key selects a poll execution; a fresh key fetches
+ * current content, while a verified replay preserves the original bytes.
  *
  * Anti-oracle: an unknown/revoked token, an inactive account, a removed
  * membership and a lost read permission all answer the same plain 404 — an outsider
@@ -52,13 +43,11 @@ final class GetCalendarFeedIcsController extends AbstractController
    *
    * @since 1.0.0
    *
-   * @param QueryBusPort $queryBus the query bus
-   * @param CalendarFeedIcalWriter $icalWriter the RFC 5545 serializer
+   * @param CommandBusPort $commandBus the owning command bus
    * @param RateLimiterFactory|null $rateLimiter the per-IP feed rate limiter
    */
   public function __construct(
-    private readonly QueryBusPort $queryBus,
-    private readonly CalendarFeedIcalWriter $icalWriter,
+    private readonly CommandBusPort $commandBus,
     #[Autowire(service: 'limiter.calendar_feed')]
     private readonly ?RateLimiterFactory $rateLimiter = null,
   ) {
@@ -85,43 +74,18 @@ final class GetCalendarFeedIcsController extends AbstractController
     }
 
     try {
-      /** @var ResolveCalendarFeedTokenResult $resolved */
-      $resolved = $this->queryBus->ask(new ResolveCalendarFeedTokenQuery(secret: $token));
-
-      /** @var GetCalendarFeedResult $feed */
-      $feed = $this->queryBus->ask(new GetCalendarFeedQuery(
-        userId: $resolved->userId,
-        organizationId: $resolved->organizationId,
-        from: $resolved->from,
-        to: $resolved->to,
-      ));
+      /** @var ReadCalendarFeedIcsResult $result */
+      $result = $this->commandBus->dispatch(new ReadCalendarFeedIcsCommand($token));
     } catch (Throwable $exception) {
       throw $this->mapToUniformNotFound($exception);
     }
 
-    if (!$feed->complete) {
-      return new Response('Calendar feed temporarily incomplete.', Response::HTTP_SERVICE_UNAVAILABLE, [
-        'Content-Type' => 'text/plain; charset=utf-8',
-        'Cache-Control' => 'private, no-store',
-        'Retry-After' => '300',
-        'X-Robots-Tag' => 'noindex',
-      ]);
+    $headers = ['Content-Type' => $result->contentType, 'Cache-Control' => $result->cacheControl, 'X-Robots-Tag' => 'noindex'];
+    if (null !== $result->retryAfter) {
+      $headers['Retry-After'] = $result->retryAfter;
     }
 
-    $document = $this->icalWriter->write(
-      items: $feed->items,
-      organizationId: $resolved->organizationId,
-      generatedAt: new DateTimeImmutable('now', new DateTimeZone('UTC')),
-      timezone: $feed->timezone,
-    );
-
-    return new Response($document, Response::HTTP_OK, [
-      'Content-Type' => 'text/calendar; charset=utf-8',
-      // The body is member-private and reached through a capability URL:
-      // never shared-cacheable, and only briefly client-cacheable.
-      'Cache-Control' => 'private, max-age=300',
-      'X-Robots-Tag' => 'noindex',
-    ]);
+    return new Response($result->document, $result->statusCode, $headers);
   }
 
   /**

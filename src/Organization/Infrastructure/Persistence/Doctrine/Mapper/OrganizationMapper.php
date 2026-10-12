@@ -42,10 +42,11 @@ final class OrganizationMapper
    * @since 1.0.0
    *
    * @param OrganizationRecord $record the persistence record
+   * @param array<string, array<string, mixed>> $policyDefaults registered effective section defaults
    *
    * @return Organization the domain aggregate
    */
-  public static function toDomain(OrganizationRecord $record): Organization
+  public static function toDomain(OrganizationRecord $record, array $policyDefaults = []): Organization
   {
     // Resolve status from explicit persisted value with a legacy fallback.
     $status = '' !== $record->status
@@ -70,7 +71,7 @@ final class OrganizationMapper
         operatingProfile: OrganizationOperatingProfile::fromString($record->operatingProfile),
         description: $record->description,
         logoUrl: $record->logoUrl,
-        settings: OrganizationSettings::fromArray($record->settings),
+        settings: OrganizationSettings::fromArray($record->settings, $policyDefaults),
         planId: null !== $record->planId ? PlanId::fromString($record->planId) : null,
       ),
       legal: new RestoredOrganizationLegal(

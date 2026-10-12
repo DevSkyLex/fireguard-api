@@ -49,7 +49,7 @@ final class GetOrCreateDirectConversationProcessorTest extends TestCase
         && self::OTHER_MEMBER_ID === $command->otherMemberId))
       ->willReturn(new GetOrCreateDirectConversationResult($this->view()));
 
-    $processor = new GetOrCreateDirectConversationProcessor($commandBus, new ConversationOutputFactory(), $this->securityWithUser());
+    $processor = new GetOrCreateDirectConversationProcessor($commandBus, new ConversationOutputFactory(\Tests\Support\Messaging\MessagingSubjectCatalog::create()), $this->securityWithUser());
 
     $input = new GetOrCreateDirectConversationInput();
     $input->organization = '/api/organizations/' . self::ORG_ID;
@@ -64,7 +64,7 @@ final class GetOrCreateDirectConversationProcessorTest extends TestCase
   #[Test]
   public function testProcessThrowsWhenTheRequestBodyIsInvalid(): void
   {
-    $processor = new GetOrCreateDirectConversationProcessor($this->createStub(CommandBusPort::class), new ConversationOutputFactory(), $this->securityWithUser());
+    $processor = new GetOrCreateDirectConversationProcessor($this->createStub(CommandBusPort::class), new ConversationOutputFactory(\Tests\Support\Messaging\MessagingSubjectCatalog::create()), $this->securityWithUser());
 
     $this->expectException(BadRequestHttpException::class);
 
@@ -77,7 +77,7 @@ final class GetOrCreateDirectConversationProcessorTest extends TestCase
     $commandBus = $this->createStub(CommandBusPort::class);
     $commandBus->method('dispatch')->willThrowException(new MessagingValidationException('Cannot start a direct conversation with yourself.'));
 
-    $processor = new GetOrCreateDirectConversationProcessor($commandBus, new ConversationOutputFactory(), $this->securityWithUser());
+    $processor = new GetOrCreateDirectConversationProcessor($commandBus, new ConversationOutputFactory(\Tests\Support\Messaging\MessagingSubjectCatalog::create()), $this->securityWithUser());
 
     $input = new GetOrCreateDirectConversationInput();
     $input->organization = '/api/organizations/' . self::ORG_ID;
@@ -94,7 +94,7 @@ final class GetOrCreateDirectConversationProcessorTest extends TestCase
     $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn(null);
 
-    $processor = new GetOrCreateDirectConversationProcessor($this->createStub(CommandBusPort::class), new ConversationOutputFactory(), $security);
+    $processor = new GetOrCreateDirectConversationProcessor($this->createStub(CommandBusPort::class), new ConversationOutputFactory(\Tests\Support\Messaging\MessagingSubjectCatalog::create()), $security);
 
     $this->expectException(AccessDeniedHttpException::class);
 

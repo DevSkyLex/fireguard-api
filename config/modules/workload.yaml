@@ -1,3 +1,7 @@
+imports:
+  - { resource: 'workload/doctrine.yaml' }
+  - { resource: 'workload/api_platform.yaml' }
+
 services:
   _defaults:
     autowire: true
@@ -47,7 +51,23 @@ services:
     class: Shared\Infrastructure\Symfony\Adapter\Outbound\DoctrineTransactionManagerAdapter
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
-
+      $database: main
+      $idempotency: '@Shared\Infrastructure\Idempotency\HttpIdempotencyExecutionContext'
   Workload\Application\UseCase\Command\Capacity\ChangeCapacity\ChangeCapacityHandler:
     arguments:
       $transactionManager: '@workload.main_transaction_manager'
+
+  Workload\Infrastructure\Adapter\Idempotency\WorkloadHttpIdempotencyOperationContributionAdapter:
+    tags: [http.idempotency_operation]
+  Workload\Infrastructure\Adapter\Idempotency\WorkloadHttpIdempotencyReplayAuthorizationAdapter:
+    arguments:
+      $connection: '@doctrine.dbal.main_connection'
+    tags: [http.idempotency_replay_authorization]
+
+when@dev:
+  imports:
+    - { resource: 'workload/seeds.yaml' }
+
+when@test:
+  imports:
+    - { resource: 'workload/seeds.yaml' }

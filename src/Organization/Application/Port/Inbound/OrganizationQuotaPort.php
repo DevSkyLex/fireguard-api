@@ -33,11 +33,11 @@ interface OrganizationQuotaPort
    * @since 1.0.0
    *
    * @param string $organizationId the organization identifier
-   * @param OrganizationQuotaResource $resource the resource to look up
+   * @param OrganizationQuotaResource|string $resource the resource to look up
    *
    * @return ?int the cap, or null when unlimited
    */
-  public function getLimit(string $organizationId, OrganizationQuotaResource $resource): ?int;
+  public function getLimit(string $organizationId, OrganizationQuotaResource|string $resource): ?int;
 
   /**
    * Method getUsage.
@@ -47,11 +47,11 @@ interface OrganizationQuotaPort
    * @since 1.0.0
    *
    * @param string $organizationId the organization identifier
-   * @param OrganizationQuotaResource $resource the resource to count
+   * @param OrganizationQuotaResource|string $resource the resource to count
    *
    * @return int the current usage
    */
-  public function getUsage(string $organizationId, OrganizationQuotaResource $resource): int;
+  public function getUsage(string $organizationId, OrganizationQuotaResource|string $resource): int;
 
   /**
    * Method assertCanAdd.
@@ -67,12 +67,12 @@ interface OrganizationQuotaPort
    * @since 1.0.0
    *
    * @param string $organizationId the organization identifier
-   * @param OrganizationQuotaResource $resource the resource to add
+   * @param OrganizationQuotaResource|string $resource the resource to add
    *
    * @throws \Organization\Application\Contract\Quota\OrganizationQuotaExceededException
    *                                                                                     when the plan cap has been reached
    */
-  public function assertCanAdd(string $organizationId, OrganizationQuotaResource $resource): void;
+  public function assertCanAdd(string $organizationId, OrganizationQuotaResource|string $resource): void;
 
   /**
    * Method assertCanAddMultiple.
@@ -90,13 +90,13 @@ interface OrganizationQuotaPort
    * @since 1.0.0
    *
    * @param string $organizationId the organization identifier
-   * @param OrganizationQuotaResource $resource the resource to add
+   * @param OrganizationQuotaResource|string $resource the resource to add
    * @param int $count the number of resources to add; a non-positive count is a no-op
    *
    * @throws \Organization\Application\Contract\Quota\OrganizationQuotaExceededException
    *                                                                                     when adding `$count` would exceed the plan cap
    */
-  public function assertCanAddMultiple(string $organizationId, OrganizationQuotaResource $resource, int $count): void;
+  public function assertCanAddMultiple(string $organizationId, OrganizationQuotaResource|string $resource, int $count): void;
 
   /**
    * Method assertProjectedCanAdd.
@@ -113,13 +113,13 @@ interface OrganizationQuotaPort
    * @since 1.0.0
    *
    * @param string $organizationId the organization identifier
-   * @param OrganizationQuotaResource $resource the resource to project
+   * @param OrganizationQuotaResource|string $resource the resource to project
    * @param int $additionalOffset resources already provisionally counted elsewhere in the same batch
    *
    * @throws \Organization\Application\Contract\Quota\OrganizationQuotaExceededException
    *                                                                                     when the projected count would reach the plan cap
    */
-  public function assertProjectedCanAdd(string $organizationId, OrganizationQuotaResource $resource, int $additionalOffset = 0): void;
+  public function assertProjectedCanAdd(string $organizationId, OrganizationQuotaResource|string $resource, int $additionalOffset = 0): void;
 
   /**
    * Method assertCanAcceptMember.

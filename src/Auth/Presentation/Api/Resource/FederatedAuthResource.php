@@ -40,7 +40,7 @@ use Symfony\Component\HttpFoundation\Response;
     new Post(
       name: FederatedAuthOperations::LOGIN_START,
       uriTemplate: '/{provider}/start',
-      requirements: ['provider' => 'google|microsoft'],
+      requirements: ['provider' => '[a-z][a-z0-9_-]{0,19}'],
       status: Response::HTTP_OK,
       read: false,
       input: FederatedStartInput::class,
@@ -51,7 +51,7 @@ use Symfony\Component\HttpFoundation\Response;
     new Post(
       name: FederatedAuthOperations::LOGIN_COMPLETE,
       uriTemplate: '/{provider}/complete',
-      requirements: ['provider' => 'google|microsoft'],
+      requirements: ['provider' => '[a-z][a-z0-9_-]{0,19}'],
       status: Response::HTTP_OK,
       read: false,
       input: FederatedCompleteInput::class,
@@ -71,7 +71,7 @@ use Symfony\Component\HttpFoundation\Response;
     new Post(
       name: FederatedAuthOperations::LINK_START,
       uriTemplate: '/connections/{provider}/start',
-      requirements: ['provider' => 'google|microsoft'],
+      requirements: ['provider' => '[a-z][a-z0-9_-]{0,19}'],
       status: Response::HTTP_OK,
       read: false,
       input: FederatedStartInput::class,
@@ -83,7 +83,7 @@ use Symfony\Component\HttpFoundation\Response;
     new Post(
       name: FederatedAuthOperations::LINK_COMPLETE,
       uriTemplate: '/connections/{provider}/complete',
-      requirements: ['provider' => 'google|microsoft'],
+      requirements: ['provider' => '[a-z][a-z0-9_-]{0,19}'],
       status: Response::HTTP_OK,
       read: false,
       input: FederatedCompleteInput::class,
@@ -95,7 +95,7 @@ use Symfony\Component\HttpFoundation\Response;
     new Delete(
       name: FederatedAuthOperations::DISCONNECT,
       uriTemplate: '/connections/{provider}',
-      requirements: ['provider' => 'google|microsoft'],
+      requirements: ['provider' => '[a-z][a-z0-9_-]{0,19}'],
       status: Response::HTTP_OK,
       read: false,
       input: false,

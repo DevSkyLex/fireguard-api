@@ -4,19 +4,16 @@ declare(strict_types=1);
 
 namespace Billing\Application\UseCase\Command\StartCheckout;
 
-use Billing\Application\Port\Outbound\BillingReconciliationPort;
+use Billing\Application\Port\Outbound\{BillingReconciliationPort, BillingReturnUrlPort};
 use Billing\Application\Port\Outbound\Internal\{StripeGatewayPort, SubscriptionRepositoryPort};
 use Billing\Application\Service\BillingPriceCatalog;
 use Billing\Domain\Model\Subscription\Subscription;
 use Billing\Domain\ValueObject\{BillingInterval, SubscriptionId};
 use InvalidArgumentException;
 use Shared\Application\Message\CommandHandler;
+use Shared\Application\Port\Outbound\Idempotency\HttpIdempotencyExecutionPort;
 use Shared\Application\Port\Outbound\UuidGeneratorPort;
 use Shared\Domain\Exception\InvalidValueException;
-
-use function rawurlencode;
-use function rtrim;
-use function sprintf;
 
 /**
  * UseCase StartCheckoutHandler.
@@ -46,7 +43,8 @@ final readonly class StartCheckoutHandler implements CommandHandler
    * @param SubscriptionRepositoryPort $subscriptions the subscription repository
    * @param UuidGeneratorPort $uuidFactory the UUID factory
    * @param BillingReconciliationPort $reconciliation the transaction manager
-   * @param string $frontendUrl the public frontend base URL for return links
+   * @param BillingReturnUrlPort $returnUrls the server-owned hosted-payment return links
+   * @param ?HttpIdempotencyExecutionPort $httpExecution the current execution and stable external identity
    */
   public function __construct(
     private BillingPriceCatalog $priceCatalog,
@@ -54,7 +52,8 @@ final readonly class StartCheckoutHandler implements CommandHandler
     private SubscriptionRepositoryPort $subscriptions,
     private UuidGeneratorPort $uuidFactory,
     private BillingReconciliationPort $reconciliation,
-    private string $frontendUrl,
+    private BillingReturnUrlPort $returnUrls,
+    private ?HttpIdempotencyExecutionPort $httpExecution = null,
   ) {
   }
   // #endregion
@@ -106,6 +105,9 @@ final readonly class StartCheckoutHandler implements CommandHandler
     }
 
     $subscription = $this->subscriptions->findByOrganizationId($command->organizationId, refresh: true);
+    if (null === $subscription?->stripeCustomerId()) {
+      $this->httpExecution?->externalEffectStarted('stripe.customer');
+    }
     $customerId = $this->stripe->ensureCustomer($command->organizationId, $subscription?->stripeCustomerId());
 
     if (null === $subscription) {
@@ -116,39 +118,19 @@ final readonly class StartCheckoutHandler implements CommandHandler
       $this->subscriptions->save($subscription);
     }
 
+    $this->httpExecution?->externalEffectStarted('stripe.checkout');
     $url = $this->stripe->createCheckoutSession(
       customerId: $customerId,
       priceId: $priceId,
       organizationId: $command->organizationId,
       planKey: $command->planKey,
-      successUrl: $this->returnUrl($command->organizationId, 'success') . '&checkoutPlan=' . rawurlencode($command->planKey) . '&checkoutInterval=' . $interval->value,
-      cancelUrl: $this->returnUrl($command->organizationId, 'cancel'),
+      successUrl: $this->returnUrls->checkoutSuccess($command->organizationId, $command->planKey, $interval->value),
+      cancelUrl: $this->returnUrls->checkoutCancel($command->organizationId),
+      idempotencyKey: $this->httpExecution?->providerKey('stripe.checkout'),
     );
 
     return new StartCheckoutResult(url: $url);
   }
 
-  /**
-   * Method returnUrl.
-   *
-   * Builds a settings-page return URL carrying the checkout outcome. Built
-   * server-side from configuration so clients cannot inject arbitrary redirects.
-   *
-   * @since 1.0.0
-   *
-   * @param string $organizationId the organization identifier
-   * @param string $outcome the checkout outcome marker (success or cancel)
-   *
-   * @return string the return URL
-   */
-  private function returnUrl(string $organizationId, string $outcome): string
-  {
-    return sprintf(
-      '%s/organizations/%s/settings?tab=subscription&checkout=%s',
-      rtrim($this->frontendUrl, '/'),
-      $organizationId,
-      $outcome,
-    );
-  }
   // #endregion
 }
