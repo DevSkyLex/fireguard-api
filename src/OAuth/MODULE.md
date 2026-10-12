@@ -10,6 +10,8 @@ Implements OAuth 2.0 (RFC 6749), Token Revocation (RFC 7009), Token Introspectio
 The OAuth module exposes OAuth2 and OpenID Connect endpoints and the client management API. It relies on a hexagonal architecture (ports and adapters) with Api Platform for HTTP exposure and League OAuth2 Server as the core engine.
 Request validation is handled by DTO constraints and custom validators, then mapped to OAuth2 error payloads by the API error subscriber to keep RFC 6749 compatibility.
 
+Its final `TokenExpiry` value object consumes Shared's `HasTokenExpiry` trait while retaining its constructor, computed properties, concrete factory type and absolute expiration behavior.
+
 The interactive refresh query used by Auth consumes the old session token pair
 through OAuth's `SessionRotationPort`, adapted exclusively to Session's published
 inbound tracking port. Rotation is atomic and precedes the success event or response.

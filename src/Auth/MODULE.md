@@ -8,6 +8,8 @@ Authentication module for Fireguard API. It provides user login, MFA verificatio
 
 The Auth module is responsible for interactive user authentication. It issues access and refresh tokens, manages MFA challenges, and maintains secure refresh token cookies.
 
+Its final `TokenExpiry` value object consumes Shared's `HasTokenExpiry` trait while retaining its constructor, computed properties, concrete factory type and absolute expiration behavior.
+
 ## Features
 
 - Email or username authentication with password.

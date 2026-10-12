@@ -46,6 +46,7 @@ final class TokenExpiryTest extends TestCase
   {
     $expiry = TokenExpiry::fromTtl(60);
 
+    self::assertSame(TokenExpiry::class, $expiry::class);
     $this->assertFalse($expiry->isExpired());
     $this->assertGreaterThan(0, $expiry->remainingSeconds);
     $this->assertGreaterThanOrEqual(1, $expiry->expiresInMinutes);
@@ -62,6 +63,7 @@ final class TokenExpiryTest extends TestCase
   {
     $expiry = TokenExpiry::fromSeconds(30);
 
+    self::assertSame(TokenExpiry::class, $expiry::class);
     $this->assertGreaterThan(0, $expiry->remainingSeconds);
     $this->assertGreaterThan(0, $expiry->secondsRemaining());
   }
@@ -77,6 +79,7 @@ final class TokenExpiryTest extends TestCase
     $timestamp = time() + 120;
     $expiry = TokenExpiry::fromTimestamp($timestamp);
 
+    self::assertSame(TokenExpiry::class, $expiry::class);
     $this->assertSame($timestamp, $expiry->expiresAt->getTimestamp());
     $this->assertFalse($expiry->isExpired());
   }
@@ -94,6 +97,7 @@ final class TokenExpiryTest extends TestCase
 
     $extended = $expiry->extend(60);
 
+    self::assertSame(TokenExpiry::class, $extended::class);
     $this->assertNotSame($expiry, $extended);
     $this->assertGreaterThan($expiry->expiresAt->getTimestamp(), $extended->expiresAt->getTimestamp());
   }

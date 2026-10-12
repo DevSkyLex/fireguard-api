@@ -131,6 +131,7 @@ contract tests covering its current error and access-order semantics.
 - Application: message types, ports, contracts (pagination), factories, and shared exceptions.
 - Domain: value objects, domain events, traits, and domain services.
 - `Uuid::assertValid` provides the constructor's identifier validation without allocating an object; validation-only callers retain their original string and the same invalid-value error.
+- `HasTokenExpiry` shares absolute expiry hooks and factories between module-owned token value objects. Factories and extensions return each consuming class; positive TTL validation, retained timestamps, zero-clamped remaining time and extensions relative to the original deadline remain invariant.
 - Infrastructure: Symfony adapters, serializer normalizer, event dispatcher/listener,
   and infrastructure exceptions.
 
