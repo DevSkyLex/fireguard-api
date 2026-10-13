@@ -308,6 +308,16 @@ class InstalledWebhookCutoverTest(unittest.TestCase):
         with self.assertRaisesRegex(CUTOVER.CutoverError, "transport is unsupported"):
             self.execute()
         self.assertIn(self.worker(), self.running)
+        self.assertEqual(set(self.ids), self.running, "An unsupported transport must leave producers running")
+        self.assertFalse(any(command[1] == "stop" for command in self.calls))
+
+    def test_stopped_unverified_worker_is_refused_before_interrupting_producers(self):
+        self.running.remove(self.worker())
+        before = set(self.running)
+        with self.assertRaisesRegex(CUTOVER.CutoverError, "transport is unverified"):
+            self.execute()
+        self.assertEqual(before, self.running)
+        self.assertFalse(any(command[1] == "stop" for command in self.calls))
 
     def test_installed_transport_probe_returns_only_the_connection_for_literal_and_env_dsns(self):
         probe = CUTOVER.TRANSPORT_PROBE.replace("require 'vendor/autoload.php';",
@@ -328,6 +338,133 @@ class InstalledWebhookCutoverTest(unittest.TestCase):
                 self.assertEqual(0, result.returncode, result.stderr)
                 self.assertEqual(expected, result.stdout)
                 self.assertNotIn("PRIVATE_SECRET", result.stdout + result.stderr)
+
+    def transport_probe(self, files, *, configured="", root=None):
+        probe = CUTOVER.TRANSPORT_PROBE.replace("require 'vendor/autoload.php';",
+                                               "require '" + ROOT.as_posix() + "/vendor/autoload.php';")
+        with tempfile.TemporaryDirectory(prefix="fireguard-cutover-composition-") as directory:
+            location = Path(directory) if root is None else root
+            for name, content in files.items():
+                path = location / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(content, encoding="utf-8")
+            result = subprocess.run([shutil.which("php"), "-r", probe], cwd=location,
+                                    env=dict(maintenance.os.environ, MESSENGER_TRANSPORT_DSN=configured),
+                                    text=True, capture_output=True, timeout=10)
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertIn(result.stdout, {"auth", "main", "unsupported"})
+        self.assertEqual("", result.stderr)
+        self.assertNotIn("PRIVATE_SECRET", result.stdout + result.stderr)
+        return result.stdout
+
+    def test_real_active_module_imports_resolve_main_without_booting_services_or_test_seeds(self):
+        self.assertEqual("main", self.transport_probe({}, root=ROOT))
+
+    def test_nested_active_owner_imports_and_custom_tags_are_data(self):
+        self.assertEqual("main", self.transport_probe({
+            "config/packages/messenger.yaml": "framework: {messenger: {transports: {async: 'sync://'}}}",
+            "config/packages/modules.yaml": "imports: [{resource: '../modules/webhook.yaml'}]",
+            "config/modules/webhook.yaml": "imports: [{resource: 'webhook/framework.yaml'}]\n"
+                                           "services: {synthetic: {arguments: {sources: !tagged_iterator synthetic}}}",
+            "config/modules/webhook/framework.yaml": "framework: {messenger: {transports: {webhook: "
+                                                     "'doctrine://main?queue_name=webhook&auto_setup=false'}}}\n"
+                                                     "when@test: {imports: [{resource: 'PRIVATE_SECRET-missing.yaml'}]}",
+        }))
+
+    def test_disabled_owner_is_not_loaded_even_with_a_legacy_auth_transport(self):
+        self.assertEqual("auth", self.transport_probe({
+            "config/packages/messenger.yaml": "framework: {messenger: {transports: {webhook: 'doctrine://auth'}}}",
+            "config/packages/modules.yaml": "imports: []",
+            "config/modules/webhook.yaml": "imports: [{resource: 'PRIVATE_SECRET-missing.yaml'}]",
+            "config/modules/webhook/framework.yaml": "framework: {messenger: {transports: {webhook: 'doctrine://main'}}}",
+        }))
+
+    def test_imports_precede_local_values_and_when_prod_precedes_package_prod_and_services(self):
+        files = {
+            "config/packages/1.yaml": "imports: [{resource: '../modules/base.yaml'}]\n"
+                                      "framework: {messenger: {transports: {webhook: 'doctrine://auth'}}}\n",
+            "config/modules/base.yaml": "framework: {messenger: {transports: {webhook: 'doctrine://main'}}}",
+            "config/modules/prod.yaml": "framework: {messenger: {transports: {webhook: 'doctrine://main'}}}",
+        }
+        self.assertEqual("auth", self.transport_probe(files))
+        files["config/packages/1.yaml"] += "when@prod: {imports: [{resource: '../modules/prod.yaml'}]}"
+        self.assertEqual("main", self.transport_probe(files))
+        files["config/packages/prod/1.yaml"] = "framework: {messenger: {transports: {webhook: 'doctrine://auth'}}}"
+        self.assertEqual("auth", self.transport_probe(files))
+        files["config/services.yaml"] = "framework: {messenger: {transports: {webhook: 'doctrine://main'}}}"
+        self.assertEqual("main", self.transport_probe(files))
+        files["config/services_prod.yaml"] = "framework: {messenger: {transports: {webhook: 'doctrine://auth'}}}"
+        self.assertEqual("auth", self.transport_probe(files))
+
+    def test_package_glob_uses_symfony_natural_order_and_preserves_partial_transport_overrides(self):
+        self.assertEqual("main", self.transport_probe({
+            "config/packages/2.yaml": "framework: {messenger: {transports: {webhook: 'doctrine://auth'}}}",
+            "config/packages/10.yaml": "framework: {messenger: {transports: {webhook: {dsn: 'doctrine://main'}}}}",
+            "config/packages/20.yaml": "framework: {messenger: {transports: {webhook: {options: {queue_name: webhook}}}}}",
+        }))
+
+    def test_composed_environment_dsn_is_classified_without_exposing_credentials(self):
+        files = {
+            "config/packages/modules.yaml": "imports: [{resource: '../modules/webhook.yaml'}]",
+            "config/modules/webhook.yaml": "framework: {messenger: {transports: {webhook: '%env(MESSENGER_TRANSPORT_DSN)%'}}}",
+        }
+        for configured, expected in [("doctrine://auth?secret=PRIVATE_SECRET", "auth"),
+                                     ("doctrine://main?queue_name=webhook", "main"),
+                                     ("redis://PRIVATE_SECRET@synthetic.invalid", "unsupported"),
+                                     ("doctrine://default", "unsupported"), ("", "unsupported")]:
+            with self.subTest(expected=expected):
+                self.assertEqual(expected, self.transport_probe(files, configured=configured))
+
+    def test_invalid_active_config_is_sanitized_and_cannot_fall_back_to_old_transport(self):
+        for broken in ["imports: [{resource: 'PRIVATE_SECRET-missing.yaml'}]",
+                       "imports: [{resource: 'cycle.yaml'}]", "framework: [PRIVATE_SECRET",
+                       "imports: PRIVATE_SECRET", "when@prod: PRIVATE_SECRET",
+                       "imports: [{resource: '../../PRIVATE_SECRET.env'}]",
+                       "imports: [{resource: '../jwt/PRIVATE_SECRET.yaml'}]",
+                       "imports: [{resource: 'PRIVATE_SECRET.php'}]",
+                       "framework: {messenger: {transports: {webhook: !synthetic PRIVATE_SECRET}}}"]:
+            with self.subTest(broken=broken):
+                self.assertEqual("unsupported", self.transport_probe({
+                    "config/packages/1.yaml": "framework: {messenger: {transports: {webhook: 'doctrine://auth'}}}",
+                    "config/packages/cycle.yaml": broken,
+                }))
+
+    def test_import_depth_is_bounded_even_for_an_acyclic_chain(self):
+        files = {"config/packages/1.yaml": "imports: [{resource: '../modules/0.yaml'}]"}
+        for index in range(40):
+            files[f"config/modules/{index}.yaml"] = f"imports: [{{resource: '{index + 1}.yaml'}}]"
+        files["config/modules/40.yaml"] = "framework: {messenger: {transports: {webhook: 'doctrine://main'}}}"
+        self.assertEqual("unsupported", self.transport_probe(files))
+
+    def test_configuration_file_count_and_read_size_are_bounded(self):
+        files = {"config/packages/1.yaml": "imports: [{resource: '../modules/*.yaml'}]\n"
+                                         "framework: {messenger: {transports: {webhook: 'doctrine://main'}}}"}
+        files.update({f"config/modules/{index}.yaml": "# synthetic\n" for index in range(513)})
+        self.assertEqual("unsupported", self.transport_probe(files))
+        self.assertEqual("unsupported", self.transport_probe({
+            "config/packages/1.yaml": "framework: {messenger: {transports: {webhook: 'doctrine://main'}}}\n#"
+                                      + " synthetic" * 120000,
+        }))
+        self.assertEqual("unsupported", self.transport_probe({
+            f"config/packages/{index}.yaml": "#" + " synthetic" * 90000 for index in range(5)
+        }))
+
+    def test_only_declared_glob_imports_are_used_and_optional_missing_imports_do_not_mask_errors(self):
+        files = {
+            "config/packages/modules.yaml": "imports: [{resource: '../modules/active/*.yaml'}, "
+                                             "{resource: 'optional.yaml', ignore_errors: true}]",
+            "config/modules/active/1.yaml": "framework: {messenger: {transports: {webhook: 'doctrine://main'}}}",
+            "config/modules/disabled/1.yaml": "framework: [PRIVATE_SECRET",
+        }
+        self.assertEqual("main", self.transport_probe(files))
+        files["config/packages/optional.yaml"] = "framework: [PRIVATE_SECRET"
+        self.assertEqual("unsupported", self.transport_probe(files))
+
+    def test_active_php_configuration_is_refused_without_execution(self):
+        self.assertEqual("unsupported", self.transport_probe({
+            "config/packages/1.yaml": "framework: {messenger: {transports: {webhook: 'doctrine://main'}}}",
+            "config/packages/2.php": "<?php echo 'PRIVATE_SECRET'; exit;",
+        }))
 
     def test_multiple_webhook_workers_are_refused_even_when_auth_is_empty(self):
         self.ids["000000000007"] = "webhook_worker"
@@ -356,6 +493,18 @@ class InstalledWebhookCutoverTest(unittest.TestCase):
                 with self.assertRaises(CUTOVER.CutoverError):
                     self.execute()
                 self.assertFalse(any(command[1] == "stop" and worker in command[4:] for command in self.calls))
+
+    def test_main_worker_never_discards_legacy_auth_rows_or_initializes_a_transport_during_cutover(self):
+        self.connection = "main"
+        self.counts = [7]
+        with self.assertRaisesRegex(CUTOVER.CutoverError, "not confirmed on auth"):
+            self.execute()
+        self.assertEqual([7], self.counts)
+        self.assertIn(self.worker(), self.running)
+        self.assertFalse(any("compose" in command or "messenger:setup-transports" in command
+                             for command in self.calls))
+        queries = [command[-1] for command in self.calls if command[1] == "exec"]
+        self.assertEqual([CUTOVER.TRANSPORT_PROBE, CUTOVER.TABLE_PROBE, CUTOVER.COUNT_PROBE], queries)
 
     def test_deadline_retains_pending_rows_and_only_old_worker(self):
         self.counts = [1]

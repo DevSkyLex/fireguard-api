@@ -699,6 +699,7 @@ jobs:
         run: >-
           python3 -B -m unittest -v
           test_topology test_deployment_maintenance test_ssh_host_trust test_idempotency_validation
+          test_cutover_recovery test_cutover_recovery_workflow
 
       - name: Validate production and development Compose files
         run: |

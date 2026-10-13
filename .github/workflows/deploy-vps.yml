@@ -20,6 +20,10 @@ on:
         required: false
         default: false
         type: boolean
+      recover_cutover_run_id:
+        description: 'Completed failed development cutover to recover after reviewed queue-preserving checks'
+        required: false
+        type: string
 
 concurrency:
   group: deploy-vps-${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_branch || github.ref_name }}
@@ -49,6 +53,11 @@ jobs:
       image-ref: ${{ steps.image.outputs.image-ref }}
       verified-run-id: ${{ steps.verify.outputs.verified-run-id }}
       should-deploy: ${{ steps.changes.outputs.should-deploy || 'true' }}
+      cutover-recovery-allowed: ${{ steps.recovery.outputs.cutover-recovery-allowed }}
+      cutover-failed-sha: ${{ steps.recovery.outputs.cutover-failed-sha }}
+      cutover-failed-start: ${{ steps.recovery.outputs.cutover-failed-start }}
+      cutover-failed-end: ${{ steps.recovery.outputs.cutover-failed-end }}
+      cutover-failed-run-id: ${{ steps.recovery.outputs.cutover-failed-run-id }}
     steps:
       - name: Checkout trusted deployment verifier
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
@@ -120,6 +129,15 @@ jobs:
           SONAR_PROJECT_PREFIX: fireguard-api
           SONAR_DEPLOYMENTS_READY: ${{ vars[steps.context.outputs.source-branch == 'main' && 'SONAR_READY_MAIN' || 'SONAR_READY_DEVELOP'] }}
         run: node .github/scripts/verify-ci.mjs
+
+      - name: Verify the reviewed development cutover recovery request
+        id: recovery
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RECOVER_CUTOVER_RUN_ID: ${{ inputs.recover_cutover_run_id }}
+          SOURCE_BRANCH: ${{ steps.context.outputs.source-branch }}
+          SOURCE_SHA: ${{ steps.image.outputs.source-sha || steps.context.outputs.source-sha }}
+        run: node .github/scripts/verify-cutover-recovery.mjs
 
       - name: Download original push context
         if: ${{ github.event_name == 'workflow_run' }}
@@ -284,6 +302,12 @@ jobs:
       IMAGE_REF: ${{ needs.guard.outputs.image-ref || needs.build.outputs.image-ref }}
       FIXTURE_IMAGE_REF: ${{ needs.build.outputs.fixture-image-ref || needs.guard.outputs.image-ref }}
       RESET_DEVELOPMENT_FIXTURES: ${{ github.event_name == 'workflow_dispatch' && inputs.reset_development_fixtures && 'true' || 'false' }}
+      CUTOVER_RECOVERY_ALLOWED: ${{ needs.guard.outputs.cutover-recovery-allowed || 'false' }}
+      CUTOVER_FAILED_SOURCE_SHA: ${{ needs.guard.outputs.cutover-failed-sha }}
+      CUTOVER_FAILED_START: ${{ needs.guard.outputs.cutover-failed-start }}
+      CUTOVER_FAILED_END: ${{ needs.guard.outputs.cutover-failed-end }}
+      CUTOVER_FAILED_RUN_ID: ${{ needs.guard.outputs.cutover-failed-run-id }}
+      CUTOVER_REPOSITORY: ${{ github.server_url }}/${{ github.repository }}
       VPS_HOST: ${{ secrets.VPS_HOST }}
       VPS_PORT: ${{ vars.VPS_PORT || '22' }}
       VPS_USER: ${{ secrets.VPS_USER }}

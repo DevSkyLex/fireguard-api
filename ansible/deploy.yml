@@ -32,6 +32,12 @@
     # by the preflight is set. The file is backed up first, either way.
     fireguard_managed_env: "{{ lookup('env', 'FIREGUARD_MANAGED_ENV') | default('false', true) | bool }}"
     fireguard_expected_http_idempotency_required: "{{ lookup('env', 'HTTP_IDEMPOTENCY_REQUIRED') | default('true', true) }}"
+    fireguard_cutover_recovery_allowed: "{{ lookup('env', 'CUTOVER_RECOVERY_ALLOWED') | default('false', true) }}"
+    fireguard_cutover_failed_source_sha: "{{ lookup('env', 'CUTOVER_FAILED_SOURCE_SHA') }}"
+    fireguard_cutover_failed_start: "{{ lookup('env', 'CUTOVER_FAILED_START') }}"
+    fireguard_cutover_failed_end: "{{ lookup('env', 'CUTOVER_FAILED_END') }}"
+    fireguard_cutover_failed_run_id: "{{ lookup('env', 'CUTOVER_FAILED_RUN_ID') }}"
+    fireguard_cutover_repository: "{{ lookup('env', 'CUTOVER_REPOSITORY') }}"
     # Written by the template rather than supplied: the image ref comes from the
     # build job, and the two connection URLs are derived from the POSTGRES_* parts
     # so the password cannot exist in two places and disagree with itself.
@@ -184,6 +190,56 @@
       ansible.builtin.fail:
         msg: "Missing {{ fireguard_env_file }}. Create it manually on the VPS before deploying."
       when: not fireguard_env_stat.stat.exists
+
+    - name: Validate a requested cutover recovery before ordinary lock acquisition
+      ansible.builtin.assert:
+        that:
+          - fireguard_cutover_recovery_allowed in ['true', 'false']
+          - fireguard_cutover_recovery_allowed != 'true' or fireguard_deployment_environment == 'development'
+          - fireguard_cutover_recovery_allowed != 'true' or fireguard_app_dir is match('^/srv/apps/fireguard/development/back$')
+          - fireguard_cutover_recovery_allowed != 'true' or fireguard_cutover_failed_source_sha is match('^[0-9a-f]{40}$')
+          - fireguard_cutover_recovery_allowed != 'true' or fireguard_cutover_failed_run_id is match('^[1-9][0-9]*$')
+          - fireguard_cutover_recovery_allowed != 'true' or fireguard_cutover_failed_start is match('^[1-9][0-9]*$')
+          - fireguard_cutover_recovery_allowed != 'true' or fireguard_cutover_failed_end is match('^[1-9][0-9]*$')
+          - fireguard_cutover_recovery_allowed != 'true' or fireguard_cutover_repository == 'https://github.com/DevSkyLex/fireguard-api'
+        fail_msg: 'Cutover recovery requires verified failed-run metadata for the development installation.'
+
+    - name: Create the isolated reviewed cutover recovery helper directory
+      ansible.builtin.file:
+        path: "{{ fireguard_app_dir }}/.fireguard-cutover-recovery"
+        state: directory
+        mode: "0700"
+      when: fireguard_cutover_recovery_allowed == 'true'
+
+    - name: Install reviewed helpers without changing the installed runtime
+      ansible.builtin.copy:
+        src: "{{ item }}"
+        dest: "{{ fireguard_app_dir }}/.fireguard-cutover-recovery/{{ item }}"
+        mode: "0700"
+      loop: [recover-cutover-lock.py, webhook-cutover.py]
+      when: fireguard_cutover_recovery_allowed == 'true'
+
+    - name: Recover only the verified empty failed development cutover lock
+      ansible.builtin.command:
+        argv:
+          - python3
+          - "{{ fireguard_app_dir }}/.fireguard-cutover-recovery/recover-cutover-lock.py"
+          - --app-dir
+          - "{{ fireguard_app_dir }}"
+          - --project
+          - "{{ fireguard_compose_project_name }}"
+          - --failed-source-sha
+          - "{{ fireguard_cutover_failed_source_sha }}"
+          - --failed-run-id
+          - "{{ fireguard_cutover_failed_run_id }}"
+          - --failed-start
+          - "{{ fireguard_cutover_failed_start }}"
+          - --failed-end
+          - "{{ fireguard_cutover_failed_end }}"
+          - --repository
+          - "{{ fireguard_cutover_repository }}"
+      when: fireguard_cutover_recovery_allowed == 'true'
+      changed_when: true
 
     - name: Acquire the installation operation lock before changing runtime configuration
       ansible.builtin.command:
