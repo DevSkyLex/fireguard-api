@@ -823,6 +823,32 @@
           delay: "{{ fireguard_healthcheck_delay }}"
           until: fireguard_assistant_worker_health.rc == 0
 
+        - name: Verify the image and PHP runtime in every application service
+          ansible.builtin.shell: |
+            set -eu
+            expected_image_id=$(docker image inspect --format '{{ "{{.Id}}" }}' {{ fireguard_image | quote }})
+            containers=$({{ fireguard_compose_command }} ps --all --quiet {{ item | quote }})
+            test -n "$containers"
+            for container in $containers; do
+              actual_image_id=$(docker inspect --format '{{ "{{.Image}}" }}' "$container")
+              test "$actual_image_id" = "$expected_image_id"
+              printf 'image=%s container=%s\n' "$actual_image_id" "$container"
+              docker exec "$container" sh /usr/local/bin/check-runtime
+            done
+          args:
+            chdir: "{{ fireguard_app_dir }}"
+            executable: /bin/sh
+          loop: [app, assistant_worker]
+          register: fireguard_php_runtime_checks
+          changed_when: false
+
+        - name: Report verified service runtime versions
+          ansible.builtin.debug:
+            msg: "{{ item.stdout_lines }}"
+          loop: "{{ fireguard_php_runtime_checks.results }}"
+          loop_control:
+            label: "{{ item.item }}"
+
         # /api/health sits on a `security: false` firewall, so a green health
         # check proves the container boots and nothing more. These two probes
         # cover what it cannot, and each maps to a way production has actually
