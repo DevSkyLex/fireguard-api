@@ -34,6 +34,49 @@ env:
   MAIN_DATABASE_URL: postgresql://test:test@127.0.0.1:5432/fireguard_main_test?serverVersion=16
 
 jobs:
+  docker-runtime:
+    name: Docker Runtime (${{ matrix.target }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [dev, prod]
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - name: Build the application runtime without publishing
+        uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5
+        with:
+          context: .
+          target: ${{ matrix.target }}
+          pull: true
+          load: true
+          push: false
+          tags: fireguard-runtime:${{ matrix.target }}
+          cache-from: type=gha,scope=runtime-${{ matrix.target }}
+          cache-to: type=gha,mode=max,scope=runtime-${{ matrix.target }}
+      - name: Verify the final runtime and application extensions
+        env:
+          RUNTIME_IMAGE: fireguard-runtime:${{ matrix.target }}
+        run: |
+          python3 -B .github/scripts/test-runtime-image.py
+          docker run --rm --network none --entrypoint sh "$RUNTIME_IMAGE" /usr/local/bin/check-runtime
+          docker run --rm --network none --entrypoint php "$RUNTIME_IMAGE" -r '
+            foreach (["pdo_pgsql", "intl", "Zend OPcache", "zip", "bcmath", "gd", "redis"] as $extension) {
+              if (!extension_loaded($extension)) { fwrite(STDERR, "Missing extension: $extension\n"); exit(1); }
+            }
+          '
+      - name: Verify production autoloading and platform requirements
+        if: matrix.target == 'prod'
+        run: |
+          docker run --rm --network none --entrypoint php fireguard-runtime:prod -r 'require "vendor/autoload.php";'
+          docker run --rm --network none --entrypoint composer fireguard-runtime:prod check-platform-reqs --no-dev
+
   agent-tooling:
     name: Agent Tooling
     runs-on: ubuntu-latest

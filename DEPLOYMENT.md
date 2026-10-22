@@ -1,5 +1,7 @@
 # VPS deployment
 
+For the PHP security update, follow the [runtime upgrade guide](docs/operations/php-runtime-upgrade.md).
+
 **Reading guide:** [Documentation index](docs/README.md) · [Related guide](docs/operations/current-installation.md).
 
 Ansible performs the [Webhook cutover](src/Webhook/MODULE.md#transport-cutover-and-recovery-runbook)

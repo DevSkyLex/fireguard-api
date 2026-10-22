@@ -3,8 +3,12 @@
 # =============================================================================
 # Base FrankenPHP image with common extensions
 # =============================================================================
-ARG FRANKENPHP_IMAGE=dunglas/frankenphp:1-php8.4-bookworm@sha256:3672a0d093efc94375f3457467fa11d25a39f51c7969c4a827967ab29eb00eda
+ARG FRANKENPHP_IMAGE=dunglas/frankenphp:1.13.2-php8.4.27-bookworm@sha256:49369ff211d81dc30a15890d58c0651d639aef0d9c0a9b91bcc6f387a77bd7a2
 FROM ${FRANKENPHP_IMAGE} AS base
+
+# Fail before installing dependencies, including when the base argument is overridden.
+COPY bin/check-runtime.sh /usr/local/bin/check-runtime
+RUN sh /usr/local/bin/check-runtime
 
 # Install system dependencies
 RUN apt-get update \
