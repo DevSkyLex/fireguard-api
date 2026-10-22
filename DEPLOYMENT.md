@@ -1,5 +1,7 @@
 # Déploiement VPS
 
+Pour la mise à jour de sécurité PHP, suivre le [guide de mise à jour du runtime](docs/operations/php-runtime-upgrade.md).
+
 Fireguard API utilise le même VPS pour la production et le développement, avec des répertoires, projets Compose, volumes, bases, clés et URL distincts.
 
 | Environnement GitHub | Branche   | API                                     | Mercure                                     | Mailpit                                  | Répertoire VPS                         | Projet Docker               | Préfixe de volumes   |
