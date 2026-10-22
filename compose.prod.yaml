@@ -244,7 +244,7 @@ services:
     logging: *default-logging
 
   mercure:
-    image: dunglas/mercure:latest
+    image: dunglas/mercure:v0.24.2@sha256:916834e499613d475e9ad5118cd2349875338f52d99d65b58aeff82f97ccb0c6
     restart: unless-stopped
     environment:
       SERVER_NAME: ":80"
