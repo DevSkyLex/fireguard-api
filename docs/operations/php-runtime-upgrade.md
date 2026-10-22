@@ -1,8 +1,9 @@
 # PHP runtime security upgrade
 
 This change prepares the response to CVE-2026-109618 and CVE-2026-109619.
-It does not authorize a deployment. Review the two branch-specific PRs before
-merging: a push to `main` or `develop` can trigger delivery after successful CI.
+Review the two branch-specific PRs before merging: a push to `main` or
+`develop` can trigger delivery after successful CI. Merge and deployment require
+the operator's authorization for the selected environment.
 
 ## Verified base and application image
 
@@ -16,7 +17,9 @@ This immutable multi-platform reference selects FrankenPHP 1.13.2, PHP 8.4.27
 and Debian 12 Bookworm. See the [official FrankenPHP 1.13.2 release](https://github.com/php/frankenphp/releases/tag/v1.13.2).
 The image check, `sh /usr/local/bin/check-runtime`, verifies the PHP CLI and
 FrankenPHP's embedded PHP, rejects PHP outside 8.4 or below 8.4.27, and verifies
-FrankenPHP 1.13.2 and Bookworm. A successful CLI version check alone is insufficient.
+FrankenPHP 1.13.2 and Bookworm. A successful CLI version check alone is insufficient. Managed deployment also
+checks the image ID and this runtime guard inside every running PHP service, and
+records the resulting versions in its Ansible output.
 
 The base digest above is **not** the application digest. `Deploy VPS` builds the
 reviewed commit, publishes `ghcr.io/<owner>/<repository>@sha256:<application-digest>`,
@@ -59,9 +62,9 @@ authorized future use. Do not launch these tools to check this upgrade.
 
 The standard `Deploy VPS` playbook performs database migrations, RBAC
 synchronization, volume-permission initialization and, in managed mode, environment
-rendering. It is not an image-only operation and must not run under the present
-instruction to leave databases, volumes, secrets and fixtures untouched. Plan and
-approve those effects separately before delivery. Keep fixture reset disabled.
+rendering. It is not an image-only operation. Review these routine effects as part of
+authorizing managed delivery. This runtime update adds no schema migration,
+fixture change, volume replacement or secret rotation. Keep fixture reset disabled.
 A separate image-only replacement requires prior verification that the installed
 application source, schema and transport contracts already match the rebuilt
 image. It must retain all installed operation-lock, Webhook drain and recovery
